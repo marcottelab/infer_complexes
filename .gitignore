@@ -1,0 +1,14 @@
+# hidden 
+*~
+._*
+
+# data etc
+*.mat
+*.tab
+*.png
+*.dat
+*.pyc
+*.pyd
+
+# OS files
+*.DS_Store*
