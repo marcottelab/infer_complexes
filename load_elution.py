@@ -9,9 +9,9 @@ def load_elution(fname='data/elution.tab'):
     # first col: gene id
     # second col: gene description
     # remaining cols: elution profile data
-    arr = np.array([row[3:] for row in ut.load_tab_file(fname)][1:],dtype='float64')
+    mat = np.matrix([row[3:] for row in ut.load_tab_file(fname)][1:],dtype='float64')
     (genes,gdesc) = zip(*[(row[0],row[1]) for row in ut.load_tab_file(fname)][1:])
-    elut = Struct(arr=arr, genes=genes, gdesc=gdesc)
+    elut = Struct(mat=mat, genes=genes, gdesc=gdesc)
     return elut
 
 def load_multi(elut_files):
