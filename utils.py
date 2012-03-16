@@ -1,9 +1,7 @@
 from __future__ import division
 import cPickle
-import random
 import sys
-from scipy import comb, rand, matrix, zeros, ones, array, log, exp, inf, \
-     nonzero, random
+from scipy import array, random
 import scipy
 import operator
 import itertools
@@ -54,7 +52,7 @@ def pyload(fname,direct=None):
 
 
 ########################################################################
-## COLLECTIONS and random math functions
+## COLLECTIONS and math functions
 ########################################################################
 
 t_array = type(array([1])) # because type(array([1])) != array
@@ -179,10 +177,7 @@ def load_tab_file(fname):
 
 def load_dict_sets(fname):
     # Returns a key->set(values) mapping
-    d = {}
-    for k,v in load_tab_file(fname):
-        d.setdefault(k,set([])).add(v)
-    return d
+    return dict_sets_from_tuples(load_list_of_lists(fname))
 
 def load_list(fname):
     return [row[0] for row in load_tab_file(fname)]
@@ -260,4 +255,10 @@ def list_inv_to_dict(lst):
     d = {}
     for index,item in enumerate(lst):
         d[item]=index
+    return d
+
+def dict_sets_from_tuples(lot):
+    d = {}
+    for k,v in lot:
+        d.setdefault(k,set([])).add(v)
     return d
