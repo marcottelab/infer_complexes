@@ -2,6 +2,7 @@
 *~
 ._*
 .#*
+#*
 
 # data etc
 *.mat
@@ -10,6 +11,9 @@
 *.dat
 *.pyc
 *.pyd
+data/
+tools/
+docs/
 
 # OS files
 *.DS_Store*
