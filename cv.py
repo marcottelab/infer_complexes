@@ -1,16 +1,6 @@
 from __future__ import division
 
-def rank_scores(scores, sample_frac=.1):
-    import random
-    ranked_scores = []
-    for i in range(scores.shape[0]):
-        for j in range(scores.shape[1]):
-            ranked_scores.append((i,j,scores[i,j]))
-    ranked_scores = random.sample(ranked_scores, int(scores.size * sample_frac))
-    ranked_scores.sort(key = lambda x: x[2], reverse = True)
-    return ranked_scores
-
-def test_pairs(scores, true_pairs, genes, sample_frac=.1):
+def cv_pairs(scores, true_pairs, genes, sample_frac=.1):
     # scores: input 2d array of scores for each index-index pair
     # true_pairs: dict: {gene1: set(gene2,gene3,gene4), gene2:
     #   set(gene1,gene5)}
@@ -21,6 +11,16 @@ def test_pairs(scores, true_pairs, genes, sample_frac=.1):
             hit = int(genes[j] in true_pairs.get(genes[i],[]))
             tested.append( (i, j, score, hit) )
     return tested
+
+def rank_scores(scores, sample_frac=.1):
+    import random
+    ranked_scores = []
+    for i in range(scores.shape[0]):
+        for j in range(scores.shape[1]):
+            ranked_scores.append((i,j,scores[i,j]))
+    ranked_scores = random.sample(ranked_scores, int(scores.size * sample_frac))
+    ranked_scores.sort(key = lambda x: x[2], reverse = True)
+    return ranked_scores
 
 def roc(tested_pairs):
     # tested pairs: [ (row, col, score, hit(0/1)), ...]

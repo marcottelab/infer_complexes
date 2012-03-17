@@ -12,8 +12,7 @@ def correlate_single(elut1, elut2, prot):
 
 def correlate_matches(elut1, elut2):
     overlap = set.intersection(set(elut1.prots),set(elut2.prots))
-    return [correlate_single(elut1, elut2, p) for p in
-        overlap]
+    return [correlate_single(elut1, elut2, p) for p in overlap]
     
 def correlate_matches_dict(elut1, elut2, pdict_1to2):
     overlap = [p for p in elut1.prots if p in pdict_1to2 and

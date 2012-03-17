@@ -15,11 +15,9 @@ import numpy as np
 ## PYTHON OBJECT SAVE/LOAD
 ######################################################################
 
-def pysave(obj,fname,safe=False):
+def savepy(obj,fname,safe=False):
     # If safe is true, we save obj to a temporary file first, then mv the file
     # to its final destination
-    if fname[0] != '/' and direct:
-        fname = direct + fname
     if safe:
         save(obj, fname+'.partial', safe=False)
         shutil.move(fname+'.partial', fname)
@@ -33,9 +31,7 @@ def pysave(obj,fname,safe=False):
     obj = maybe_reload(obj)
     cPickle.dump(obj, file(fname, 'wb'), protocol=2)
 
-def pyload(fname,direct=None):
-    if fname[0] != '/' and direct:
-        fname = direct + fname
+def loadpy(fname):
     obj = cPickle.load(file(fname, 'rb'))
     # if isinstance(obj, bayc.World):
     #     obj.update_version()
