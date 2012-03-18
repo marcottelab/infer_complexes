@@ -10,7 +10,9 @@
 *.png
 *.dat
 *.pyc
+*.txt
 *.pyd
+*.py#
 data/
 tools/
 docs/
@@ -19,8 +21,5 @@ docs/
 *.DS_Store*
 
 # directories that keep showing up
-exp/12-01-start/#first_cluster.py#
-exp/12-01-start/test_log_.py
 exp/12-03-elution/convert/
-exp/12-03-elution/corrs_long166.txt
 exp/12-03-tox/

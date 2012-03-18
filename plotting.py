@@ -3,6 +3,7 @@ from pylab import *
 import random
 import hcluster
 import cv
+COLORS = ['#4571A8', '#A8423F', '#89A64E', '#6E548D', '#3D96AE', '#DB843D', '#91C4D5', '#CE8E8D', '#B6CA93', '#8EA5CB']
 
 def cluster(corr):
     # corr: a matrix of similarity scores, such as a covariance matrix

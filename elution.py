@@ -5,22 +5,6 @@ import os
 from Struct import Struct
 import utils as ut
 
-
-def correlate_single(elut1, elut2, prot):
-    return np.corrcoef(elut1.mat[elut1.prots.index(prot),:],
-        elut2.mat[elut2.prots.index(prot),:])[0][1]
-
-def correlate_matches(elut1, elut2):
-    overlap = set.intersection(set(elut1.prots),set(elut2.prots))
-    return [correlate_single(elut1, elut2, p) for p in overlap]
-    
-def correlate_matches_dict(elut1, elut2, pdict_1to2):
-    overlap = [p for p in elut1.prots if p in pdict_1to2 and
-        list(pdict_1to2[p])[0] in set(elut2.prots)]
-    return [(p,np.corrcoef(elut1.mat[elut1.prots.index(p),:],
-        elut2.mat[elut2.prots.index(list(pdict_1to2[p])[0]),:])[0][1]) for p in
-        overlap]
-    
 def load_elution_desc(fname):
     # expected file structure:
     # first col: gene id
@@ -138,3 +122,18 @@ def traver_corr(mat, repeat=1000, norm=True):
                                         range(repeat))) / repeat)
     return avg_result
 
+def correlate_single(elut1, elut2, prot):
+    return np.corrcoef(elut1.mat[elut1.prots.index(prot),:],
+        elut2.mat[elut2.prots.index(prot),:])[0][1]
+
+def correlate_matches(elut1, elut2):
+    overlap = set.intersection(set(elut1.prots),set(elut2.prots))
+    return [correlate_single(elut1, elut2, p) for p in overlap]
+    
+def correlate_matches_dict(elut1, elut2, pdict_1to2):
+    overlap = [p for p in elut1.prots if p in pdict_1to2 and
+        list(pdict_1to2[p])[0] in set(elut2.prots)]
+    return [(p,np.corrcoef(elut1.mat[elut1.prots.index(p),:],
+        elut2.mat[elut2.prots.index(list(pdict_1to2[p])[0]),:])[0][1]) for p in
+        overlap]
+    
