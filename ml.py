@@ -16,16 +16,10 @@ def example_from_interaction_matrix(trueints, mat, labels, default='?'):
 
 def negative_pairs(items, K, truepairs):
     negatives = []
-    dict_pos = full_dict_from_pairs(truepairs)
     while len(negatives) < K:
         a = random.choice(items) 
         b = random.choice(items)
         newpair = (a,b)
-        if a not in dict_pos[b] and b not in dict_pos[a]:
+        if newpair not in truepairs and (b,a) not in truepairs:
             negatives.append(newpair)
     return negatives
-
-def full_dict_from_pairs(pairs):
-    d1 = ut.dict_sets_from_tuples(pairs)
-    d2 = ut.dict_sets_from_tuples([(p[1],p[0]) for p in pairs])
-    return ut.dict_combine_sets(d1,d2)
