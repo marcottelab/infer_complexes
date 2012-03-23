@@ -152,6 +152,15 @@ def zip_exact(*seqs):
     assert(all_same(len, seqs))
     return zip(*seqs)
 
+def bin(list, binsize):
+    nbins = int(np.ceil(len(list)/binsize))
+    return [list[i*binsize:(i+1)*binsize] for i in range(nbins)]
+
+def column_totals(mat):
+    return np.array(mat.sum(axis=0)).flatten()
+
+def column_uniques(mat):
+    return np.array((mat > 0).sum(axis=0)).flatten()
 
 
 #####################################################################

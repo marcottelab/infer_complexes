@@ -9,7 +9,7 @@ def cv_pairs(scores, true_pairs, genes, sample_frac=.1):
     for i,j,score in ranked:
         if i!=j: # remove same-same
             hit = int(genes[j] in true_pairs.get(genes[i],[]))
-            tested.append( (i, j, score, hit) )
+            tested.append( (genes[i], genes[j], score, hit) )
     return tested
 
 def rank_scores(scores, sample_frac=.1):
@@ -55,3 +55,5 @@ def auroc(xs,ys):
         yprev = y
     auroc = auroc / (x*y)
     return auroc
+
+        
