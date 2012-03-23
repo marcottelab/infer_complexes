@@ -1,9 +1,12 @@
 from __future__ import division
 import numpy as np
 import operator
+import random
 import os
 from Struct import Struct
 import utils as ut
+import corr
+import cv
 
 def load_elution_desc(fname):
     # expected file structure:
@@ -12,7 +15,7 @@ def load_elution_desc(fname):
     # remaining cols: elution profile data
     mat = np.matrix([row[2:] for row in ut.load_tab_file(fname)][1:],dtype='float64')
     (prots,gdesc) = zip(*[(row[0],row[1]) for row in ut.load_tab_file(fname)][1:])
-    elut = Struct(mat=mat, prots=prots, gdesc=gdesc)
+    elut = Struct(mat=mat, prots=prots, gdesc=gdesc, filename=fname)
     return elut
 
 def load_elution_total(fname):
@@ -24,15 +27,9 @@ def load_elution_total(fname):
     rows = [r for r in ut.load_tab_file(fname)][:-1]
     mat = np.matrix([row[2:] for row in rows][1:],dtype='float64')
     (prots,totals) = zip(*[(row[0],row[1]) for row in rows][1:])
-    elut = Struct(mat=mat, prots=prots, totals=totals)
+    elut = Struct(mat=mat, prots=prots, totals=totals, filename=fname,
+                  filename_original=fname)
     return elut
-
-def load_multi(elut_files):
-    # elut_files: [('Hs', 'folder/filename.tab'), ..]
-    eluts = dict([(name,load_elution(fname)) for name,fname in elut_files])
-    names = [x[0] for x in elut_files]
-    multi_elut = Struct(names=names, eluts=eluts)
-    return multi_elut
 
 def load_complexes(filename, format_single_protein=False):
     # load corum-type file into a dictionary
@@ -51,6 +48,8 @@ def load_complexes(filename, format_single_protein=False):
     
 def load_interactions(filename):
     # complexes: dict{complexid: set([protein1, protein2,...]), .. }
+    # this makes a dictionary{protein1: set([protein2, protein3]), ...}
+    # every interaction is found twice here for fast interaction checking
     complexes = load_complexes(filename)
     interactions = {}
     for complex,protein_set in complexes.items():
@@ -91,37 +90,6 @@ def process_raw_wan(f_source, f_dest=None, first_col_element=1,
         f_dest = split[0] + '_proc' + split[1]
     ut.write_tab_file(lines, f_dest)
 
-def coelution(elut, norm=1):
-    # elut.mat: float matrix of spectral counts
-    # elut.genes: gene labels for the rows of the array
-    if norm:
-        # stupid simple: pearson correlation matrix
-        corr = np.corrcoef(elut.mat) # between -1 and 1
-    else:
-        corr = np.cov(elut.mat)
-    return corr
-
-def traver_corr(mat, repeat=1000, norm=True):
-    # As described in supplementary information in paper.
-    # Randomly draw from poisson(C=A+1/M) for each cell
-    # where A = the observed count and M is the total fractions
-    # normalize each row to sum to 1
-    # then correlate, and average together for repeat tries.
-    def poisson_corr(mat, norm=True):
-        M = mat.shape[1]
-        C = mat + 1/M
-        poisson_mat = np.matrix(np.zeros(C.shape))
-        for i in range(C.shape[0]):
-            for j in range(M):
-                poisson_mat[i,j] = np.random.poisson(C[i,j])
-        if norm: # seems to make no performance difference 1/25
-            poisson_mat = np.nan_to_num(poisson_mat / np.sum(poisson_mat, 1))
-        corr = np.nan_to_num(np.corrcoef(poisson_mat))
-        return corr
-    avg_result = (reduce(operator.add, (poisson_corr(mat, norm=norm) for i in
-                                        range(repeat))) / repeat)
-    return avg_result
-
 def correlate_single(elut1, elut2, prot):
     return np.corrcoef(elut1.mat[elut1.prots.index(prot),:],
         elut2.mat[elut2.prots.index(prot),:])[0][1]
@@ -137,3 +105,50 @@ def correlate_matches_dict(elut1, elut2, pdict_1to2):
         elut2.mat[elut2.prots.index(list(pdict_1to2[p])[0]),:])[0][1]) for p in
         overlap]
     
+def compute_cvpairs(elutfile, trueints, sample_frac, poisson_repeat=200):
+    basename = os.path.splitext(os.path.split(elutfile)[1])[0]
+    elut = load_elution_total(elutfile)
+    elut.corr = corr.traver_corr(elut.mat, repeat=poisson_repeat)
+    return cv.cv_pairs(elut.corr, trueints, elut.prots, sample_frac=sample_frac)
+
+def combine_elutions(e1, e2, combine_corr_func=None):
+    # functions: np.maximum, sum, ...
+    allprots = list(set.union(set(e1.prots), set(e2.prots)))
+    nprots = len(allprots)
+    allfracs = e1.mat.shape[1] + e2.mat.shape[1]
+    mat = np.matrix(np.zeros((nprots,allfracs)))
+    mat[0:len(e1.prots),0:e1.mat.shape[1]] = e1.mat[:,:]
+    for row2 in range(len(e2.prots)):
+        mat[allprots.index(e2.prots[row2]), e1.mat.shape[1]:] = e2.mat[row2,:]
+    elut = Struct(mat=mat, prots=allprots,
+                  filename=e1.filename+e2.filename+str(combine_corr_func))
+    if combine_corr_func:
+        elut.corr = combine_corrs(e1, e2, allprots, combine_corr_func)
+    return elut
+
+def combine_corrs(e1, e2, allprots, combine_func, default_val=None):
+    # we combine the symmetric correlation matrices using the specified
+    # element-wise function. function examples: max, sum
+    # we use the specified ordering of elements in allprots
+    default_val = default_val if default_val else -1 if \
+        combine_func.__name__.find('max') > -1 else 0
+    nprots = len(allprots)
+    corr = np.matrix(np.zeros((nprots,nprots)))
+    dprots1 = ut.list_inv_to_dict(e1.prots)
+    dprots2 = ut.list_inv_to_dict(e2.prots)
+    for row,p1 in enumerate(allprots):
+        for col,p2 in enumerate(allprots):
+            val1 = e1.corr[dprots1[p1], dprots1[p2]] if p1 in dprots1 and p2 in \
+                dprots1 else default_val
+            val2 = e1.corr[dprots2[p1], dprots2[p2]] if p1 in dprots2 and p2 in \
+                dprots2 else default_val
+            corr[row,col] = combine_func(val1, val2)
+    return corr
+    
+def test_combined_corrs(eluts, ncomparisons=10):
+    # compare at ncomparisons randomly-selected places
+    prots_common = list(reduce(set.union,[set(e.prots) for e in eluts]))
+    p1s = random.sample(prots_common, ncomparisons)
+    p2s = random.sample(prots_common, ncomparisons)
+    return [[e.corr[e.prots.index(p1),e.prots.index(p2)] for e in eluts] for
+(p1,p2) in zip(p1s, p2s)]
