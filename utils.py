@@ -247,7 +247,7 @@ def dict_inverse_sets(d):
     dout = {}
     for key, values in d.items():
         for v in values:
-            dictgss(dout, v).add(key)
+            dout.setdefault(v,set([])).add(key)
     return dout
 
 def dict_inverse(d):
@@ -267,3 +267,16 @@ def dict_sets_from_tuples(lot):
     for k,v in lot:
         d.setdefault(k,set([])).add(v)
     return d
+
+def dict_count_contable_values(d):
+    return sum([len(d[k]) for k in d])
+
+def dict_dedup(d):
+    # in a dict of sets, for every k:v[i] found, remove v[i]:k
+    d_dedup = d.copy()
+    for k in d:
+        for vi in d[k]:
+            if vi in d_dedup:
+                if k in d_dedup[vi]:
+                    d_dedup[vi].remove(k)
+    return d_dedup
