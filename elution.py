@@ -7,57 +7,60 @@ from Struct import Struct
 import utils as ut
 import corr
 import cv
+import ml
 
-def load_elution_desc(fname):
+
+def load_elution(fname, getname=True):
     # expected file structure:
     # first col: gene id
-    # second col: gene description
+    # second col: treat differently if 2nd col header is 'Total' or 'Description'
     # remaining cols: elution profile data
-    mat = np.matrix([row[2:] for row in ut.load_tab_file(fname)][1:],dtype='float64')
-    (prots,gdesc) = zip(*[(row[0],row[1]) for row in ut.load_tab_file(fname)][1:])
-    elut = Struct(mat=mat, prots=prots, gdesc=gdesc, filename=fname)
-    return elut
-
-def load_elution_total(fname):
-    # expected file structure:
-    # first col: gene id
-    # second col: total
-    # remaining cols: elution profile data
-    # final row: total count
-    rows = [r for r in ut.load_tab_file(fname)][:-1]
-    mat = np.matrix([row[2:] for row in rows][1:],dtype='float64')
-    (prots,totals) = zip(*[(row[0],row[1]) for row in rows][1:])
-    elut = Struct(mat=mat, prots=prots, totals=totals, filename=fname,
-                  filename_original=fname)
-    return elut
-
-def load_complexes(filename, format_single_protein=False):
-    # load corum-type file into a dictionary
-    # complexes: dict{complexid: set([protein1, protein2,...]), .. }
-    # first col: complex id
-    # third col: protein id
-    if format_single_protein:
-        complexes = {}
-        for l in ut.load_tab_file(filename):
-            complexes.setdefault(l[0],set([])).add(l[2])
+    lines = [l for l in ut.load_tab_file(fname)]
+    # final row: total count in msblender output; don't skip in cuihong's data
+    skip_final_row = (lines[-1][0][0] == '#')
+    rows = lines[1:-1] if skip_final_row else lines[1:]
+    fractions = [f for f in lines[0][1:]]
+    if fractions[0].lower() in ['total', 'totalcount', 'description']:
+        start_data_col = 2
+        fractions.remove(fractions[0])
     else:
-        complexes = dict([(l[0],set(l[1:])) for l in
-                          ut.load_list_of_lists(filename)])
-    return complexes
-            
+        start_data_col = 1
+    mat = np.matrix([row[start_data_col:] for row in rows],dtype='float64')
+    prots = [row[0] for row in rows]
+    elut = Struct(mat=mat, prots=prots, fractions=fractions, filename=fname,
+                  filename_original=fname)
+    if start_data_col == 2:
+        col2name_vals = [row[1] for row in rows]
+        elut.column2vals = col2name_vals
+    if getname: elut.name = os.path.basename(fname).split('.')[0]
+    return elut
+
+def _fraction_elutions(fractions):
+    """
+    Given a list of fraction names, group them after removing 'FractionXX' from
+    the end.  Return a dict of { elutionname: listofindices }.
+    Example of fraction name: Orbitrap_HeLaCE_IEF_pH3_to_10_Fraction10
+    """
+    elution_names = {}
+    for i,fname in enumerate(fractions):
+        ename = fname[:fname.find('_Fraction')]
+        elution_names.setdefault(ename,[]).append(i)
+    return elution_names
     
-def load_interactions(filename):
-    # complexes: dict{complexid: set([protein1, protein2,...]), .. }
-    # this makes a dictionary{protein1: set([protein2, protein3]), ...}
-    # every interaction is found twice here for fast interaction checking
-    complexes = load_complexes(filename)
-    interactions = {}
-    for complex,protein_set in complexes.items():
-        for p in protein_set:
-            partners = protein_set.copy()
-            partners.remove(p)
-            [interactions.setdefault(p,set([])).add(par) for par in partners]
-    return interactions
+def split_muliple_elutions(big_elut):
+    """
+    Split an elution into multiple based on use of _fraction_elutions.
+    """
+    elution_columns = _fraction_elutions(big_elut.fractions)
+    eluts = {}
+    for elution_name in elution_columns:
+        new_elut = Struct()
+        new_elut.__dict__ = big_elut.__dict__.copy()
+        new_elut.mat = big_elut.mat[:,elution_columns[elution_name]]
+        new_elut.fractions = list(np.array(big_elut.fractions)[elution_columns[elution_name]])
+        new_elut.filename = big_elut.filename + '__' + elution_name
+        eluts[elution_name] = new_elut
+    return eluts
 
 def process_raw_wan(f_source, f_dest=None, first_col_element=1,
                     first_data_col=1, end_description_col=True,
@@ -152,3 +155,22 @@ def test_combined_corrs(eluts, ncomparisons=10):
     p2s = random.sample(prots_common, ncomparisons)
     return [[e.corr[e.prots.index(p1),e.prots.index(p2)] for e in eluts] for
 (p1,p2) in zip(p1s, p2s)]
+
+def combined_examples(pos_pairs, negatives, elutions, score_func, combine_func):
+    col1 = 3
+    combine_col = 3 + len(elutions)
+    examples = ml.examples_from_scores(pos_pairs, negatives,
+        [(score_func(e), e.prots, e.name) for e in elutions])
+    return ml.examples_combine_scores(examples, col1, combine_col,
+        combine_func)
+
+def downsample_elution(elution, downsample, seed=0);
+    """
+    Return a new elution with every downsample-th fraction.
+    """
+    down_elut = Struct()
+    down_elut.__dict__ = elution.__dict__.copy()
+    down_elut.mat = elution.mat[:,seed::2]
+    down_elut.fractions = elution.fractions[::2]
+    down_elut.name = elution.name + '_down%i' % downsample
+    return(down_elut)
