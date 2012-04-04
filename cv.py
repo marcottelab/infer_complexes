@@ -1,4 +1,5 @@
 from __future__ import division
+import numpy as np
 
 def cv_pairs(scores, true_pairs, genes, sample_frac=.1):
     # scores: input 2d array of scores for each index-index pair
@@ -45,12 +46,39 @@ def roc(tested_pairs):
     ys.append(y)
     return xs,ys
 
+def pr(tested_pairs):
+    # precision-recall
+    # tested pairs: [ (row, col, score, hit(0/1)), ...]
+    hits = np.array([tp[3] for tp in tested_pairs])
+    hit_inds = np.where(hits==1)[0]+1
+    precision = [(i+1)/(tp_plus_fp) for i,tp_plus_fp in
+                 enumerate(hit_inds)]
+    return range(1,len(precision)+1), precision
+
+def examples_to_cvpairs(exlist, scoreindex=None):
+    """
+    Translates and reorders an example list into the format used in cv
+    columns to give (id1, id2, score, hit(1/0)).  And sorts.
+    """
+    def hit_translate(tf):
+        return 1 if tf == 'true' else 0
+    scoreindex = scoreindex if scoreindex else len(exlist.examples[0])-1
+    print "Sample score: %s", exlist.examples[0][scoreindex]
+    reworked_examples = [(e[0],e[1],e[scoreindex],hit_translate(e[2])) for e in
+        exlist.examples]
+    reworked_examples.sort(key=lambda x:x[2],reverse=True)
+    return reworked_examples
+
+def calc_recall(precisions, gt_value):
+    passing_inds = np.where( np.array(precisions) >= gt_value )[0]
+    return np.max(passing_inds) if len(passing_inds)>0 else 0
+    
 def auroc(xs,ys):
     auroc = 0
     xprev = 0
     yprev = 0
     for x,y in zip(xs,ys):
-        auroc += yprev*(x-xprev)
+        auroc += .5*(y+yprev)*(x-xprev)
         xprev = x
         yprev = y
     auroc = auroc / (x*y)
