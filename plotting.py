@@ -39,9 +39,12 @@ def pr_plot(cv_pairs, precision_test, **kwargs):
 def roc_plot_examples(exlist, scoreindex, **kwargs):
     roc_plot(cv.examples_to_cvpairs(exlist, scoreindex), **kwargs)
     
-def pr_plot_examples(exlist, scoreindex, precision_check=.5, **kwargs):
-    pr_plot(cv.examples_to_cvpairs(exlist, scoreindex), precision_check,
-        **kwargs)
+def pr_plot_examples(exlist, scoreindex, precision_check=.5, plot_random=True, **kwargs):
+    cvs = cv.examples_to_cvpairs(exlist, scoreindex)
+    pr_plot(cvs, precision_check, **kwargs)
+    if plot_random:
+        random.shuffle(cvs)
+        pr_plot(cvs, None, color='k', linestyle='--', label='shuffled')
 
 def imshow2(*args):
     imshow(*args, interpolation='nearest', aspect='auto',

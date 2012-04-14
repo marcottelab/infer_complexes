@@ -13,6 +13,7 @@
 *.txt
 *.pyd
 *.py#
+*.arff
 data/
 tools/
 docs/
