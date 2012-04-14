@@ -68,7 +68,7 @@ if __name__ == '__main__':
         sys.exit("usage: python corr.py filename method(poisson|dotproduct|corrcoef|cov) [argument]") 
     fname = sys.argv[1]
     method = sys.argv[2]
-    methodarg = None if nargs < 4 else sys.argv[3]
+    methodarg = None if nargs < 4 else int(sys.argv[3])
     elut = el.load_elution(fname)
     if method == 'poisson':
         corr = traver_corr(elut.mat, repeat=methodarg) if methodarg else \
