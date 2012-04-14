@@ -62,6 +62,25 @@ def split_muliple_elutions(big_elut):
         eluts[elution_name] = new_elut
     return eluts
 
+def write_elution(elut, fname, forR=False):
+    """
+    Write out an elution in the spcount format
+    $ProtID\tTotalCount\tCol1....
+    """
+    # First eliminate empty protein rows
+    nonzeros = np.sum(np.array(elut.mat),axis=1)>0
+    arr = np.array(elut.mat[nonzeros,:])
+    prots = list(np.array(elut.prots)[nonzeros])
+    if not forR:
+        header = "#ProtID TotalCount".split() + elut.fractions
+        data = [[prots[i], np.sum(mat[i,:])] + arr[i,:].tolist() for i in
+                range(len(prots))]
+    else: #R: no column header for first column, and transpose
+        header = prots
+        data = [[elut.fractions[i]] + arr[:,i].tolist() for i in
+                range(len(elut.fractions))]
+    ut.write_tab_file([header] + data, fname)
+
 def process_raw_wan(f_source, f_dest=None, first_col_element=1,
                     first_data_col=1, end_description_col=True,
                     first_data_row=1):
@@ -164,7 +183,7 @@ def combined_examples(pos_pairs, negatives, elutions, score_func, combine_func):
     return ml.examples_combine_scores(examples, col1, combine_col,
         combine_func)
 
-def downsample_elution(elution, downsample, seed=0);
+def downsample_elution(elution, downsample, seed=0):
     """
     Return a new elution with every downsample-th fraction.
     """
