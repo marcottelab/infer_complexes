@@ -5,7 +5,7 @@ import random
 import os
 from Struct import Struct
 import utils as ut
-import corr
+import score
 import cv
 import ml
 
@@ -175,13 +175,14 @@ def test_combined_corrs(eluts, ncomparisons=10):
     return [[e.corr[e.prots.index(p1),e.prots.index(p2)] for e in eluts] for
 (p1,p2) in zip(p1s, p2s)]
 
-def combined_examples(pos_pairs, negatives, elutions, score_func, combine_func):
+def combined_examples(pos_pairs, negatives, elutions, score_func, combine_func,
+    retain_scores=False):
     col1 = 3
     combine_col = 3 + len(elutions)
     examples = ml.examples_from_scores(pos_pairs, negatives,
         [(score_func(e), e.prots, e.name) for e in elutions])
     return ml.examples_combine_scores(examples, col1, combine_col,
-        combine_func)
+        combine_func, retain_scores=retain_scores)
 
 def downsample_elution(elution, downsample, seed=0):
     """
@@ -193,3 +194,14 @@ def downsample_elution(elution, downsample, seed=0):
     down_elut.fractions = elution.fractions[::2]
     down_elut.name = elution.name + '_down%i' % downsample
     return(down_elut)
+
+def score_examples_elf(exstruct, el_fname, score_key):
+    elution = load_elution(el_fname)
+    return score.score_examples_key(exstruct, score_key, elution)
+
+def score_multi_elfs(exstruct, fnames, score_keys, verbose=True):
+    for k in score_keys:
+        for f in fnames:
+            if verbose: print k,f
+            exstruct = score_examples_elf(exstruct, f, k)
+    return exstruct
