@@ -14,6 +14,7 @@ def cv_pairs(scores, true_pairs, genes, sample_frac=.1):
     return tested
 
 def rank_scores(scores, sample_frac=.1):
+    print "cv.rank_scores(): Should Redo if only top N are desired."
     import random
     ranked_scores = []
     for i in range(scores.shape[0]):

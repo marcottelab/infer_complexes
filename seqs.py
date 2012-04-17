@@ -53,3 +53,4 @@ def load_prots_from_fasta(fname):
     return prots
     
     
+                      
