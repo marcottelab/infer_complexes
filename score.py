@@ -2,6 +2,7 @@ import sys
 import numpy as np
 import operator
 import utils as ut
+import elution as el
 
 def score_examples(exstruct, score_mat, labels, name, default='?'):
     examples_out = []
