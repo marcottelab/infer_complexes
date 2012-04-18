@@ -1,8 +1,32 @@
 import sys
 import numpy as np
 import operator
-import elution as el
+import utils as ut
 
+def score_examples(exstruct, score_mat, labels, name, default='?'):
+    examples_out = []
+    d = ut.list_inv_to_dict(labels)
+    for e in exstruct.examples:
+        p1 = e[0]
+        p2 = e[1]
+        if p1 in d and p2 in d:
+            examples_out.append(e + [score_mat[d[p1],d[p2]]])
+        else:
+            examples_out.append(e + [default])
+    exstruct.examples = examples_out
+    exstruct.names.append(name)
+    return exstruct
+    
+def score_examples_key(exstruct, score_key, elution):
+    if score_key == 'apex':
+        score_mat = ApexScores(elution)
+    elif score_key == 'poisson':
+        score_mat = precalc_scores(elution, 'corr_poisson')
+    elif score_key == 'wcc':
+        score_mat = precalc_scores(elution, 'T.wcc_width1')
+    return score_examples(exstruct, score_mat, elution.prots,
+        score_key+'_'+ut.shortname(elution.filename))
+                          
 def traver_corr(mat, repeat=200, norm='columns'):
     # As described in supplementary information in paper.
     # Randomly draw from poisson(C=A+1/M) for each cell
@@ -38,8 +62,8 @@ class ApexScores(object):
     def __getitem__(self, index):
         return int(self.apex_array[index[0]] == self.apex_array[index[1]])
 
-def apex_corr(elution):
-    return ApexScores(elution)
+# def apex(elution):
+#     return ApexScores(elution)
 
 def precalc_scores(elution,extension):
     return np.loadtxt(elution.filename + '.' + extension)
@@ -59,8 +83,8 @@ class CosineLazyScores(object):
         return float(self.mat_rownormed[index[0],:] *
                     self.mat_rownormed[index[1],:].T)
 
-def cosine_lazy(elution):
-    return CosineLazyScores(elution)
+#def cosine_lazy(elution):
+    #return CosineLazyScores(elution)
 
 if __name__ == '__main__':
     nargs = len(sys.argv)
