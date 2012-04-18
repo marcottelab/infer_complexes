@@ -1,6 +1,7 @@
 from __future__ import division
 import cPickle
 import sys
+import os
 from scipy import array, random
 import scipy
 import operator
@@ -167,6 +168,14 @@ def column_uniques(mat):
 ##  LOADING DATA
 #####################################################################
 
+def pre_ext(fname, preext):
+    path, name = os.path.split(fname)
+    basename,ext = os.path.splitext(name)
+    return os.path.join(path, basename+preext+ext)
+
+def shortname(fname):
+    return os.path.splitext(os.path.basename(fname))[0]
+
 def load_dict_flat(fname):
     # insted use dict(load_tab_file(fname))
     assert 0==1
@@ -180,9 +189,12 @@ def load_tab_file(fname):
         return x.strip() # remove the newlines
     return (tuple(clean(l).split('\t')) for l in file(fname, 'r'))
 
-def load_dict_sets(fname):
+def load_dict_sets(fname, lines='pairs'):
     # Returns a key->set(values) mapping
-    return dict_sets_from_tuples(load_list_of_lists(fname))
+    if lines=='pairs':
+        return dict_sets_from_tuples(load_list_of_lists(fname))
+    elif lines=='lists':
+        return dict([(l[0],set(l[1:])) for l in load_list_of_lists(fname)])
 
 def load_list(fname):
     return [row[0] for row in load_tab_file(fname)]
@@ -193,6 +205,9 @@ def load_array(fname):
 def load_list_of_lists(fname):
     return [l for l in load_tab_file(fname)]
 
+def write_dict_sets_lines(d,fname):
+    write_tab_file([[i[0]]+list(i[1]) for i in d.items()],fname)
+    
 def write_dict_sets_tab(d,fname):
     mylist = []
     for k in d:
@@ -264,11 +279,11 @@ def list_inv_to_dict(lst):
 
 def dict_sets_from_tuples(lot):
     d = {}
-    for k,v in lot:
+    for k,v in [tup for tup in lot if len(tup)>1]:
         d.setdefault(k,set([])).add(v)
     return d
 
-def dict_count_contable_values(d):
+def dict_count_values(d):
     return sum([len(d[k]) for k in d])
 
 def dict_dedup(d):
