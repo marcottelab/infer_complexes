@@ -127,14 +127,29 @@ def combined_examples(pos_pairs, negatives, elutions, score_func, combine_func,
     return ml.examples_combine_scores(examples, col1, combine_col,
         combine_func, retain_scores=retain_scores)
 
-def full_examples(poskey, npos, negskey, nnegs, elut_fs, scores, entrez_dict,
-                  out_base='weka/'):
+def base_examples(poskey, npos, negskey, nnegs):
+    """
+    npos=nnegs=None means to use all pos and matching length negs.
+    """
     pos = co.pairs_key(poskey)[:npos]
     if nnegs==None and npos==None: nnegs=len(pos)
     negs = co.pairs_key(negskey)[:nnegs]
     ex_struct = shuffled_base(pos,negs) 
+    return ex_struct
+
+def full_examples(poskey, npos, negskey, nnegs, elut_fs, scores,
+                  species, fnet_gene_dict, train_frac=.7, out_base='weka/'):
+    """
+    Use fnet_gene_dict = -1 to skip functional network.  None means no dict is
+    needed.
+    npos=nnegs=None means to use all pos and matching length negs.
+    For the set of train_frac, load equal pos and neg.  For remainder (test)
+    load nnegs negs.
+    """
+    ex_struct = base_examples(poskey, npos, negskey, nnegs)
     el.score_multi_elfs(ex_struct, elut_fs, scores)
-    fnet.score_examples(ex_struct, genedict=entrez_dict)
+    if fnet_gene_dict!=-1:
+        fnet.score_examples(ex_struct, species, genedict=fnet_gene_dict)
     out_fname = os.path.join(out_base,
                   poskey+str(npos)+'_'+str(nnegs)+'negs.arff')
     if os.path.exists(out_fname):
