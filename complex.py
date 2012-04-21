@@ -11,17 +11,30 @@ keys = {
     #'eclean':
     #('~/Dropbox/complex/data/corum/corum_clean_nooverlaps_supptable3_ensp.tab',
     #'singles')
-    'eptrain': '~/Dropbox/complex/data/corum/pairs/ensp_pairs_ppi.tab',
-    'eptrain_negs': '~/Dropbox/complex/data/corum/pairs/ensp_pairs_ppi_negs.tab',
-    'eptest': '~/Dropbox/complex/data/corum/pairs/ensp_pairs_ppi_exclude.tab',
-    'uptrain': '~/Dropbox/complex/data/corum/pairs/uni_pairs_ppi.tab',
-    'uptrain_negs': '~/Dropbox/complex/data/corum/pairs/uni_pairs_ppi_negs.tab',
-    'uptest': '~/Dropbox/complex/data/corum/pairs/uni_pairs_ppi_exclude.tab'
+    'hs_eptrain': '~/Dropbox/complex/data/corum/pairs/ensp_pairs_ppi.tab',
+    'hs_eptrain_negs': '~/Dropbox/complex/data/corum/pairs/ensp_pairs_ppi_negs.tab',
+    'hs_eptest':
+    '~/Dropbox/complex/data/corum/pairs/ensp_pairs_ppi_exclude.tab',
+    'hs_eptest': '~/Dropbox/complex/data/corum/pairs/ensp_pairs_ppi_negs_exclude.tab',
+    'hs_uptrain': '~/Dropbox/complex/data/corum/pairs/uni_pairs_ppi.tab',
+    'hs_uptrain_negs': '~/Dropbox/complex/data/corum/pairs/uni_pairs_ppi_negs.tab',
+    'hs_uptest':
+    '~/Dropbox/complex/data/corum/pairs/uni_pairs_ppi_exclude.tab',
+    'hs_uptest_negs': '~/Dropbox/complex/data/corum/pairs/uni_pairs_ppi_negs_exclude.tab',
+    'ce_eptrain': '~/Dropbox/complex/data/corum/pairs/ce_ensp_pairs_ppi.tab',
+    'ce_eptrain_negs': '~/Dropbox/complex/data/corum/pairs/ce_ensp_pairs_ppi_negs.tab',
+    'ce_eptest':
+    '~/Dropbox/complex/data/corum/pairs/ce_ensp_pairs_ppi_exclude.tab',
+    'ce_eptest_negs': '~/Dropbox/complex/data/corum/pairs/ce_ensp_pairs_ppi_negs_exclude.tab'
     }
 
 
-def pairs_key(key):
+def _dep_pairs_key(key):
     return [list(e) for e in ut.load_tab_file(os.path.expanduser(keys[key]))]
+
+def pairs(fname):
+    return [list(e) for e in ut.load_tab_file(fname)]
+
 
 def pairs_from_complexes(complexes):
     intdict = corum_ints_duped(complexes)
@@ -73,6 +86,7 @@ def convert_complexes(complexes, convert, only_to_prots=None):
     convert: dict of { fromid1: set([toid1, toid2, ...]), ...}
     only_to_prots: a list of outids, such that we only convert to any in that set
     If only_to_prots is None, we use all the outids.
+    For brevity in code I assumed wlog from uniprot 'u' to ensp 'e'.
     """
     convert_filtered = dict([(u,[e for e in convert[u] if (only_to_prots is
         None or e in only_to_prots)][0]) for u in convert if len([e for e in
@@ -82,7 +96,7 @@ def convert_complexes(complexes, convert, only_to_prots=None):
         for u in complexes[c] if u in convert_filtered])>1])
     return out_complexes
 
-def write_pos_neg_pairs(complexes, complexes_exclude, fpos):
+def write_pos_neg_pairs(complexes, complexes_exclude, fname_pos):
     """
     Complexes: a dict of all the complexes to use in this part of the process.
     If ppi, this should be the ppi-specific unmerged complexes.  If for complex
@@ -113,6 +127,7 @@ def write_pos_neg_pairs(complexes, complexes_exclude, fpos):
     split = int(len(negs) * (plen / (plen + len(pos_ex))))
     negs_use = negs[:split]
     negs_ex = negs[split:]
-    for l,f in zip([pos,pos_ex,negs_use,negs_ex],[fpos, ut.pre_ext(fpos,'_exclude'),
-        ut.pre_ext(fpos,'_negs'), ut.pre_ext(fpos,'_negs_exclude')]):
+    for l,f in zip([pos,pos_ex,negs_use,negs_ex],[fname_pos,
+            ut.pre_ext(fname_pos, '_exclude'), ut.pre_ext(fname_pos, '_negs'),
+            ut.pre_ext(fname_pos, '_negs_exclude')]):
         ut.write_tab_file(l,f)

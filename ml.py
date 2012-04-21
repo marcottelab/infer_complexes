@@ -5,6 +5,8 @@ from Struct import Struct
 import complex as co
 import elution as el
 import fnet
+import conf
+id_convert_dir = '~/Dropbox/complex/data/sequences/convert'
 
 def shuffled_base(positives, negatives):
     """
@@ -14,6 +16,16 @@ def shuffled_base(positives, negatives):
     random.shuffle(examples)
     exstruct = Struct(examples=examples, names=['id1','id2','hit'])
     return exstruct
+
+def exstruct_merge_noshuf(exs1, exs2):
+    assert exs1.names == exs2.names
+    exstruct = Struct(examples=exs1.examples+exs2.examples, names=exs1.names)
+    return exstruct
+
+def exstruct_split(exs, nsplit):
+    exs1 = Struct(examples=exs.examples[:nsplit], names=exs.names)
+    exs2 = Struct(examples=exs.examples[nsplit:], names=exs.names)
+    return exs1, exs2
 
 def _dep_examples_from_scores(positives, negatives, mats_labels_names):
     """
@@ -127,32 +139,40 @@ def combined_examples(pos_pairs, negatives, elutions, score_func, combine_func,
     return ml.examples_combine_scores(examples, col1, combine_col,
         combine_func, retain_scores=retain_scores)
 
-def base_examples(poskey, npos, negskey, nnegs):
+def base_examples(key):
     """
     npos=nnegs=None means to use all pos and matching length negs.
     """
-    pos = co.pairs_key(poskey)[:npos]
-    if nnegs==None and npos==None: nnegs=len(pos)
-    negs = co.pairs_key(negskey)[:nnegs]
-    ex_struct = shuffled_base(pos,negs) 
-    return ex_struct
+    pn_files = ppi_files(key) # order: trainpos, trainneg, testp, testn
+    train,test = [shuffled_base(co.pairs(pn_files[p]),co.pairs(pn_files[n]))
+                    for (p,n) in [(0,1),(2,3)]]
+    ex_struct = exstruct_merge_noshuf(train, test)
+    return ex_struct, len(train.examples)
 
-def full_examples(poskey, npos, negskey, nnegs, elut_fs, scores,
-                  species, fnet_gene_dict, train_frac=.7, out_base='weka/'):
+def full_examples(key, elut_fs, scores, species, fnet_gene_dict, suffix='',
+                  out_base='weka/'):
     """
+    Key like 'Ce_ensp', 'Hs_uni'. species like 'Hs'.
     Use fnet_gene_dict = -1 to skip functional network.  None means no dict is
-    needed.
+        needed. Can supply the dict itself or a string--like 'cep2ceg' or
+        'paper_uni2ensg'
     npos=nnegs=None means to use all pos and matching length negs.
     For the set of train_frac, load equal pos and neg.  For remainder (test)
-    load nnegs negs.
+        load nnegs negs.
     """
-    ex_struct = base_examples(poskey, npos, negskey, nnegs)
+    # Train and test are merged then split to speed this up 2x
+    ex_struct, ntrain = base_examples(key)
     el.score_multi_elfs(ex_struct, elut_fs, scores)
     if fnet_gene_dict!=-1:
         fnet.score_examples(ex_struct, species, genedict=fnet_gene_dict)
-    out_fname = os.path.join(out_base,
-                  poskey+str(npos)+'_'+str(nnegs)+'negs.arff')
+    out_fname = os.path.join(out_base, key+suffix+'.arff')
     if os.path.exists(out_fname):
         out_fname = ut.pre_ext(out_fname,str(random.randint(0,100)))
-    weka_export(ex_struct, out_fname)
+    exs_train, exs_test = exstruct_split(ex_struct, ntrain)
+    weka_export(exs_train, ut.pre_ext(out_fname,'train'))
+    weka_export(exs_test, ut.pre_ext(out_fname,'test'))
     print 'ready:', out_fname
+
+def ppi_files(key):
+    return [ut.projpath('corum_pairs', key+'_pairs_ppi_'+extra+'.tab') for
+        extra in ['train','train_negs','test','test_negs']]

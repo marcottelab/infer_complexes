@@ -1,26 +1,32 @@
 import os
 import utils as ut
 
-def score_examples(ex_struct, species='Hs', genedict=None):
+def score_examples(ex_struct, species, genedict=None):
     # exs: struct with exs.names: ['score1', 'score2', ...]
     # and exs.examples: [[id1, id2, 'true/false', score1, score2, ...], ..]
     # genedict: { exid: set([ensg1, ensg2,...]), exid2: ...}
+    if type(genedict) == type('string'):
+        genedict = ut.load_dict_sets(ut.projpath('convert',genedict))
     net = load_net(species)
     num_items = len(net.items()[0][1])
     out_examples = []
+    default = ['?']*num_items
+    num_hits = 0
     for ex in ex_struct.examples:
-        out_examples.append(ex + scores_pair(ex[0], ex[1], net, genedict,
-                                             num_items))
+        scores = scores_pair(ex[0], ex[1], net, genedict, default)
+        out_examples.append(ex + scores)
+        if scores != default: num_hits += 1
+    print num_hits, 'scores found for ', num_items, 'pairs'
     ex_struct.examples = out_examples
-    ex_struct.names += [l for l in
-                       ut.load_tab_file(filename(species,which='names'))][0][2:]
+    ex_struct.names += ut.load_list_of_lists(fnet_filename(species,
+                                                      which='names'))[0][2:]
     return ex_struct
 
 def load_net(species):
     """
     Output: dict: { ensg1-ensg2: [score1, score2, ...], ensg1-ensg5: ...}
     """
-    lines = ut.load_list_of_lists(filename(species))
+    lines = ut.load_list_of_lists(fnet_filename(species))
     net = dict([(_idpair(l[0], l[1]), list(l[2:])) for l in lines])
     return net
 
@@ -28,14 +34,13 @@ def load_net(species):
 def _idpair(id1, id2):
     return '-'.join([id1,id2])
 
-def scores_pair(id1, id2, net, conv2ensg, num_items):
+def scores_pair(id1, id2, net, conv2ensg, default):
     """
     Return the maximum score for each score found in corresponding net
     """
-    default = ['?']*num_items
     # Our conversion dict is sets: get a list for each id in the pair
-    id1s = conv2ensg.get(id1,[]) if conv2ensg else []
-    id2s = conv2ensg.get(id2,[]) if conv2ensg else []
+    id1s = conv2ensg.get(id1,[]) if conv2ensg else [id1]
+    id2s = conv2ensg.get(id2,[]) if conv2ensg else [id2]
     pairs = [(a,b) for a in id1s for b in id2s] + [(b,a) for a in id1s for b in id2s]
     if len(pairs)==0:
         return default
@@ -61,11 +66,11 @@ def max_scores(scores):
 #    return 'ENSG'+str(net_id).zfill(11)
         
 
-def filename(species, which='data'):
+def fnet_filename(species, which='data'):
     base = os.path.expanduser('~/Dropbox/complex/data/functional/')
     if which == 'data':
         return os.path.join(base, species, species+'_filtered.tab')
     elif which == 'names':
-        return os.path.join(base, species, 'selected_cols.txt')
+        return os.path.join(base, species, species+'_selected_cols.tab')
         
 
