@@ -4,6 +4,7 @@ from pylab import *
 import random
 import hcluster
 import cv
+import utils as ut
 COLORS = ['#4571A8', '#A8423F', '#89A64E', '#6E548D', '#3D96AE', '#DB843D',
            '#91C4D5', '#CE8E8D', '#B6CA93', '#8EA5CB', 'yellow', 'gray',
            'blue', 'black']
@@ -29,13 +30,28 @@ def roc_plot(cvpairs, **kwargs):
     plot(xs, ys, **kwargs)
     plot([0,xs[-1]], [0,ys[-1]], 'k--')
     
-def pr_plot(cv_pairs, precision_test, **kwargs):
-    precision_test = precision_test if precision_test else 0.95
+def pr_plot(cv_pairs, precision_test, total_trues, rescale=None, **kwargs):
+    """
+    rescale: adjust precision values assuming rescale times as many negatives
+    """
+    precision_test = precision_test if precision_test else 0.0
     recall,precision = cv.pr(cv_pairs) 
-    kwargs['label'] = kwargs.get('label','') + (' Re:%i' %
-        cv.calc_recall(precision,precision_test))
+    if rescale is not None:
+        precision = [ p / (p + (1-p) * rescale) for p in precision]
+    kwargs['label'] = kwargs.get('label','') + (' Re:%0.2f' %
+        cv.calc_recall(precision,precision_test, total_trues)) + (' @ Pr:%0.2f' %
+        precision_test)
+    if total_trues is not None:
+        recall = [r/total_trues for r in recall]
     plot(recall, precision, **kwargs)
+    xlabel('Recalled Correctly')
+    ylabel('Precision: TP/(TP+FP)')
+    ylim(0,1.02)
 
+def pr_plot_weka(fname, prec_test=0.0, total_trues=None, rescale=None):
+    pr_plot(cv.load_weka_filtered_tpairs(fname), prec_test, total_trues,
+        rescale=rescale, label=ut.shortname(fname)) 
+    
 def roc_plot_examples(exlist, scoreindex, **kwargs):
     roc_plot(cv.examples_to_cvpairs(exlist, scoreindex), **kwargs)
     
