@@ -2,8 +2,8 @@ from __future__ import division
 import cPickle
 import sys
 import os
-from scipy import array, random
-import scipy
+#from scipy import array, random # causing errors weirdly on mac air
+#import scipy
 import operator
 import itertools
 import string
@@ -52,7 +52,7 @@ def loadpy(fname):
 ## COLLECTIONS and math functions
 ########################################################################
 
-t_array = type(array([1])) # because type(array([1])) != array
+#t_array = type(array([1])) # because type(array([1])) != array
 
 def all_same(f, bag):
     v = f(bag[0])
@@ -134,19 +134,19 @@ def rsum(l): #reduce sum
     # with its own sum function.
     return reduce(operator.add, l)
 
-def rnd(a,b=None):
-    # excludes b. we return an int if a is an int, a float if it's a float
-    if isinstance(a,int):
-        if b: assert(isinstance(b,int))
-        if b is None:
-            b = a
-            a = 0
-        return random.randint(a, b-1)
-    else:
-        if b is None:
-            b = a
-            a = 0
-        return random.uniform(a,b)
+# def rnd(a,b=None):
+#     # excludes b. we return an int if a is an int, a float if it's a float
+#     if isinstance(a,int):
+#         if b: assert(isinstance(b,int))
+#         if b is None:
+#             b = a
+#             a = 0
+#         return random.randint(a, b-1)
+#     else:
+#         if b is None:
+#             b = a
+#             a = 0
+#         return random.uniform(a,b)
 
 def zip_exact(*seqs):
     # Like zip, but generates an error if the seqs are not all the same
