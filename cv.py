@@ -1,5 +1,7 @@
 from __future__ import division
 import numpy as np
+import sys
+import utils as ut
 
 def cv_pairs(scores, true_pairs, genes, sample_frac=.1):
     # scores: input 2d array of scores for each index-index pair
@@ -61,18 +63,22 @@ def examples_to_cvpairs(exlist, scoreindex=None):
     Translates and reorders an example list into the format used in cv
     columns to give (id1, id2, score, hit(1/0)).  And sorts.
     """
-    def hit_translate(tf):
-        return 1 if tf == 'true' else 0
     scoreindex = scoreindex if scoreindex else len(exlist.examples[0])-1
     print "Sample score: %s", exlist.examples[0][scoreindex]
-    reworked_examples = [(e[0],e[1],e[scoreindex],hit_translate(e[2])) for e in
+    reworked_examples = [(e[0],e[1],e[scoreindex],true_to_1(e[2])) for e in
         exlist.examples]
     reworked_examples.sort(key=lambda x:x[2],reverse=True)
     return reworked_examples
 
-def calc_recall(precisions, gt_value):
+def true_to_1(tf):
+    return 1 if tf == 'true' else 0
+
+def calc_recall(precisions, gt_value, recall_rate_of_total=None):
     passing_inds = np.where( np.array(precisions) >= gt_value )[0]
-    return np.max(passing_inds) if len(passing_inds)>0 else 0
+    recalled = np.max(passing_inds) if len(passing_inds)>0 else 0
+    if recall_rate_of_total is not None:
+        recalled /= recall_rate_of_total
+    return recalled
     
 def auroc(xs,ys):
     auroc = 0
@@ -85,4 +91,36 @@ def auroc(xs,ys):
     auroc = auroc / (x*y)
     return auroc
 
-        
+def load_weka_filtered_tpairs(fname, min_score=None):
+    tested_pairs = [('','',r[0],true_to_1(r[1])) for r in
+        ut.load_tab_file(fname)]
+    tested_pairs.sort(key=lambda x:x[2], reverse=True)
+    if min_score is not None:
+        tested_pairs = [t for t in tested_pairs if float(t[2])>=min_score]
+    return tested_pairs
+    
+
+def preccheck_wekafiltered(fname, pchecks, total_trues):
+    tpairs = load_weka_filtered_tpairs(fname)
+    recall,precisions = pr(tpairs)
+    recalled = [calc_recall(precisions, p, total_trues) for p in pchecks]
+    return recalled
+    
+if __name__ == '__main__':
+    nargs = len(sys.argv)
+    if nargs < 2:
+        sys.exit("usage: python cv.py filename [total_trues]")
+    fname = sys.argv[1]
+    pchecks = [0.99,0.90,0.70,0.50]
+    recalled = preccheck_wekafiltered(fname, pchecks, None)
+    results = '  '.join([(str(r)+'_@_'+str(p)) for (p,r) in
+        zip(pchecks,recalled)])
+    if nargs == 3:
+        total_trues = sys.argv[2]
+        recalled = preccheck_wekafiltered(fname, pchecks, total_trues)
+        results += '  '.join([(str(r)+'_@_'+str(p)) for (p,r) in
+            zip(pchecks,recalled)])
+    print fname, results
+    
+    
+    
