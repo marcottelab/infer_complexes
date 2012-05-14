@@ -17,14 +17,19 @@ def score_examples(exstruct, score_mat, labels, name, default='?'):
     exstruct.examples = examples_out
     exstruct.names.append(name)
     return exstruct
-    
-def score_examples_key(exstruct, score_key, elution):
+
+def scorekey_elution(score_key, elution):
     if score_key == 'apex':
         score_mat = ApexScores(elution)
     elif score_key == 'poisson':
         score_mat = precalc_scores(elution, 'corr_poisson')
     elif score_key == 'wcc':
         score_mat = precalc_scores(elution, 'T.wcc_width1')
+    return score_mat
+    
+    
+def score_examples_key(exstruct, score_key, elution):
+    score_mat = scorekey_elution(score_key, elution)
     return score_examples(exstruct, score_mat, elution.prots,
         score_key+'_'+ut.shortname(elution.filename))
                           

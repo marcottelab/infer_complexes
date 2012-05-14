@@ -16,7 +16,7 @@ def score_examples(ex_struct, species, genedict=None):
         scores = scores_pair(ex[0], ex[1], net, genedict, default)
         out_examples.append(ex + scores)
         if scores != default: num_hits += 1
-    print num_hits, 'scores found for ', num_items, 'pairs'
+    print num_hits, 'network scores found for ', len(out_examples), 'pairs'
     ex_struct.examples = out_examples
     ex_struct.names += ut.load_list_of_lists(fnet_filename(species,
                                                       which='names'))[0][2:]
