@@ -33,8 +33,14 @@ def roc_plot(cvpairs, **kwargs):
 def pr_plot(cv_pairs, precision_test, total_trues, rescale=None, **kwargs):
     """
     rescale: adjust precision values assuming rescale times as many negatives
+    total_trues:
+    - None for just displaying recall count instead of fraction
+    - 'auto' to calculate from the supplied tested cv_pairs
+    - integer to use that supplied integer as total trues
     """
     precision_test = precision_test if precision_test else 0.0
+    if total_trues == 'auto':
+        total_trues = len([t for t in cv_pairs if t[3]==1])
     recall,precision = cv.pr(cv_pairs) 
     if rescale is not None:
         precision = [ p / (p + (1-p) * rescale) for p in precision]
