@@ -7,7 +7,6 @@ from Struct import Struct
 import complex as co
 import elution as el
 import fnet
-import conf
 id_convert_dir = '~/Dropbox/complex/data/sequences/convert'
 
 def shuffled_base(positives, negatives):
@@ -97,12 +96,16 @@ def weka_export(exstruct, filename, startindex=3, howmany=None):
     # per weka convention
     f = open(filename,'w')
     f.write('@RELATION complexes\n\n')
+    #f.write('@ATTRIBUTE interaction\tstring\n')
     for name in exstruct.names[startindex:]:
         f.write('@ATTRIBUTE '+name+'\treal\n')
     f.write('@ATTRIBUTE iscomplex\t{true,false}\n')
     f.write('\n@DATA\n\n')
     for ex in exstruct.examples[:howmany]:
-        f.write(', '.join([str(val) for val in ex[3:]]+[ex[2]])+'\n')
+        #interaction = ex[0]+'_'+ex[1]
+        hit = ex[2]
+        #f.write(', '.join([interaction]+[str(val) for val in ex[3:]]+[hit])+'\n')
+        f.write(', '.join([str(val) for val in ex[3:]]+[hit])+'\n')
     f.write('%\n%\n%\n')
     f.close()
 
@@ -151,8 +154,8 @@ def base_examples(key):
     ex_struct = exstruct_merge_noshuf(train, test)
     return ex_struct, len(train.examples)
 
-def full_examples(key, elut_fs, scores, species, fnet_gene_dict, suffix='',
-                  out_base='weka/', elut_score_cutoff=0.5):
+def full_examples(key, elut_fs, scores, species, fnet_gene_dict,
+                  elut_score_cutoff=0.5):
     """
     Key like 'Ce_ensp', 'Hs_uni'. species like 'Hs'.
     Use fnet_gene_dict = -1 to skip functional network.  None means no dict is
@@ -171,13 +174,8 @@ def full_examples(key, elut_fs, scores, species, fnet_gene_dict, suffix='',
                   len(ex_struct.names)), elut_score_cutoff, ntrain)
     if fnet_gene_dict!=-1:
         fnet.score_examples(ex_struct, species, genedict=fnet_gene_dict)
-    out_fname = os.path.join(out_base, species+'_'+key+'_'+suffix+'.arff')
-    out_fname = dont_overwrite(out_fname)
     exs_train, exs_test = exstruct_split(ex_struct, ntrain)
-    weka_export(exs_train, ut.pre_ext(out_fname,'_train'))
-    weka_export(exs_test, ut.pre_ext(out_fname,'_test'))
-    print 'ready:', out_fname
-    return out_fname
+    return exs_train, exs_test
 
 def dont_overwrite(fname):
     if os.path.exists(fname):
@@ -185,9 +183,7 @@ def dont_overwrite(fname):
     else:
         return fname
     
-
-def predict_all(elut_fs, scores, species, fnet_gene_dict, suffix='',
-                  out_base='weka/', elut_score_cutoff=0.5):
+def predict_all(elut_fs, scores, species, fnet_gene_dict, elut_score_cutoff=0.5):
     """
     Same more or less as full_examples above, but produces all predictions in
                   the elution files.
@@ -199,11 +195,7 @@ def predict_all(elut_fs, scores, species, fnet_gene_dict, suffix='',
     el.score_multi_elfs(ex_struct, elut_fs, scores)
     if fnet_gene_dict!=-1:
         fnet.score_examples(ex_struct, species, genedict=fnet_gene_dict)
-    out_fname = dont_overwrite(os.path.join(out_base,
-                                species+'_'+suffix+'.arff'))
-    weka_export(ex_struct, out_fname)
-    print 'ready:', out_fname
-    return out_fname
+    return ex_struct
 
 def split_filt_merge(ex_struct, columns, cutoff, n):
     etrain, etest = exstruct_split(ex_struct, n)
@@ -234,11 +226,15 @@ if __name__ == '__main__':
     scores = sys.argv[3].split(',')
     species = sys.argv[4]
     fnet_dict = -1 if sys.argv[5]=='-1' else sys.argv[5]
-    suffix = sys.argv[6]
-    out_path=''
+    fname = sys.argv[6]
+    out_fname = dont_overwrite(fname)
     if train_key == 'full':
-        out_fname = predict_all(elut_files, scores, species, fnet_dict, suffix,
-            out_path)
+        ex_struct = predict_all(elut_files, scores, species, fnet_dict)
+        weka_export(ex_struct, out_fname)
+        print 'ready:', out_fname
     else:
-        out_fname = full_examples(train_key, elut_files, scores, species,
-            fnet_dict, suffix, out_path)
+        exs_train, exs_test = full_examples(train_key, elut_files, scores,
+                species, fnet_dict)
+        weka_export(exs_train, out_fname.replace('_test','_train'))
+        weka_export(exs_test, out_fname)
+        print 'ready:', out_fname
