@@ -68,9 +68,6 @@ class ApexScores(object):
     def __getitem__(self, index):
         return int(self.apex_array[index[0]] == self.apex_array[index[1]])
 
-# def apex(elution):
-#     return ApexScores(elution)
-
 def precalc_scores(elution,extension):
     return np.loadtxt(elution.filename + '.' + extension)
 
@@ -89,8 +86,18 @@ class CosineLazyScores(object):
         return float(self.mat_rownormed[index[0],:] *
                     self.mat_rownormed[index[1],:].T)
 
-#def cosine_lazy(elution):
-    #return CosineLazyScores(elution)
+    
+def pairs_exceeding(elut, skey, thresh=0.5):
+    if skey == 'apex':
+        apex_obj = ApexScores(elut)
+        apexes = apex_obj.apex_array
+        pair_inds = [(proti,protj) for proti,peaki in enumerate(apexes) for
+                protj,peakj in enumerate(apexes) if peaki==peakj and proti!=protj]
+    else:
+        score_mat = scorekey_elution(skey, elut)
+        rows, cols = np.where(score_mat > thresh)
+        pair_inds =  ut.zip_exact(rows, cols)
+    return pair_inds
 
 if __name__ == '__main__':
     nargs = len(sys.argv)
