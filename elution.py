@@ -197,11 +197,33 @@ def downsample_elution(elution, downsample, seed=0):
 
 def score_examples_elf(exstruct, el_fname, score_key):
     elution = load_elution(el_fname)
-    return score.score_examples_key(exstruct, score_key, elution)
+    score.score_examples_key(exstruct, score_key, elution)
 
 def score_multi_elfs(exstruct, fnames, score_keys, verbose=True):
     for k in score_keys:
+        start_index = len(exstruct.names)
+        end_index = start_index + len(fnames)
         for f in fnames:
             if verbose: print k,f
-            exstruct = score_examples_elf(exstruct, f, k)
-    return exstruct
+            score_examples_elf(exstruct, f, k)
+        if k == 'apex':
+            ml.examples_combine_scores(exstruct, start_index, end_index,
+                               operator.add, retain_scores=False)
+
+def all_filtered_pairs(fnames, score_keys, cutoff=0.5, verbose=True):
+    allpairs = set([])
+    for skey in score_keys:
+        for f in fnames:
+            if verbose: print skey,f
+            elut = load_elution(f)
+            pair_inds = score.pairs_exceeding(elut, skey)
+            newpairs = set([(elut.prots[i], elut.prots[j]) for (i,j) in
+                pair_inds])
+            allpairs = set.union(allpairs, newpairs)
+    return set_pairs_dedup(allpairs)
+
+def set_pairs_dedup(pairset):
+    dedup_set = set([])
+    for i,j in pairset:
+        if (j,i) not in dedup_set: dedup_set.add((i,j))
+    return dedup_set
