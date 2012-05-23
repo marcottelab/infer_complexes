@@ -1,28 +1,28 @@
 import utils as ut
 import os
 
-def inpar_file(key):
-    return os.path.expanduser('~/Dropbox/complex/data/orthologies/' +
-                'inparanoid_canon/longest/table.' + key)
-keys = "Hs-Ce Hs-Dd Hs-Dm Hs-Mm Hs-Sp".split()
-
-def odict(from_sp,to_sp):
+def odict(from_sp, to_sp, whichseqset='ensembl/longest'):
     """
     Load a dict from file, eg:
     {HsProt1: set([CeProtA, CeProtB,...]), ...}
     """
     key = from_sp + '-' + to_sp
     if key in keys:
-        return ogroups_to_odict(load_ogroups(inpar_file(key)))
+        return _ogroups_to_odict(_load_ogroups(_inpar_file(key, whichseqset)))
     else:
         key = to_sp + '-' + from_sp
         if key in keys:
-            return ogroups_to_odict(load_ogroups(inpar_file(key)),
+            return _ogroups_to_odict(_load_ogroups(_inpar_file(key, whichseqset)),
                     swap_order=True)
         else:
             assert False, "Orthogroup key not found"
+            
+def _inpar_file(key, whichseqset):
+    return os.path.expanduser('~/Dropbox/complex/data/orthologies/' +
+                whichseqset + '/table.' + key)
+keys = "Hs-Ce Hs-Dd Hs-Dm Hs-Mm Hs-Sp Hs.fa-Ce.fa".split()
 
-def ogroups_to_odict(ogroups, swap_order=False):
+def _ogroups_to_odict(ogroups, swap_order=False):
     """
     From a list of orthogroups, return a dict from sp1 prots to a set of sp2
     prots. We want a dictionary from the first species in the file to the second,
@@ -34,7 +34,7 @@ def ogroups_to_odict(ogroups, swap_order=False):
                 p1 in og[sp1col]])
     return orthdict
 
-def load_ogroups(fname):
+def _load_ogroups(fname):
     """
     Load an inparanoid table.Sp1-Sp2 file into a list of orthogroups, where
     each orthogroup is a tuple containing 1) a list of proteins in sp1 and 2) a

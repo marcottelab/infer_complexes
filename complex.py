@@ -45,7 +45,7 @@ def pairs_from_complexes(complexes):
             pairs.append((p,par))
     return pairs
 
-def load_complexes(filename, startindex=1):
+def load_complexes_singleline(filename, startindex=1):
     # load corum-type file into a dictionary
     # complexes: dict{complexid: set([protein1, protein2,...]), .. }
     # first col: complex id
@@ -57,6 +57,17 @@ def load_complexes(filename, startindex=1):
     for l in ut.load_tab_file(filename):
         for i in l[startindex:]:
             complexes.setdefault(l[0],set([])).add(i)
+    return complexes
+
+def load_complexes_multiline(filename):
+    """
+    Load complexes in a file in the style of supp table 3: complexid,
+    complexname, singlemember.
+    """
+    filename = os.path.expanduser(filename)
+    complexes = {}
+    for l in ut.load_tab_file(filename):
+        complexes.setdefault(l[1],set([])).add(l[2])
     return complexes
             
     

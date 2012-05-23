@@ -14,16 +14,7 @@ def ensembl_prots_to_genes(fname, bar_split=None, second_split=False, only_genei
     """
     def longest_seqs(fname, bar_split, second_split=False,
                      only_geneid_on_line=False):
-        def load_prots(fname):
-            prots = ut.load_list(fname)
-            prots_clean = []
-            for line in prots:
-                if line[0] == '>': 
-                    prots_clean.append([line])
-                else:
-                    prots_clean[-1].append(line)
-            return prots_clean
-        prots = load_prots(fname)
+        prots = _load_prots_to_lol(fname)
         genes_dict = {}
         for p in prots:
             if only_geneid_on_line:
@@ -43,6 +34,16 @@ def ensembl_prots_to_genes(fname, bar_split=None, second_split=False, only_genei
     genes_list = reduce(operator.add,[g[1][1] for g in genes_dict.items()])
     ut.write_tab_file(genes_list, fname+'_longest')
     
+def _load_prots_to_lol(fname):
+    prots = ut.load_list(fname)
+    prots_clean = []
+    for line in prots:
+        if line[0] == '>': 
+            prots_clean.append([line])
+        else:
+            prots_clean[-1].append(line)
+    return prots_clean
+    
 def load_prots_from_fasta(fname):
     """
     Files are in data/sequences/canon.  All so far can be split by both space
@@ -51,6 +52,17 @@ def load_prots_from_fasta(fname):
     protlines = [l[1:] for l in ut.load_list(fname) if l[0]=='>']
     prots = [l.split(' ')[0].split('|')[0] for l in protlines]
     return prots
+    
+def cuihong_fasta_to_clean(fname, outname):
+    """
+    Get rid of all the reverse or shuffleds ('rm' instead of 'sp') and anything
+    else that doesn't start with '>sp'.  Keep only the uniprot identifier.
+    """
+    lol = _load_prots_to_lol(fname)
+    good_seqs = [['>'+p[0].split('|')[1]]+p[1:] for p in lol if p[0][:3] == '>sp'
+    or p[0][:3]== '>tr']
+    ut.write_tab_file([i for l in good_seqs for i in l ], outname) #flatten
+    
     
     
                       

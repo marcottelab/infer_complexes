@@ -12,7 +12,8 @@ def transpose(d, fin, fout):
     cols = ut.zip_exact(*lines) #zip messes up if these files aren't neat
     # _After_ zipping, get rid of the column 1 header--R doesn't like it.
     col0list = list(cols[0])
-    assert col0list[0][0] == '#' # make sure we're removing what we should be
+    print col0list[0][0] 
+    assert (col0list[0][0] == '#' or col0list[0] == 'Locus') # make sure we're removing what we should be
     col0list.remove(col0list[0])
     cols[0] = tuple(col0list)
     col2title = cols[1][0].lower()
