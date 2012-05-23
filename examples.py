@@ -1,9 +1,33 @@
 from __future__ import division
+import itertools
 from math import factorial
 import utils as ut
+import random
 
-def fixit(ppicxs, cleancxs, splits=[0,0.3,0.6,1],
-        cleancxs_shuffle=True, split_for_unmatched=1):
+def add_negs_to_splits(pos_splits, neg_ratios=[1,10]):
+    """
+    Add negatives in the ratio-to-postive specified by neg_ratios to the
+    provided pos_splits, which is a list of LPairset--labeled pair set, ie a
+    set of (ID1, ID2, 'true'/'false').  Take possible negatives for each split
+    only from the set of proteins with positive interactions in that split.
+    """
+    all_pos_lp = merge_lps(pos_splits)
+    full_splits = []
+    for lp,ratio in ut.zip_exact(pos_splits[:len(neg_ratios)],neg_ratios):
+        members = lp.all_members()
+        npos = len(lp.pairs)
+        negs = []
+        for i,p1 in enumerate(members):
+            for j,p2 in enumerate(members):
+                if j>i:
+                    if not all_pos_lp.contains(lpair(p1,p2,'true')):
+                        negs.append(lpair(p1,p2,'false'))
+        negs = random.sample(negs, len(lp.pairs)*ratio)
+        full_splits.append(merge_lps([lp, LPairset(set(negs))]))
+    return full_splits
+    
+def positives_from_corum(ppicxs, cleancxs, splits=[0,0.3,0.6,1],
+        cleancxs_shuffle=False, split_for_unmatched=1):
     """
     Create training, [cross-val,] and test sets, with splits happening
     according to the supplied list of splits and cleancxs complexes.
@@ -11,35 +35,29 @@ def fixit(ppicxs, cleancxs, splits=[0,0.3,0.6,1],
     Ppicxs: dict{ complexA: set([p1,p2]); complexB: ...}
     Cleancxs: same format as ppicxs
     Splits: like [0,0.5,0.7,1] to form 50%,20%,30% approx subsets of interactions.
-    Assigns Ppicxs based on being subset of cleancxs; handles non subsets
-    proportionally.
+    Assigns Ppicxs based on being subset of cleancxs; puts the few that are not
+        subsets into splits[split_for_unmatched].
     """
     ppicxs = _remove_singles(ppicxs)
     cleancxs = _remove_singles(cleancxs)
     cleancxs2ppi = _merged_parents(ppicxs, cleancxs)
-    ints_splits = [] # container for lists of interaction pairs
-    cleancxs_splits = []
     clean_int_sets = [LPairset(set([lpair(x,y,'true') for p in cleancxs2ppi[c] for
         x,y in _set_to_pairs(ppicxs[p])]), name=c) for c in cleancxs]
-    clean_ints = merge_lps(clean_int_sets)
-    # print 'total ppicxs:', len(ppi_ints.pairs)
-    # print 'total', len(merge_LPSets([clean_ints,ppi_ints]).pairs)
-    # diff_ints = ppi_ints.difference(clean_ints)
-    # print 'difference', len(diff_ints)
     if cleancxs_shuffle: random.shuffle(clean_int_sets)
-    allsplits_lps, allsplits_cxs = positives_from_lps(clean_int_sets, splits)
+    clean_ints = merge_lps(clean_int_sets)
+    total_clean_pairs = len(clean_ints.pairs) # slow probably
+    print 'total clean ints:',total_clean_pairs
+    allsplits_lps, allsplits_cxs = positives_from_lps(clean_int_sets, total_clean_pairs, splits)
     # Append the ppicxs interactions
     ppi_int_sets = [LPairset(set([lpair(x,y,'true') for x,y in
         _set_to_pairs(ppicxs[p])]),name=p) for p in ppicxs]
     ppi_ints = merge_lps(ppi_int_sets)
-    allsplits_lps[split_for_unmatched].merge(ppi_ints)
+    # Take the difference before merging, otherwise most ints end up here.
+    allsplits_lps[split_for_unmatched].merge(LPairset(ppi_ints.difference(clean_ints)))
     allsplits_cxs[split_for_unmatched].append('ppi_cxs')
-    allsplits_lps = dedupe_lps(allsplits_lps)
-    return allsplits_lps, allsplits_cxs
+    return dedupe_lps(allsplits_lps), allsplits_cxs
 
-def positives_from_lps(lps, splits):
-    total_pairs = len(merge_lps(lps).pairs) # slow probably
-    print 'total clean ints:',total_pairs
+def positives_from_lps(lps, total_pairs, splits):
     split_lp = LPairset(set([]))
     split_cxs = []
     allsplits_lps = []
@@ -48,12 +66,21 @@ def positives_from_lps(lps, splits):
     for lp in lps:
         threshold = total_pairs * (splits[i+1]-splits[i]) 
         maybe_split_lp = merge_lps([split_lp, lp])
-        if ( len(maybe_split_lp.pairs) > threshold and i < len(splits)-2 ):
-            # half the time include this last one
-            allsplits_lps.append(maybe_split_lp)
-            split_lp = LPairset(set([]))
-            allsplits_cxs.append(split_cxs+[lp.name])
-            split_cxs = []
+        maybe_len = len(maybe_split_lp.pairs)
+        if ( maybe_len > threshold and i < len(splits)-2 ):
+            # if we've exceeded, only include this if it's mostly inside
+            keep_it = (( maybe_len - threshold ) / len(lp.pairs) < 0.5 )
+            if keep_it:
+                allsplits_lps.append(maybe_split_lp)
+                split_lp = LPairset(set([]))
+                allsplits_cxs.append(split_cxs+[lp.name])
+                split_cxs = []
+            # otherwise save it for the next split
+            else:
+                allsplits_lps.append(split_lp)
+                split_lp = lp
+                allsplits_cxs.append(split_cxs)
+                split_cxs = [lp.name]
             i = i+1
         else:
             split_lp = maybe_split_lp
@@ -71,6 +98,10 @@ class LPairset(object):
     def __init__(self, pairset, name=None):
         self.pairs = self.dedupe(pairset)
         if name: self.name = name
+
+    def add(self, lpair):
+        if not self.contains(lpair):
+            self.pairs.add(lpair)
 
     def merge(self, other):
         self.pairs = self.dedupe(set.union(self.pairs, other.pairs))
@@ -92,6 +123,17 @@ class LPairset(object):
             if lpair_flip(trip) in diff_set:
                 diff_set.remove(lpair_flip(trip))
         return diff_set
+
+    def all_members(self):
+        # returns a list of all members in all pairs
+        return set.union(set([p[0] for p in self.pairs]),
+                         set([p[1] for p in self.pairs]))
+
+    def contains(self, lpair):
+        return (lpair in self.pairs or lpair_flip(lpair) in self.pairs)
+    
+        
+    
         
 def merge_lps(lps):
     def fmerge(first, second):
@@ -102,19 +144,21 @@ def merge_lps(lps):
 
 def dedupe_lps(lps):
     # Cycles first through new, starting with new[1]
-    # Must have the j>i constraint or its reverse instead of just i!=j
+    # Must have only pairwise combinations instead of just i!=j
     # Otherwise you take away too many--remove overlapping pairs from both,
     # rather than from only one of the two new sets.
     newlps = [LPairset(lp.pairs) for lp in lps]
-    for i,_ in enumerate(lps):
-        for j,_ in enumerate(newlps):
-            if j>i:
-                newlps[j] = LPairset(newlps[j].difference(lps[i]))
+    for i,j in itertools.combinations(range(len(newlps)),2):
+        # if random.random() > 0.5:
+        #     x = i
+        #     i = j
+        #     j = x
+        newlps[j] = LPairset(newlps[j].difference(lps[i]))
+    # for i,_ in enumerate(lps):
+    #     for j,_ in enumerate(newlps):
+    #         if j>i:
+    #             newlps[j] = LPairset(newlps[j].difference(lps[i]))
     return newlps
-
-def _flatten_ints(complex_ints):
-    return _dedup_lpair(reduce(set.union,(ints for c,ints in
-        complex_ints)))
 
 def lpair(x,y,z):
     return (x,y,z)
@@ -125,27 +169,7 @@ def lpair_flip(lpair):
 def _set_to_pairs(s):
     return [(a,b) for a in s for b in s if a!=b]
 
-def _deep_dedup_lpair(trip_sets):
-    # BUG: This is WRONG.
-    # Taking away too many.  I end up removing any overlaps from both, rather
-    # than one, of the new sets.
-    new_sets = [s.copy() for s in trip_sets]
-    for i,s in enumerate(trip_sets):
-        for j,t in enumerate(new_sets):
-            for trip in s:
-                trip_rev = lpair(trip[1],trip[0],trip[2])
-                if trip_rev in t:
-                    t.remove(trip_rev)
-                if i!=j and trip in t:
-                    t.remove(trip)
-    return new_sets
     
-def _dedup_lpair(trips_set):
-    new_set = trips_set.copy()
-    for trip in trips_set:
-        if lpair(trip[1],trip[0],trip[2]) in new_set:
-            new_set.remove(trip)
-    return new_set
     
 def _remove_singles(complexes):
     return dict([(c,ps) for c,ps in complexes.items() if len(ps)>1])
@@ -242,64 +266,3 @@ def predict_all(elut_fs, scores, species, fnet_gene_dict, elut_score_cutoff=0.5)
     if fnet_gene_dict!=-1:
         fnet.score_examples(ex_struct, species, genedict=fnet_gene_dict)
     return ex_struct
-
-def examples_from_complexes(unmerged, merged, splits=[0,0.3,0.6,1],
-        merged_shuffle=True, split_for_unmatched=1):
-    """
-    Create training, [cross-val,] and test sets, with splits happening
-    according to the supplied list of splits and merged complexes.
-    Interactions forming the sets come from unmerged complexes.
-    Unmerged: dict{ complexA: set([p1,p2]); complexB: ...}
-    Merged: same format as unmerged
-    Splits: like [0,0.5,0.7,1] to form 50%,20%,30% approx subsets of interactions.
-    Assigns Unmerged based on being subset of merged; handles non subsets
-    proportionally.
-    """
-    unmerged = _remove_singles(unmerged)
-    merged = _remove_singles(merged)
-    merged2un = _merged_parents(unmerged, merged)
-    ints_splits = [] # container for lists of interaction pairs
-    merged_splits = []
-    merged_ints = [(m, set([lpair(x,y,'true') for u in merged2un[m]
-        for x,y in _set_to_pairs(unmerged[u])])) for m in merged]
-    unmerged_ints = [(u, set([lpair(x,y,'true') for u in unmerged
-        for x,y in _set_to_pairs(unmerged[u])]))]
-    total_merged = len(_dedup_lpair(_flatten_ints(merged_ints)))
-    print 'total merged:',total_merged
-    if merged_shuffle: random.shuffle(merged_ints)
-    split_ints = set([])
-    split_merged = []
-    i = 0 # index for splits
-    for m,new_ints in merged_ints:
-        new_ints = _dedup_lpair(new_ints)
-        new_split_ints = _dedup_lpair(set.union(split_ints, new_ints))
-        if ( len(new_split_ints) > total_merged * (splits[i+1]-splits[i]) and
-             i < len(splits)-2 ):
-            if random.random() > 0.5:
-                # half the time include this last one
-                ints_splits.append(new_split_ints)
-                split_ints = set([])
-                merged_splits.append(split_merged+[m])
-                split_merged = []
-            else:
-                ints_splits.append(split_ints)
-                split_ints = new_ints
-                merged_splits.append(split_merged)
-                split_merged = [m]
-            i = i+1
-        else:
-            split_ints = new_split_ints
-            split_merged.append(m)
-        print i, 'ints', len(split_ints), [len(_dedup_lpair(x)) for x in \
-        ints_splits], 'merged', len(split_merged), [len(x) for x in merged_splits]
-    # Append the final split
-    ints_splits.append(split_ints)
-    merged_splits.append(split_merged)
-    # Append the unmerged interactions
-    unmerged_to_add = _dedup_lpair(set.difference(_flatten_ints(unmerged_ints),
-        _flatten_ints(merged_ints)))
-    ints_splits[split_for_unmatched] = set.union(
-        ints_splits[split_for_unmatched], unmerged_to_add)
-    merged_splits[split_for_unmatched].append('Unmerged: %s interactions' %
-        len(unmerged_to_add))
-    return _deep_dedup_lpair(ints_splits), merged_splits
