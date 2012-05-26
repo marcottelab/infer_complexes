@@ -3,8 +3,35 @@ import itertools
 from math import factorial
 import utils as ut
 import random
+from Struct import Struct
 
-def add_negs_to_splits(pos_splits, neg_ratios=[1,10]):
+def base_examples(ppi_cxs, clean_cxs, splits=[0,0.33,0.66,1], neg_ratios=[4,40],
+                  pos_lengths=None, shuf=True, pos_splits=None, confirm_redo=True):
+    """
+    Builds the training/test examples struct ready for scoring and learning.
+    """
+    if pos_splits is None:
+        redo = True
+        while redo:
+            total_cleans = len(clean_cxs)
+            pos_splits,ncleans = positives_from_corum(ppi_cxs, clean_cxs,
+                  splits, shuf)
+            #ensure we get a good number of complexes
+            bal_fracs = [splits[i+1]-splits[i] for i in range(len(splits)-2)]
+            balanced = min([len(x) > total_cleans*f for f,x in zip(bal_fracs,
+                  ncleans[:len(neg_ratios)])]) 
+            print 'balanced', [ total_cleans*f for f,x in zip(bal_fracs,
+                  ncleans[:len(neg_ratios)])]
+            redo = (shuf and not balanced) or (confirm_redo and
+                  raw_input("Redo? y/n: ").lower() == 'y')
+    full_splits = add_negs_to_splits(pos_splits, neg_ratios=neg_ratios)
+    ltrain,ltest = [list([list(tup) for tup in s.pairs]) for s in full_splits]
+    assert pos_lengths==None, 'Not implemented'
+    for l in [ltrain,ltest]: random.shuffle(l)
+    ex_struct = Struct(examples=ltrain+ltest, names=['id1','id2','hit'])
+    return ex_struct, len(ltrain)
+
+def add_negs_to_splits(pos_splits, neg_ratios):
     """
     Add negatives in the ratio-to-postive specified by neg_ratios to the
     provided pos_splits, which is a list of LPairset--labeled pair set, ie a
@@ -13,7 +40,7 @@ def add_negs_to_splits(pos_splits, neg_ratios=[1,10]):
     """
     all_pos_lp = merge_lps(pos_splits)
     full_splits = []
-    for lp,ratio in ut.zip_exact(pos_splits[:len(neg_ratios)],neg_ratios):
+    for lp,ratio in zip(pos_splits[:len(neg_ratios)],neg_ratios):
         members = lp.all_members()
         npos = len(lp.pairs)
         negs = []
@@ -22,12 +49,16 @@ def add_negs_to_splits(pos_splits, neg_ratios=[1,10]):
                 if j>i:
                     if not all_pos_lp.contains(lpair(p1,p2,'true')):
                         negs.append(lpair(p1,p2,'false'))
-        negs = random.sample(negs, len(lp.pairs)*ratio)
+        sample_negs = len(lp.pairs)*ratio
+        if sample_negs < len(negs):
+            negs = random.sample(negs, sample_negs)
+        else:
+            print 'only', len(negs), 'negs, not', sample_negs
         full_splits.append(merge_lps([lp, LPairset(set(negs))]))
     return full_splits
     
-def positives_from_corum(ppicxs, cleancxs, splits=[0,0.3,0.6,1],
-        cleancxs_shuffle=False, split_for_unmatched=1):
+def positives_from_corum(ppicxs, cleancxs, splits, shuffle_splits,
+                         split_for_unmatched=1):
     """
     Create training, [cross-val,] and test sets, with splits happening
     according to the supplied list of splits and cleancxs complexes.
@@ -41,13 +72,13 @@ def positives_from_corum(ppicxs, cleancxs, splits=[0,0.3,0.6,1],
     ppicxs = _remove_singles(ppicxs)
     cleancxs = _remove_singles(cleancxs)
     cleancxs2ppi = _merged_parents(ppicxs, cleancxs)
-    clean_int_sets = [LPairset(set([lpair(x,y,'true') for p in cleancxs2ppi[c] for
-        x,y in _set_to_pairs(ppicxs[p])]), name=c) for c in cleancxs]
-    if cleancxs_shuffle: random.shuffle(clean_int_sets)
+    clean_int_sets = [LPairset(set([lpair(x,y,'true') for p in cleancxs2ppi[c]
+        for x,y in _set_to_pairs(ppicxs[p])]), name=c) for c in cleancxs2ppi]
+    if shuffle_splits: random.shuffle(clean_int_sets)
     clean_ints = merge_lps(clean_int_sets)
     total_clean_pairs = len(clean_ints.pairs) # slow probably
-    print 'total clean ints:',total_clean_pairs
-    allsplits_lps, allsplits_cxs = positives_from_lps(clean_int_sets, total_clean_pairs, splits)
+    allsplits_lps, allsplits_cxs = positives_from_lps(clean_int_sets,
+        total_clean_pairs, splits)
     # Append the ppicxs interactions
     ppi_int_sets = [LPairset(set([lpair(x,y,'true') for x,y in
         _set_to_pairs(ppicxs[p])]),name=p) for p in ppicxs]
@@ -55,7 +86,11 @@ def positives_from_corum(ppicxs, cleancxs, splits=[0,0.3,0.6,1],
     # Take the difference before merging, otherwise most ints end up here.
     allsplits_lps[split_for_unmatched].merge(LPairset(ppi_ints.difference(clean_ints)))
     allsplits_cxs[split_for_unmatched].append('ppi_cxs')
-    return dedupe_lps(allsplits_lps), allsplits_cxs
+    allsplits_lps = dedupe_lps(allsplits_lps)
+    print 'total clean ints:',total_clean_pairs
+    print 'split interaction counts:', [len(x.pairs) for x in allsplits_lps]
+    print 'split complex counts:', [len(x) for x in allsplits_cxs]
+    return allsplits_lps, allsplits_cxs
 
 def positives_from_lps(lps, total_pairs, splits):
     split_lp = LPairset(set([]))
@@ -110,7 +145,8 @@ class LPairset(object):
         # returns pairs
         new_set = pairset.copy()
         for trip in pairset:
-            if lpair_flip(trip) in new_set:
+            #if lpair_flip(trip) in new_set: much slower somehow
+            if (trip[1],trip[0],trip[2]) in new_set:
                 new_set.remove(trip)
         return new_set
 
@@ -193,76 +229,3 @@ def _count_ints(nprots):
     def n_choose_r(n,r):
         return int(factorial(n) / ( factorial(r) * factorial(n-r) ))
     return n_choose_r(nprots,2) if nprots > 1 else 0
-
-def pos_neg_pairs(complexes, complexes_exclude):
-    """
-    Complexes: a dict of all the complexes to use in this part of the process.
-    If ppi, this should be the ppi-specific unmerged complexes.  If for complex
-    prediction, this should be the complex-specific merged complexes.
-    complexes_exclude: a dict of all the complexes whose interactions should be
-    excluded from the learning set.
-    This complexity is necessary to be able to
-    use the different complex sets for ppi learning vs complex learning.
-    """
-    prots = list(reduce(set.union,[complexes[k] for k in complexes]))
-    true_ints = corum_ints_duped(complexes)
-    exclude_ints = corum_ints_duped(complexes_exclude)
-    pos = []
-    pos_ex = []
-    negs = []
-    for ind, i in enumerate(prots):
-        for j in prots[ind:]:
-            if i in true_ints and j in true_ints[i]:
-                if i in exclude_ints and j in exclude_ints[i]:
-                    pos_ex.append((i,j,'true'))
-                else:
-                    pos.append((i,j,'true'))
-            else:
-                if i not in exclude_ints or j not in exclude_ints[i]:
-                    negs.append((i,j,'false'))
-    for l in [pos,pos_ex,negs]: random.shuffle(l)
-    plen = len(pos)
-    split = int(len(negs) * (plen / (plen + len(pos_ex))))
-    negs_use = negs[:split]
-    negs_ex = negs[split:]
-    for l,f in zip([pos,pos_ex,negs_use,negs_ex],[fname_pos,
-            ut.pre_ext(fname_pos, '_exclude'), ut.pre_ext(fname_pos, '_negs'),
-            ut.pre_ext(fname_pos, '_negs_exclude')]):
-        ut.write_tab_file(l,f)
-
-def full_examples(key, elut_fs, scores, species, fnet_gene_dict,
-                  elut_score_cutoff=0.5):
-    """
-    Key like 'Ce_ensp', 'Hs_uni'. species like 'Hs'.
-    Use fnet_gene_dict = -1 to skip functional network.  None means no dict is
-        needed. Can supply the dict itself or a string--like 'cep2ceg' or
-        'paper_uni2ensg'
-    npos=nnegs=None means to use all pos and matching length negs.
-    For the set of train_frac, load equal pos and neg.  For remainder (test)
-        load nnegs negs.
-    """
-    # Train and test are merged then split to speed this up 2x
-    ex_struct, ntrain = base_examples(key)
-    el.score_multi_elfs(ex_struct, elut_fs, scores)
-    # Filter out train AND test examples without a score exceeding cutoff
-    if elut_fs and elut_score_cutoff is not None:
-        ex_struct, ntrain = split_filt_merge(ex_struct, range(3,
-                  len(ex_struct.names)), elut_score_cutoff, ntrain)
-    if fnet_gene_dict!=-1:
-        fnet.score_examples(ex_struct, species, genedict=fnet_gene_dict)
-    exs_train, exs_test = exstruct_split(ex_struct, ntrain)
-    return exs_train, exs_test
-
-def predict_all(elut_fs, scores, species, fnet_gene_dict, elut_score_cutoff=0.5):
-    """
-    Same more or less as full_examples above, but produces all predictions in
-                  the elution files.
-    """
-    pairs = el.all_filtered_pairs(elut_fs, scores, elut_score_cutoff)
-    # examples like [['id1', 'id2', 'true/false'], ...]
-    exs = [[p1, p2, '?'] for p1,p2 in pairs]
-    ex_struct = Struct(examples=exs,names=['id1','id2','hit'])
-    el.score_multi_elfs(ex_struct, elut_fs, scores)
-    if fnet_gene_dict!=-1:
-        fnet.score_examples(ex_struct, species, genedict=fnet_gene_dict)
-    return ex_struct
