@@ -46,6 +46,9 @@ def pairs_from_complexes(complexes):
     return pairs
 
 def load_complexes_singleline(filename, startindex=1):
+    """
+    (Usually for 'ppi' overlapping complexes)
+    """
     # load corum-type file into a dictionary
     # complexes: dict{complexid: set([protein1, protein2,...]), .. }
     # first col: complex id
@@ -61,6 +64,7 @@ def load_complexes_singleline(filename, startindex=1):
 
 def load_complexes_multiline(filename):
     """
+    (Usually for 'clean' complexes).
     Load complexes in a file in the style of supp table 3: complexid,
     complexname, singlemember.
     """
@@ -91,14 +95,16 @@ def divide_pairs(pairs, fractions):
         cv_sets[ np.min(np.where(r < np.array(fractions))) ].append(p)
     return cv_sets
 
+
 def convert_complexes(complexes, convert, only_to_prots=None):
     """
     Convert a dict of complexes from one proteinid scheme to another.
     convert: dict of { fromid1: set([toid1, toid2, ...]), ...}
-    only_to_prots: a list of outids, such that we only convert to any in that set
+    only_to_prots: a _set_ of outids, such that we only convert to any in that set
     If only_to_prots is None, we use all the outids.
     For brevity in code I assumed wlog from uniprot 'u' to ensp 'e'.
     """
+    assert type(only_to_prots) == type(set([])), 'Prots must be set for speed'
     convert_filtered = dict([(u,[e for e in convert[u] if (only_to_prots is
         None or e in only_to_prots)][0]) for u in convert if len([e for e in
         convert[u] if (only_to_prots is None or e in only_to_prots)])>0])

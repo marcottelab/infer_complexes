@@ -6,7 +6,7 @@ def score_examples(ex_struct, species, genedict=None):
     # and exs.examples: [[id1, id2, 'true/false', score1, score2, ...], ..]
     # genedict: { exid: set([ensg1, ensg2,...]), exid2: ...}
     if type(genedict) == type('string'):
-        genedict = ut.load_dict_sets(ut.projpath('convert',genedict))
+        genedict = ut.load_dict_sets(ut.proj_path('convert_net',genedict))
     net = load_net(species)
     num_items = len(net.items()[0][1])
     out_examples = []

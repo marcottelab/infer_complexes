@@ -1,27 +1,26 @@
 import utils as ut
 import os
 
-def odict(from_sp, to_sp, whichseqset='ensembl/longest'):
+keys = "Hs_ensp-Ce_ensp Hs_ensp-Dd_ensp Hs_ensp-Dm_ensp Hs_ensp-Mm_ensp Hs_ensp-Sp_ensp Hs_uni-Ce_uni".split()
+def odict(from_sp, to_sp):
     """
     Load a dict from file, eg:
     {HsProt1: set([CeProtA, CeProtB,...]), ...}
     """
     key = from_sp + '-' + to_sp
     if key in keys:
-        return _ogroups_to_odict(_load_ogroups(_inpar_file(key, whichseqset)))
+        swap_order=False
     else:
         key = to_sp + '-' + from_sp
         if key in keys:
-            return _ogroups_to_odict(_load_ogroups(_inpar_file(key, whichseqset)),
-                    swap_order=True)
+            swap_order=True
         else:
             assert False, "Orthogroup key not found"
-            
-def _inpar_file(key, whichseqset):
-    return os.path.expanduser('~/Dropbox/complex/data/orthologies/' +
-                whichseqset + '/table.' + key)
-keys = "Hs-Ce Hs-Dd Hs-Dm Hs-Mm Hs-Sp Hs.fa-Ce.fa".split()
+    return _ogroups_to_odict(_load_ogroups(ut.proj_path('convert_orth',
+                                                        'table.'+key)),
+                             swap_order=swap_order)
 
+            
 def _ogroups_to_odict(ogroups, swap_order=False):
     """
     From a list of orthogroups, return a dict from sp1 prots to a set of sp2

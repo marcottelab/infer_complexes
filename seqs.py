@@ -48,9 +48,10 @@ def load_prots_from_fasta(fname):
     """
     Files are in data/sequences/canon.  All so far can be split by both space
     and |.
+    Returns a set since usually I'm searching against it.
     """
     protlines = [l[1:] for l in ut.load_list(fname) if l[0]=='>']
-    prots = [l.split(' ')[0].split('|')[0] for l in protlines]
+    prots = set([l.split(' ')[0].split('|')[0] for l in protlines])
     return prots
     
 def cuihong_fasta_to_clean(fname, outname):

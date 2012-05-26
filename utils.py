@@ -302,8 +302,16 @@ def dict_dedup(d):
 ##########################################
 
 dir_project = "~/Dropbox/complex"
-def projpath(pathkey,basename):
-    proj_path = os.path.expanduser(dir_project)
-    conf_path = os.path.join(proj_path, 'config.txt')
+base_path = os.path.expanduser(dir_project)
+
+def proj_path(pathkey,basename=''):
+    if basename:
+        return os.path.join(base_path, config()[pathkey], basename)
+    else:
+        return os.path.join(base_path, config()[pathkey])
+
+def config():
+    conf_path = os.path.join(base_path, 'config.txt')
     dconf = dict([(l.split()[0],l.split()[1]) for l in load_list(conf_path)])
-    return os.path.join(proj_path, dconf[pathkey], basename)
+    return dconf
+    

@@ -203,8 +203,8 @@ def split_filt_merge(ex_struct, columns, cutoff, n):
     return exstruct_merge_noshuf(etrain, etest), len(etrain.examples)
 
 def filter_scores(ex_struct, columns, cutoff, missing='?'):
-    new_exlist = [e for e in ex_struct.examples if default_max([e[i] for i in columns
-        if e[i]!=missing], 0) > cutoff]
+    new_exlist = [e for e in ex_struct.examples if default_max([e[i] for i in
+                    columns if e[i]!=missing], 0) > cutoff]
     ex_struct.examples = new_exlist
 
 def default_max(numlist, default):
@@ -212,7 +212,7 @@ def default_max(numlist, default):
     else: return max(numlist)
 
 def ppi_files(key):
-    return [ut.projpath('corum_pairs', key+'_pairs_ppi_'+extra+'.tab') for
+    return [ut.proj_path('corum_pairs', key+'_pairs_ppi_'+extra+'.tab') for
         extra in ['train','train_negs','test','test_negs']]
 
 if __name__ == '__main__':

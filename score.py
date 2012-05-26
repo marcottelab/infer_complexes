@@ -33,14 +33,14 @@ def score_examples_key(exstruct, score_key, elution):
     return score_examples(exstruct, score_mat, elution.prots,
         score_key+'_'+ut.shortname(elution.filename))
                           
-def traver_corr(mat, repeat=200, norm='columns'):
+def traver_corr(mat, repeat=200, norm='columns', verbose=True):
     # As described in supplementary information in paper.
     # Randomly draw from poisson(C=A+1/M) for each cell
     # where A = the observed count and M is the total fractions
     # normalize each column to sum to 1
     # then correlate, and average together for repeat tries.
     def poisson_corr(mat, iteration_display, norm):
-        print iteration_display
+        if verbose: print iteration_display
         M = mat.shape[1]
         C = mat + 1/M
         poisson_mat = np.matrix(np.zeros(C.shape))
