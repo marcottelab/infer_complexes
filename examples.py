@@ -7,31 +7,21 @@ import random
 from Struct import Struct
 
 def base_examples(ppi_cxs, clean_cxs, data_members, splits=[0,0.33,0.66,1],
-                  nratio_train=4, nratio_test=40, pos_lengths=None, shuf=True,
-                  pos_splits=None, confirm_redo=True):
+                  nratio_train=4, nratio_test=40, pos_lengths=None,
+                  pos_splits=None, ind_cycle=[0,-1]):
     """
     Builds the training/test examples struct ready for scoring and learning.
     Data_members: full list of proteins found in our data to use for test set
                   negatives generation.
     """
     if pos_splits is None:
-        redo = True
-        while redo:
-            total_cleans = len(clean_cxs)
-            pos_splits,clean_splits = positives_from_corum(ppi_cxs, clean_cxs,
-                  splits, shuf)
-            #ensure we get a good number of complexes
-            bal_fracs = [splits[i+1]-splits[i] for i in range(len(splits)-2)]
-            balanced = min([len(x) > total_cleans*f for f,x in zip(bal_fracs,
-                  clean_splits[:2])]) 
-            print 'balanced', [ total_cleans*f for f,x in zip(bal_fracs,
-                  clean_splits[:2])]
-            redo = (shuf and not balanced) or (confirm_redo and
-                  raw_input("Redo? y/n: ").lower() == 'y')
+        pos_splits,clean_splits = positives_from_corum(ppi_cxs, clean_cxs,
+              splits, ind_cycle)
     all_pos_lp = merge_lps(pos_splits)
     ptrain_lp,ptest_lp = pos_splits[:2]
     train_lp = add_negs(ptrain_lp, all_pos_lp, ptrain_lp.members(),
                   nratio_train)
+    # slightly WRONG.  Should exclude train negatives too.
     test_lp = add_negs(ptest_lp, all_pos_lp, data_members, nratio_test)
     exstructs = []
     for lp in [train_lp, test_lp]:
@@ -83,41 +73,17 @@ def maybe_sample(pop,k,verbose=True):
             print "Can't sample: k", k, "larger than population", len(pop)
         return pop
 
-def add_negs_to_splits(pos_splits, neg_ratios):
+def positives_from_corum(ppicxs, cleancxs, splits, ind_cycle,
+                         split_for_unmatched=1,):
     """
-    Add negatives in the ratio-to-postive specified by neg_ratios to the
-    provided pos_splits, which is a list of LPairset--labeled pair set, ie a
-    set of (ID1, ID2, 'true'/'false').  Take possible negatives for each split
-    only from the set of proteins with positive interactions in that split.
-    """
-    all_pos_lp = merge_lps(pos_splits)
-    full_splits = []
-    for lp,ratio in zip(pos_splits[:len(neg_ratios)],neg_ratios):
-        members = lp.members()
-        npos = len(lp.pairs)
-        negs = []
-        for i,p1 in enumerate(members):
-            for j,p2 in enumerate(members):
-                if j>i:
-                    if not all_pos_lp.contains(lpair(p1,p2,'true')):
-                        negs.append(lpair(p1,p2,'false'))
-        sample_negs = len(lp.pairs)*ratio
-        if sample_negs < len(negs):
-            negs = random.sample(negs, sample_negs)
-        else:
-            print 'only', len(negs), 'negs, not', sample_negs
-        full_splits.append(merge_lps([lp, LPairset(set(negs))]))
-    return full_splits
-    
-def positives_from_corum(ppicxs, cleancxs, splits, shuffle_splits,
-                         split_for_unmatched=1):
-    """
-    Create training, [cross-val,] and test sets, with splits happening
-    according to the supplied list of splits and cleancxs complexes.
-    Interactions forming the sets come from ppicxs complexes.
+    Create training, [cross-val,] and test sets, and excluded set as the final
+         one, with splits happening according to the supplied list of splits
+                         and cleancxs complexes. Interactions forming the sets
+                         come from ppicxs complexes.
     Ppicxs: dict{ complexA: set([p1,p2]); complexB: ...}
     Cleancxs: same format as ppicxs
-    Splits: like [0,0.5,0.7,1] to form 50%,20%,30% approx subsets of interactions.
+    Splits: like [0,0.5,0.7,1] to form 50%,20%,30% approx subsets of
+         interactions. [Training, Test, ..., Excluded]
     Assigns Ppicxs based on being subset of cleancxs; puts the few that are not
         subsets into splits[split_for_unmatched].
     """
@@ -126,11 +92,10 @@ def positives_from_corum(ppicxs, cleancxs, splits, shuffle_splits,
     cleancxs2ppi = _merged_parents(ppicxs, cleancxs)
     clean_int_sets = [LPairset(set([lpair(x,y,'true') for p in cleancxs2ppi[c]
         for x,y in _set_to_pairs(ppicxs[p])]), name=c) for c in cleancxs2ppi]
-    if shuffle_splits: random.shuffle(clean_int_sets)
     clean_ints = merge_lps(clean_int_sets)
     total_clean_pairs = len(clean_ints.pairs) # slow probably
-    allsplits_lps, allsplits_cxs = positives_from_lps(clean_int_sets,
-        total_clean_pairs, splits)
+    allsplits_lps, allsplits_cxs = positives_from_lps_sorted(clean_int_sets,
+        total_clean_pairs, splits, ind_cycle)
     # Append the ppicxs interactions
     ppi_int_sets = [LPairset(set([lpair(x,y,'true') for x,y in
         _set_to_pairs(ppicxs[p])]),name=p) for p in ppicxs]
@@ -146,54 +111,21 @@ def positives_from_corum(ppicxs, cleancxs, splits, shuffle_splits,
     print 'split complex counts:', [len(x) for x in allsplits_cxs]
     return allsplits_lps, allsplits_cxs
 
-def positives_from_lps(lps, total_pairs, splits):
+def positives_from_lps_sorted(lps, total_pairs, splits, ind_cycle=[0,1]):
+    # Non-random by design for repeatability
+    # Typically start with test, then training, then cycle
     splits_lps = [LPairset(set([])) for s in splits[:-1]]
     splits_cxs = [[] for s in splits[:-1]]
-    def split_from_rand(splits,thresh):
-        # Given [0,.1,.8,1] and 0.85 return 2
-        return np.argmax([splits[i] * [thresh>x for x in splits][i] for i in
-            range(len(splits))])
+    lps.sort(key=lambda lp: len(lp.pairs),reverse=True)
+    index = ind_cycle[0]
     for lp in lps:
-        spind = split_from_rand(splits,random.random())
-        split_lp = splits_lps[spind]
+        split_lp = splits_lps[index]
         split_lp.merge(lp)
-        splits_cxs[spind].append(lp.name)
+        splits_cxs[index].append(lp.name)
+        index = (index + ind_cycle[1]) % 3
+    print "split positives count:", [len(slp.pairs) for slp in splits_lps]
     return splits_lps, splits_cxs
 
-def positives_from_lps_dep(lps, total_pairs, splits):
-    split_lp = LPairset(set([]))
-    split_cxs = []
-    allsplits_lps = []
-    allsplits_cxs = []
-    i = 0 # index for splits
-    for lp in lps:
-        threshold = total_pairs * (splits[i+1]-splits[i]) 
-        maybe_split_lp = merge_lps([split_lp, lp])
-        maybe_len = len(maybe_split_lp.pairs)
-        if ( maybe_len > threshold and i < len(splits)-2 ):
-            # if we've exceeded, only include this if it's mostly inside
-            keep_it = (( maybe_len - threshold ) / len(lp.pairs) < 0.5 )
-            if keep_it:
-                allsplits_lps.append(maybe_split_lp)
-                split_lp = LPairset(set([]))
-                allsplits_cxs.append(split_cxs+[lp.name])
-                split_cxs = []
-            # otherwise save it for the next split
-            else:
-                allsplits_lps.append(split_lp)
-                split_lp = lp
-                allsplits_cxs.append(split_cxs)
-                split_cxs = [lp.name]
-            i = i+1
-        else:
-            split_lp = maybe_split_lp
-            split_cxs.append(lp.name)
-        #print i, 'ints', len(split_ints), [len(_dedup_lpair(x)) for x in \
-        #ints_splits], 'cleancxs', len(split_cleancxs), [len(x) for x in cleancxs_splits]
-    # Append the final split
-    allsplits_lps.append(split_lp)
-    allsplits_cxs.append(split_cxs)
-    return allsplits_lps, allsplits_cxs
 
 class LPairset(object):
     # Labeled Pair Set

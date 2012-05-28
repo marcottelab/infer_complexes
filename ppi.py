@@ -9,7 +9,7 @@ import fnet
 
 def learning_examples(species, seqdb, elut_fs, scores, fnet_gene_dict,
                       splits=[0,.33,.66,1], neg_ratios=[10,40],
-                      score_cutoff=0.5, base_exstructs=None, confirm_redo=True,
+                      ind_cycle=[0,-1], score_cutoff=0.5, base_exstructs=None,
                       pos_splits=None):
     """
     Species: 'Hs', 'Ce', ...
@@ -24,14 +24,20 @@ def learning_examples(species, seqdb, elut_fs, scores, fnet_gene_dict,
         ppi_cxs,clean_cxs = load_training_complexes(species, seqdb)
         exstructs = ex.base_examples(ppi_cxs, clean_cxs, elut_prots, splits,
             nratio_train=neg_ratios[0], nratio_test=neg_ratios[1],
-            confirm_redo=confirm_redo, pos_splits=pos_splits)
+            pos_splits=pos_splits, ind_cycle=ind_cycle)
     else:
         exstructs = base_exstructs
     el.score_multi_exs(exstructs, elut_fs, scores)
+    print "split pos scored:", [len([e for e in s.examples if e[2]=='true'])
+                      for s in exstructs]
+    print "split scored:", [len(s.examples) for s in exstructs]
     for exs in exstructs:
         filter_scores(exs, range(3, len(exs.names)), score_cutoff)
         if fnet_gene_dict!=-1:
             fnet.score_examples(exs, species, genedict=fnet_gene_dict)
+    print "split pos filtered:", [len([e for e in s.examples if e[2]=='true'])
+                      for s in exstructs]
+    print "split scored:", [len(s.examples) for s in exstructs]
     return exstructs #[exstruct_train, exstruct_test]
 
 def load_prot_set(elut_fs):
