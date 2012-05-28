@@ -28,11 +28,14 @@ def scorekey_elution(score_key, elution):
     return score_mat
     
     
-def score_examples_key(exstruct, score_key, elution):
+def score_examples_key(exstructs, score_key, elution):
     score_mat = scorekey_elution(score_key, elution)
-    return score_examples(exstruct, score_mat, elution.prots,
-        score_key+'_'+ut.shortname(elution.filename))
-                          
+    out = []
+    for i,exstruct in enumerate(exstructs):
+        out.append(score_examples(exstruct, score_mat, elution.prots,
+        score_key+'_'+ut.shortname(elution.filename)))
+    return out 
+
 def traver_corr(mat, repeat=200, norm='columns', verbose=True):
     # As described in supplementary information in paper.
     # Randomly draw from poisson(C=A+1/M) for each cell

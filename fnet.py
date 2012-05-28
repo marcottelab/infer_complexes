@@ -20,7 +20,6 @@ def score_examples(ex_struct, species, genedict=None):
     ex_struct.examples = out_examples
     ex_struct.names += ut.load_list_of_lists(fnet_filename(species,
                                                       which='names'))[0][2:]
-    return ex_struct
 
 def load_net(species):
     """

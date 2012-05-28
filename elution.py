@@ -195,21 +195,20 @@ def downsample_elution(elution, downsample, seed=0):
     down_elut.name = elution.name + '_down%i' % downsample
     return(down_elut)
 
-def score_examples_elf(exstruct, el_fname, score_key):
-    elution = load_elution(el_fname)
-    score.score_examples_key(exstruct, score_key, elution)
-
-def score_multi_elfs(exstruct, fnames, score_keys, verbose=True):
+    
+def score_multi_exs(exstructs, fnames, score_keys, verbose=True):
     for k in score_keys:
-        start_index = len(exstruct.names)
+        start_index = len(exstructs[0].names)
         end_index = start_index + len(fnames)
         for f in fnames:
-            if verbose: print k,f
-            score_examples_elf(exstruct, f, k)
+            if verbose: ut.printnow(k+f)
+            elution = load_elution(f)
+            score.score_examples_key(exstructs, k, elution)
         if k == 'apex':
-            ml.examples_combine_scores(exstruct, start_index, end_index,
+            for exstruct in exstructs:
+                ml.examples_combine_scores(exstruct, start_index, end_index,
                                operator.add, retain_scores=False)
-
+                
 def all_filtered_pairs(fnames, score_keys, cutoff=0.5, verbose=True):
     allpairs = set([])
     for skey in score_keys:
