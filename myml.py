@@ -1,10 +1,7 @@
-import plotting as pl
 from sklearn import svm
 
-#extr, exte = ml.full_examples('Ce_ensp', fs[:1], ['poisson'], 'Ce',
-#'cep2ceg.tab')
-
-def fit_and_score(exs_train, exs_test):
+def fit_and_score(split_exs): #[ex_train, ex_test]
+    exs_train,exs_test = split_exs
     classer = fit_svm(exs_train)
     tested = score_svm(classer, exs_test)
     return tested
@@ -28,3 +25,9 @@ def extract_data_labels(ex_list):
     X = [[0 if x == '?' else x for x in e[3:]] for e in ex_list]
     y = [int(e[2]=='true') for e in ex_list]
     return p1,p2,X,y
+
+def rescale(p,n):
+    """
+    Rescale posterior probability p according to multiple of negatives n.
+    """
+    return p/(1+(1-p)*n)

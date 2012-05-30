@@ -9,7 +9,7 @@ import fnet
 
 def learning_examples(species, seqdb, elut_fs, scores, fnet_gene_dict,
                       splits=[0,.33,.66,1], neg_ratios=[10,40],
-                      ind_cycle=[0,-1], score_cutoff=0.5, base_exstructs=None,
+                      ind_cycle=[0,-1], score_cutoff=0.25, base_exstructs=None,
                       pos_splits=None):
     """
     Species: 'Hs', 'Ce', ...
@@ -28,17 +28,15 @@ def learning_examples(species, seqdb, elut_fs, scores, fnet_gene_dict,
     else:
         exstructs = base_exstructs
     el.score_multi_exs(exstructs, elut_fs, scores)
-    print "split pos scored:", [len([e for e in s.examples if e[2]=='true'])
-                      for s in exstructs]
-    print "split scored:", [len(s.examples) for s in exstructs]
+    ntest_pos = len([e for e in exstructs[1].examples if e[2]=='true'])
+    print exstats(exstructs)
     for exs in exstructs:
-        filter_scores(exs, range(3, len(exs.names)), score_cutoff)
+        if score_cutoff != -1:
+            filter_scores(exs, range(3, len(exs.names)), score_cutoff)
         if fnet_gene_dict!=-1:
             fnet.score_examples(exs, species, genedict=fnet_gene_dict)
-    print "split pos filtered:", [len([e for e in s.examples if e[2]=='true'])
-                      for s in exstructs]
-    print "split scored:", [len(s.examples) for s in exstructs]
-    return exstructs #[exstruct_train, exstruct_test]
+    print exstats(exstructs)
+    return exstructs, ntest_pos #[exstruct_train, exstruct_test]
 
 def load_prot_set(elut_fs):
     return reduce(set.union, (set(el.load_elution(f).prots) for f in elut_fs))
@@ -49,9 +47,9 @@ def ex_struct(examples,names):
 def ex_struct_copy(exs):
     return ex_struct(list(exs.examples),list(exs.names))
 
-def exstats(extr,exte):
-    stats = [len([e for e in ex.examples if e[2]==tf]) for ex in [extr,exte] for tf in ['true','false']]
-    print 'train %sP/%sN; test %sP/%sN' % tuple(stats)
+def exstats(extr_exte):
+    stats = [len([e for e in ex.examples if e[2]==tf]) for ex in extr_exte for tf in ['true','false']]
+    return 'train %sP/%sN; test %sP/%sN' % tuple(stats)
     
 def load_training_complexes(species, seqdb):
     ppi = co.load_complexes_singleline(ut.proj_path('ppi_cxs'))
@@ -82,21 +80,6 @@ def filter_scores(ex_struct, columns, cutoff, missing='?'):
         in columns if e[i]!=missing], 0) > cutoff]
     ex_struct.examples = new_exlist
     
-def split_filt_merge(ex_struct, columns, cutoff, n):
-    def exstruct_merge_noshuf(exs1, exs2):
-        assert exs1.names == exs2.names
-        exstruct = Struct(examples=exs1.examples+exs2.examples,
-                    names=exs1.names)
-        return exstruct
-    etrain, etest = exstruct_split(ex_struct, n)
-    [filter_scores(exs, columns, cutoff) for exs in [etrain, etest]]
-    return exstruct_merge_noshuf(etrain, etest), len(etrain.examples)
-
-def exstruct_split(exs, nsplit):
-    exs1 = Struct(examples=exs.examples[:nsplit], names=exs.names)
-    exs2 = Struct(examples=exs.examples[nsplit:], names=exs.names)
-    return exs1, exs2
-
 def predict_all(elut_fs, scores, species, fnet_gene_dict,
                 elut_score_cutoff=0.5):
     """
@@ -111,3 +94,16 @@ def predict_all(elut_fs, scores, species, fnet_gene_dict,
     if fnet_gene_dict!=-1:
         fnet.score_examples(ex_struct, species, genedict=fnet_gene_dict)
     return ex_struct
+
+def preds_thresh(tested, thresh):
+    limit = None
+    for i,t in enumerate(tested):
+        if t[2]<thresh:
+            print 'limit:', i, t
+            limit = i
+            break
+    return limit
+    
+def cyto_export(tested, fname, negmult=100):
+    ut.write_tab_file([(t[0],t[1],myml.rescale(t[2],negmult)) for t in
+        tested], fname)

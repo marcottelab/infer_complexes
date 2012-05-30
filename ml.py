@@ -83,10 +83,11 @@ def examples_combine_scores(ex_struct, index_start, index_end, reduce_func,
             newval = l if l!=unknown else default
             newlist.append(newval)
         return newlist
-    newexs = [e if retain_scores else e[:index_start] + [reduce(reduce_func,
+    newexs = [(e if retain_scores else e[:index_start]) + [reduce(reduce_func,
         replace_unknowns(e[index_start:index_end]))] for e in exs]
-    names = (ex_struct.names if retain_scores else ex_struct.names[:index_start]) + \
-            [ex_struct.names[index_start] + reduce_func.__name__]
+    names = ((ex_struct.names if retain_scores else
+        ex_struct.names[:index_start])) +  [ex_struct.names[index_start] + \
+        reduce_func.__name__]
     ex_struct.examples = newexs
     ex_struct.names = names
 

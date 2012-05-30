@@ -221,6 +221,9 @@ def all_filtered_pairs(fnames, score_keys, cutoff=0.5, verbose=True):
             allpairs = set.union(allpairs, newpairs)
     return set_pairs_dedup(allpairs)
 
+def all_prots(elut_fs):
+    return reduce(set.union, (set(load_elution(f).prots) for f in elut_fs))
+
 def set_pairs_dedup(pairset):
     dedup_set = set([])
     for i,j in pairset:

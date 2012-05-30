@@ -25,6 +25,8 @@ def scorekey_elution(score_key, elution):
         score_mat = precalc_scores(elution, 'corr_poisson')
     elif score_key == 'wcc':
         score_mat = precalc_scores(elution, 'T.wcc_width1')
+    else:
+        assert False, "key not supported:" + score_key
     return score_mat
     
     
@@ -95,7 +97,7 @@ def pairs_exceeding(elut, skey, thresh=0.5):
         apex_obj = ApexScores(elut)
         apexes = apex_obj.apex_array
         pair_inds = [(proti,protj) for proti,peaki in enumerate(apexes) for
-                protj,peakj in enumerate(apexes) if peaki==peakj and proti!=protj]
+            protj,peakj in enumerate(apexes) if peaki==peakj and proti!=protj]
     else:
         score_mat = scorekey_elution(skey, elut)
         rows, cols = np.where(score_mat > thresh)

@@ -41,21 +41,6 @@ def add_negs(pos_lp, all_pos_lp, from_set, ratio):
     only from from_set, which for training is the positives set, and for
     testing is the set of all proteins with scores in our data.
     """
-    def all_pairs(items, exclude_lp, k):
-        negs = [lpair(p1,p2,'false') for p1,p2 in itertools.combinations(
-            items,2) if not exclude_lp.contains(lpair(p1, p2, 'true'))]
-        return LPairset(set(maybe_sample(negs,k)))
-    def kpairs(items, exclude_lp, k):
-        litems = list(items)
-        n = 0
-        selected = LPairset(set([]))
-        while n<k:
-            p1 = random.choice(litems)
-            p2 = random.choice(litems)
-            if p1!=p2 and not exclude_lp.contains(lpair(p1,p2,'true')):
-                if selected.add(lpair(p1,p2,'false')):
-                    n = n+1
-        return selected
     k = len(pos_lp.pairs)*ratio
     nitems = len(from_set)
     if nitems*(nitems-1)/2 < 2*k:
@@ -64,6 +49,23 @@ def add_negs(pos_lp, all_pos_lp, from_set, ratio):
         negs_lp = kpairs(from_set, all_pos_lp, k)
     full_lp = merge_lps([pos_lp, negs_lp])
     return full_lp
+
+def all_pairs(items, exclude_lp, k):
+    negs = [lpair(p1,p2,'false') for p1,p2 in itertools.combinations(
+        items,2) if not exclude_lp.contains(lpair(p1, p2, 'true'))]
+    return LPairset(set(maybe_sample(negs,k)))
+
+def kpairs(items, exclude_lp, k):
+    litems = list(items)
+    n = 0
+    selected = LPairset(set([]))
+    while n<k:
+        p1 = random.choice(litems)
+        p2 = random.choice(litems)
+        if p1!=p2 and not exclude_lp.contains(lpair(p1,p2,'true')):
+            if selected.add(lpair(p1,p2,'false')):
+                n = n+1
+    return selected
 
 def maybe_sample(pop,k,verbose=True):
     if k < len(pop):

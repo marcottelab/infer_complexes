@@ -5,10 +5,26 @@ import random
 import hcluster
 import cv
 import utils as ut
+import myml
+import ppi
 COLORS = ['#4571A8', '#A8423F', '#89A64E', '#6E548D', '#3D96AE', '#DB843D',
            '#91C4D5', '#CE8E8D', '#B6CA93', '#8EA5CB', 'yellow', 'gray',
            'blue', 'black']
 
+def pr_ppi(extr_exte, ntest_pos, prec_check=0, label_stats=True,
+           cutoff_score=None, **kwargs):
+    tested = myml.fit_and_score(extr_exte)
+    kwargs['label'] = kwargs.get('label','')+" %s Total Test Pos; " % \
+           ntest_pos + ppi.exstats(extr_exte)
+    pr_plot(tested, prec_check, ntest_pos, label_prec=False, **kwargs)
+    
+def score_threshold(tested, show=1000, window=50):
+    rolling = [len([t for t in tested[i:i+window] if t[3]==1])/window for i in range(show-window)]
+    plot([0]*window + rolling)
+    plot([t[2] for t in tested[:show]])
+    xlabel('starting index in scored examples')
+    ylabel('fraction true in index:index+%s'%window)
+    
 def cluster(corr):
     # corr: a matrix of similarity scores, such as a covariance matrix
     ymat = hcluster.pdist(corr)
@@ -30,7 +46,7 @@ def roc_plot(cvpairs, **kwargs):
     plot(xs, ys, **kwargs)
     plot([0,xs[-1]], [0,ys[-1]], 'k--')
     
-def pr_plot(cv_pairs, precision_test, total_trues, rescale=None, **kwargs):
+def pr_plot(cv_pairs, precision_test, total_trues, rescale=None, label_prec=True, **kwargs):
     """
     rescale: adjust precision values assuming rescale times as many negatives
     total_trues:
@@ -44,9 +60,10 @@ def pr_plot(cv_pairs, precision_test, total_trues, rescale=None, **kwargs):
     recall,precision = cv.pr(cv_pairs) 
     if rescale is not None:
         precision = [ p / (p + (1-p) * rescale) for p in precision]
-    kwargs['label'] = kwargs.get('label','') + (' Re:%0.2f' %
-        cv.calc_recall(precision,precision_test, total_trues)) + (' @ Pr:%0.2f' %
-        precision_test)
+    if label_prec:
+        kwargs['label'] = kwargs.get('label','') + (' Re:%0.2f' %
+        cv.calc_recall(precision,precision_test, total_trues)) + (' @ Pr:%0.2f'
+            % precision_test)
     if total_trues is not None:
         recall = [r/total_trues for r in recall]
     plot(recall, precision, **kwargs)
@@ -75,7 +92,25 @@ def imshow2(*args):
            # as say black by the colorbar if they're not 0.
            # Colormaps: bone, gray
 
-def examples_dist(exlist,score_indices):
+def examples_dist(exlist, score_indices, uselog=True, normed=True, default=-1,
+                   missing='?', linewidth=3, histtype='step', **kwargs):
+    hs = []
+    nplots = len(score_indices)
+    for i, (ind, name) in enumerate([(ind,exlist.names[ind]) for ind in score_indices]):
+        subplot(nplots,1,i+1)
+        pos,neg = [[float(e[ind]) if e[ind]!=missing else default for e in
+                exlist.examples if e[2]==truth] for truth in ['true','false']]
+        kwargs['range'] = kwargs['range'] if 'range' in kwargs else \
+                   [func([func(data) for data in [pos,neg]]) for func in
+                   [min,max]]
+        kwargs['bins'] = 30 if not 'bins' in kwargs else kwargs['bins']
+        (_,_,hp),(_,_,hn) = [hist(data, log=uselog, histtype='step',
+                   linewidth=linewidth, normed=normed, **kwargs) for data in
+                   zip([pos,neg])]
+        legend([hp[0],hn[0]],['Pos','Neg'],loc=3)
+        title(name)
+        
+def examples_dist_old(exlist,score_indices):
     hs = []
     nplots = len(score_indices)
     for i, (ind, name) in enumerate([(ind,exlist.names[ind-3]) for ind in score_indices]):
