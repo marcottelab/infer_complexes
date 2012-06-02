@@ -18,22 +18,22 @@ def score_examples(exstruct, score_mat, labels, name, default='?'):
     exstruct.names.append(name)
     return exstruct
 
-def scorekey_elution(score_key, elution):
+def scorekey_elution(score_key, elution, cutoff):
     if score_key == 'apex':
         score_mat = ApexScores(elution)
     elif score_key == 'poisson':
-        score_mat = precalc_scores(elution, 'corr_poisson')
+        score_mat = precalc_scores(elution+'.corr_poisson', cutoff)
     elif score_key == 'wcc':
-        score_mat = precalc_scores(elution, 'T.wcc_width1')
+        score_mat = precalc_scores(elution+'.T.wcc_width1', cutoff)
     else:
         assert False, "key not supported:" + score_key
     return score_mat
     
     
-def score_examples_key(exstructs, score_key, elution):
-    score_mat = scorekey_elution(score_key, elution)
+def score_examples_key(exstructs, score_key, elution, cutoff):
+    score_mat = scorekey_elution(score_key, elution, cutoff)
     out = []
-    for i,exstruct in enumerate(exstructs):
+    for exstruct in exstructs:
         out.append(score_examples(exstruct, score_mat, elution.prots,
         score_key+'_'+ut.shortname(elution.filename)))
     return out 
@@ -73,8 +73,19 @@ class ApexScores(object):
     def __getitem__(self, index):
         return int(self.apex_array[index[0]] == self.apex_array[index[1]])
 
-def precalc_scores(elution,extension):
-    return np.loadtxt(elution.filename + '.' + extension)
+def precalc_scores(scoref, cutoff):
+    sparsify = ut.config()['sparsify_corrs'] 
+    sparsef = scoref + '.filt_' + cutoff + '.pyd'
+    if os.path.exists(sparsef): 
+        return ut.loadpy(sparsef)
+    else:
+        mat = np.matrix(np.loadtxt(scoref))
+        mat[mat < cutoff] = 0
+        spmat = sparse.csr_matrix(mat)
+        if save_sparse:
+            print 'saving filtered ', sparsef
+            ut.savepy(spmat, sparsef)
+        return spmat
 
 
 class CosineLazyScores(object):
@@ -99,7 +110,9 @@ def pairs_exceeding(elut, skey, thresh=0.5):
         pair_inds = [(proti,protj) for proti,peaki in enumerate(apexes) for
             protj,peakj in enumerate(apexes) if peaki==peakj and proti!=protj]
     else:
-        score_mat = scorekey_elution(skey, elut)
+        # scorekey_elution now returns a csr sparse matrix
+        # but conversion and where are quite fast anyway, so whatever
+        score_mat = scorekey_elution(skey, elut, thresh).todense()
         rows, cols = np.where(score_mat > thresh)
         pair_inds =  ut.zip_exact(rows, cols)
     return pair_inds

@@ -196,14 +196,14 @@ def downsample_elution(elution, downsample, seed=0):
     return(down_elut)
 
     
-def score_multi_exs(exstructs, fnames, score_keys, verbose=True):
+def score_multi_exs(exstructs, fnames, score_keys, cutoff, verbose=True):
     for k in score_keys:
         start_index = len(exstructs[0].names)
         end_index = start_index + len(fnames)
         for f in fnames:
             if verbose: ut.printnow(k+f)
             elution = load_elution(f)
-            score.score_examples_key(exstructs, k, elution)
+            score.score_examples_key(exstructs, k, elution, cutoff)
         if k == 'apex':
             for exstruct in exstructs:
                 ml.examples_combine_scores(exstruct, start_index, end_index,

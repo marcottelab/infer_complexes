@@ -168,7 +168,7 @@ def full_examples(key, elut_fs, scores, species, fnet_gene_dict,
     """
     # Train and test are merged then split to speed this up 2x
     ex_struct, ntrain = base_examples(key)
-    el.score_multi_exs([ex_struct], elut_fs, scores)
+    el.score_multi_exs([ex_struct], elut_fs, scores, elut_score_cutoff)
     # Filter out train AND test examples without a score exceeding cutoff
     if elut_fs and elut_score_cutoff is not None:
         ex_struct, ntrain = split_filt_merge(ex_struct, range(3,
@@ -193,7 +193,7 @@ def predict_all(elut_fs, scores, species, fnet_gene_dict, elut_score_cutoff=0.5)
     # examples like [['id1', 'id2', 'true/false'], ...]
     exs = [[p1, p2, '?'] for p1,p2 in pairs]
     ex_struct = Struct(examples=exs,names=['id1','id2','hit'])
-    el.score_multi_exs([ex_struct], elut_fs, scores)
+    el.score_multi_exs([ex_struct], elut_fs, scores, elut_score_cutoff)
     if fnet_gene_dict!=-1:
         fnet.score_examples(ex_struct, species, genedict=fnet_gene_dict)
     return ex_struct
