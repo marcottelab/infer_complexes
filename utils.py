@@ -311,7 +311,10 @@ def proj_path(pathkey,basename=''):
         return os.path.join(base_path, config()[pathkey])
 
 def config():
+    def str_to_bool(string):
+        return (True if string.lower() == 'true' else False if string.lower() ==
+            'false' else string)
     conf_path = os.path.join(base_path, 'config.txt')
-    dconf = dict([(l.split()[0],l.split()[1]) for l in load_list(conf_path)])
+    dconf = dict([(l.split()[0],str_to_bool(l.split()[1])) for l in load_list(conf_path)])
     return dconf
     
