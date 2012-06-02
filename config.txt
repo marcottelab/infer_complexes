@@ -1,8 +1,10 @@
 convert     data/convert
 convert_orth     data/convert/orth
 convert_net     data/convert/net
-fnet        data/functional
+fnet_path   data/functional
+fnet_Ce_ensp    Ce/Ce_net_ce4.tab
 corum_pairs data/corum/pairs
 ppi_cxs     data/corum/corum_overlaps_forppi.tab
 clean_cxs   data/corum/corum_clean_nooverlaps_supptable3.tab
 ensp_fasta  data/sequences/canon
+save_sparse_corrs  True

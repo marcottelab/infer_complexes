@@ -7,16 +7,15 @@ import elution as el
 from Struct import Struct
 import fnet
 
-def learning_examples(species, seqdb, elut_fs, scores, fnet_gene_dict,
-                      splits=[0,.33,.66,1], neg_ratios=[10,40],
+def learning_examples(species, seqdb, elut_fs, scores=['poisson','wcc','apex'],
+                      fnet_file=None, splits=[0,.33,.66,1], neg_ratios=[10,40],
                       ind_cycle=[0,-1], score_cutoff=0.25, base_exstructs=None,
                       pos_splits=None):
     """
     Species: 'Hs', 'Ce', ...
     seqdb: 'uni', 'ensp'
-    Use fnet_gene_dict = -1 to skip functional network.  None means no dict is
-        needed. Can supply the dict itself or a string--like
-          'Ce_ensp2Ce_net.tab' or 'paper_uni2ensg.tab'
+    Use fnet_file = -1 to skip functional network. Use default for it to be
+      figured out from species and seqdb as in ut.config.
     Provide base_exstructs as [extr,exte] to use saved examples.
     """
     elut_prots = load_prot_set(elut_fs) # for test set negatives
@@ -27,14 +26,14 @@ def learning_examples(species, seqdb, elut_fs, scores, fnet_gene_dict,
             pos_splits=pos_splits, ind_cycle=ind_cycle)
     else:
         exstructs = base_exstructs
-    el.score_multi_exs(exstructs, elut_fs, scores)
+    el.score_multi_exs(exstructs, elut_fs, scores, score_cutoff)
     ntest_pos = len([e for e in exstructs[1].examples if e[2]=='true'])
     print exstats(exstructs)
     for exs in exstructs:
         if score_cutoff != -1:
             filter_scores(exs, range(3, len(exs.names)), score_cutoff)
-        if fnet_gene_dict!=-1:
-            fnet.score_examples(exs, species, genedict=fnet_gene_dict)
+        if fnet_file!=-1:
+            fnet.score_examples(exs, species, seqdb, fnet_file)
     print exstats(exstructs)
     return exstructs, ntest_pos #[exstruct_train, exstruct_test]
 
@@ -81,16 +80,16 @@ def filter_scores(ex_struct, columns, cutoff, missing='?'):
     ex_struct.examples = new_exlist
     
 def predict_all(elut_fs, scores, species, fnet_gene_dict,
-                elut_score_cutoff=0.5):
+                elut_score_cutoff=0.25):
     """
     Same more or less as full_examples above, but produces all predictions in
                   the elution files.
     """
     pairs = el.all_filtered_pairs(elut_fs, scores, elut_score_cutoff)
-    # examples like [['id1', 'id2', 'true/false'], ...]
+    print len(pairs), 'total interactions passing cutoff'
     exs = [[p1, p2, '?'] for p1,p2 in pairs]
     ex_struct = Struct(examples=exs,names=['id1','id2','hit'])
-    el.score_multi_exs([ex_struct], elut_fs, scores)
+    el.score_multi_exs([ex_struct], elut_fs, scores, elut_score_cutoff)
     if fnet_gene_dict!=-1:
         fnet.score_examples(ex_struct, species, genedict=fnet_gene_dict)
     return ex_struct

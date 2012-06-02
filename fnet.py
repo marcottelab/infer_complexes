@@ -1,13 +1,21 @@
 import os
 import utils as ut
 
-def score_examples(ex_struct, species, genedict=None):
+def score_examples(ex_struct, species, seqdb, fnet_file=None, genedict=None):
     # exs: struct with exs.names: ['score1', 'score2', ...]
     # and exs.examples: [[id1, id2, 'true/false', score1, score2, ...], ..]
     # genedict: { exid: set([ensg1, ensg2,...]), exid2: ...}
-    if isinstance(genedict, str):
-        genedict = ut.load_dict_sets(ut.proj_path('convert_net',genedict))
-    net = load_net(species)
+    if genedict is None:
+        dictf = ut.proj_path('convert_net', '%s_%s2%s_net.tab' % (species,
+                                                              seqdb, species))
+        if os.path.exists(dictf):
+            genedict = ut.load_dict_sets(dictf)
+    if fnet_file is None:
+        fnet_file = ut.config()['fnet_%s_%s' % (species, seqdb)]
+    print 'Functional network:', fnet_file, 'Dict:', os.path.basename(dictf), \
+        len(genedict) if genedict else 0, 'keys'
+    filename = ut.proj_path('fnet_path',fnet_file)
+    net = load_net(filename)
     num_items = len(net.items()[0][1])
     out_examples = []
     default = ['?']*num_items
@@ -18,14 +26,14 @@ def score_examples(ex_struct, species, genedict=None):
         if scores != default: num_hits += 1
     print num_hits, 'network scores found for ', len(out_examples), 'pairs'
     ex_struct.examples = out_examples
-    ex_struct.names += ut.load_list_of_lists(fnet_filename(species,
-                                                      which='names'))[0][2:]
+    ex_struct.names += [l[0] for l in
+                        ut.load_list_of_lists(ut.pre_ext(filename,'_names'))]
 
-def load_net(species):
+def load_net(filename):
     """
     Output: dict: { ensg1-ensg2: [score1, score2, ...], ensg1-ensg5: ...}
     """
-    lines = ut.load_list_of_lists(fnet_filename(species))
+    lines = ut.load_list_of_lists(filename)
     net = dict([(_idpair(l[0], l[1]), list(l[2:])) for l in lines])
     return net
 
@@ -56,20 +64,22 @@ def max_scores(scores):
     print "fix max scores--this one was length ", len(scores)
     return scores[0]
 
-#def net2entrez(net_id):
+def munge_original(fdata, column_inds, fnames, fout, first_names=1):
     """
-    Functional net ids are just the nonzero end portions of ensemble gene ids.
-    Ens gene ids are ENSG and 11 numbers.
-    Turns out this was wrong.  They're entrez ids, not ensembl.
+    Keep selected columns, replace 'NA' with '?', remove empty rows.
+    Do not include 0 or 1 for ids--they are kept automatically.
+    For column inds, start with 0 for scores.
+    Keep the same columns from the fnames file so I have a record of it.
     """
-#    return 'ENSG'+str(net_id).zfill(11)
-        
-
-def fnet_filename(species, which='data'):
-    base = os.path.expanduser('~/Dropbox/complex/data/functional/')
-    if which == 'data':
-        return os.path.join(base, species, species+'_filtered.tab')
-    elif which == 'names':
-        return os.path.join(base, species, species+'_selected_cols.tab')
-        
-
+    out = []
+    default = ['?'] * len(column_inds)
+    for l in ut.load_tab_file(fdata):
+        ids = list(l[:2])
+        newdata = [l[i+2] if l[i+2]!='NA' else '?' for i in range(len(l)) if i
+            in column_inds]
+        if newdata != default:
+            out.append(ids + newdata)
+    ut.write_tab_file(out, fout)
+    names = [l for i,l in enumerate( list( ut.load_tab_file(
+        fnames))[first_names:]) if i in column_inds]
+    ut.write_tab_file(names, ut.pre_ext(fout, '_names')) 
