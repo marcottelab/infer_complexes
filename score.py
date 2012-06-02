@@ -1,5 +1,7 @@
 import sys
 import numpy as np
+import os
+from scipy import sparse
 import operator
 import utils as ut
 import elution as el
@@ -22,9 +24,9 @@ def scorekey_elution(score_key, elution, cutoff):
     if score_key == 'apex':
         score_mat = ApexScores(elution)
     elif score_key == 'poisson':
-        score_mat = precalc_scores(elution+'.corr_poisson', cutoff)
+        score_mat = precalc_scores(elution.filename+'.corr_poisson', cutoff)
     elif score_key == 'wcc':
-        score_mat = precalc_scores(elution+'.T.wcc_width1', cutoff)
+        score_mat = precalc_scores(elution.filename+'.T.wcc_width1', cutoff)
     else:
         assert False, "key not supported:" + score_key
     return score_mat
@@ -74,8 +76,8 @@ class ApexScores(object):
         return int(self.apex_array[index[0]] == self.apex_array[index[1]])
 
 def precalc_scores(scoref, cutoff):
-    sparsify = ut.config()['sparsify_corrs'] 
-    sparsef = scoref + '.filt_' + cutoff + '.pyd'
+    save_sparse = ut.config()['save_sparse_corrs'] 
+    sparsef = '%s.filt_%s.pyd' % (scoref, cutoff)
     if os.path.exists(sparsef): 
         return ut.loadpy(sparsef)
     else:
