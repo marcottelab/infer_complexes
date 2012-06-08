@@ -2,8 +2,10 @@ from __future__ import division
 import pylab
 from pylab import *
 import random
+import itertools
 import hcluster
 import cv
+from Struct import Struct
 import utils as ut
 import myml
 import ppi
@@ -17,6 +19,9 @@ def pr_ppi(extr_exte, ntest_pos, prec_check=0, label_stats=True,
     kwargs['label'] = kwargs.get('label','')+" %s Total Test Pos; " % \
            ntest_pos + ppi.exstats(extr_exte)
     pr_plot(tested, prec_check, ntest_pos, label_prec=False, **kwargs)
+
+def boot_resample(extr_exte):
+    return [Struct(names=ex.names,examples=ut.sample_wr(ex.examples, len(ex.examples))) for ex in extr_exte]
     
 def score_threshold(tested, show=1000, window=50):
     rolling = [len([t for t in tested[i:i+window] if t[3]==1])/window for i in range(show-window)]
