@@ -213,9 +213,9 @@ def all_filtered_pairs(fnames, score_keys, cutoff=0.5, verbose=True):
     allpairs = set([])
     for skey in score_keys:
         for f in fnames:
-            if verbose: print skey,f
+            if verbose: print skey, cutoff, f
             elut = load_elution(f)
-            pair_inds = score.pairs_exceeding(elut, skey)
+            pair_inds = score.pairs_exceeding(elut, skey, thresh=cutoff)
             newpairs = set([(elut.prots[i], elut.prots[j]) for (i,j) in
                 pair_inds])
             allpairs = set.union(allpairs, newpairs)

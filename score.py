@@ -1,10 +1,50 @@
 import sys
+import itertools
 import numpy as np
 import os
 from scipy import sparse
+from collections import defaultdict
 import operator
 import utils as ut
 import elution as el
+
+
+def scores_parray(parr, elut_fs, scores, cutoff):
+    eluts = [(el.load_elution(f),f) for f in elut_fs]
+    for e,f in eluts:
+        e.idict = ut.list_inv_to_dict(e.prots)
+    for score in scores:
+        col = len(parr.names)
+        assert abs(sum(parr.array[:,col]))<0.00001, 'Column used: ' + str(col)
+        print score, f, 'col', col
+        if score=='apex':
+            score_parray_apex(parr, eluts, cutoff, col)
+        else:
+            score_parray_precomp(parr, eluts, score, cutoff, col)
+
+def score_parray_apex(parr, eluts, cutoff, col):
+    apexes_idicts = [(ApexScores(e),e.idict) for e,f in eluts]
+    for (p0,p1),index in parr.pdict.d.items():
+        parr.array[index, col] = sum([a[d.get(p0,0),d.get(p1,0)] for a,d in
+            apexes_idicts])
+    parr.names.append(name_score('apex', f))
+    
+
+def score_parray_precomp(parr, eluts, score, cutoff, col):
+    for e,f in eluts:
+        fscore = f + (
+                  '.corr_poisson' if score=='poisson' else
+                  '.T.wcc_width1' if score=='wcc' else
+                  0 ) # no score: exception since string and int don't add
+        score_mat = precalc_scores(fscore, cutoff)
+        idict = e.idict
+        for (p0,p1),index in parr.pdict.d.items():
+            if p0 in idict and p1 in idict:
+                parr.array[index, col] = score_mat[idict[p0],idict[p1]]
+        parr.names.append(name_score(score, f))
+        
+def name_score(score, fname):
+    return score + '_' + ut.shortname(fname)
 
 def score_examples(exstruct, score_mat, labels, name, default='?'):
     examples_out = []
@@ -37,7 +77,7 @@ def score_examples_key(exstructs, score_key, elution, cutoff):
     out = []
     for exstruct in exstructs:
         out.append(score_examples(exstruct, score_mat, elution.prots,
-        score_key+'_'+ut.shortname(elution.filename)))
+                name_score(score_key, elution.filename)))
     return out 
 
 def traver_corr(mat, repeat=200, norm='columns', verbose=True):
@@ -68,8 +108,7 @@ def traver_corr(mat, repeat=200, norm='columns', verbose=True):
 class ApexScores(object):
 
     def __init__(self, elution):
-        mat = elution.mat
-        self.apex_array = np.array(np.argmax(mat, axis=1))
+        self.apex_array = np.argmax(np.array(elution.mat), axis=1)
         self.shape = (len(self.apex_array),len(self.apex_array))
 
     def __getitem__(self, index):
@@ -78,6 +117,7 @@ class ApexScores(object):
 def precalc_scores(scoref, cutoff):
     save_sparse = ut.config()['save_sparse_corrs'] 
     sparsef = '%s.filt_%s.pyd' % (scoref, cutoff)
+    print cutoff, sparsef
     if os.path.exists(sparsef): 
         return ut.loadpy(sparsef)
     else:
@@ -104,18 +144,22 @@ class CosineLazyScores(object):
         return float(self.mat_rownormed[index[0],:] *
                     self.mat_rownormed[index[1],:].T)
 
+def matching_pairs(values):
+    """
+    Return all pairs of indices in the given list whose values match
+    """
+    d = defaultdict(list)
+    for ind,val in enumerate(values):
+        d[val].append(ind)
+    return [(i,j) for value in d for i,j in itertools.combinations(d[value],2)]
     
-def pairs_exceeding(elut, skey, thresh=0.5):
+def pairs_exceeding(elut, skey, thresh):
     if skey == 'apex':
-        apex_obj = ApexScores(elut)
-        apexes = apex_obj.apex_array
-        pair_inds = [(proti,protj) for proti,peaki in enumerate(apexes) for
-            protj,peakj in enumerate(apexes) if peaki==peakj and proti!=protj]
+        apexes = ApexScores(elut).apex_array
+        pair_inds = matching_pairs(apexes)
     else:
         # scorekey_elution now returns a csr sparse matrix
-        # but conversion and where are quite fast anyway, so whatever
-        score_mat = scorekey_elution(skey, elut, thresh).todense()
-        rows, cols = np.where(score_mat > thresh)
+        rows, cols = scorekey_elution(skey, elut, thresh).nonzero()
         pair_inds =  ut.zip_exact(rows, cols)
     return pair_inds
 

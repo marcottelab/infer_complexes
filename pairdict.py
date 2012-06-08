@@ -27,6 +27,11 @@ class PairDict(object):
         else:
             return None
 
+def pd_copy(pd):
+    newpd = PairDict([])
+    newpd.d = pd.d.copy()
+    return newpd
+
 def pd_flip(pair):
     return (pair[1],pair[0])
 

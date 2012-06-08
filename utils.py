@@ -4,6 +4,7 @@ import sys
 import os
 #from scipy import array, random # causing errors weirdly on mac air
 #import scipy
+import random
 import operator
 import itertools
 import string
@@ -47,7 +48,6 @@ def loadpy(fname):
     return obj
 
 
-
 ########################################################################
 ## COLLECTIONS and math functions
 ########################################################################
@@ -59,6 +59,16 @@ def all_same(f, bag):
     for x in bag[1:]:
         if f(x) != v: return False
     return True
+
+def bin(list, binsize):
+    nbins = int(np.ceil(len(list)/binsize))
+    return [list[i*binsize:(i+1)*binsize] for i in range(nbins)]
+
+def column_totals(mat):
+    return np.array(mat.sum(axis=0)).flatten()
+
+def column_uniques(mat):
+    return np.array((mat > 0).sum(axis=0)).flatten()
 
 def every(pred, bag):
     # Like the Common Lisp EVERY
@@ -148,20 +158,16 @@ def rsum(l): #reduce sum
 #             a = 0
 #         return random.uniform(a,b)
 
+def sample_wr(pop, k):
+    n = len(pop)
+    _random, _int = random.random, int
+    return [pop[_int(_random() * n)] for i in itertools.repeat(None,k)]
+
 def zip_exact(*seqs):
     # Like zip, but generates an error if the seqs are not all the same
     assert(all_same(len, seqs))
     return zip(*seqs)
 
-def bin(list, binsize):
-    nbins = int(np.ceil(len(list)/binsize))
-    return [list[i*binsize:(i+1)*binsize] for i in range(nbins)]
-
-def column_totals(mat):
-    return np.array(mat.sum(axis=0)).flatten()
-
-def column_uniques(mat):
-    return np.array((mat > 0).sum(axis=0)).flatten()
 
 
 #####################################################################

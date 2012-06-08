@@ -5,6 +5,7 @@ import numpy as np
 import utils as ut
 import random
 from Struct import Struct
+from pairdict import PairDict
 
 def base_examples(ppi_cxs, clean_cxs, data_members, splits=[0,0.33,0.66,1],
                   nratio_train=4, nratio_test=40, pos_lengths=None,
@@ -23,12 +24,14 @@ def base_examples(ppi_cxs, clean_cxs, data_members, splits=[0,0.33,0.66,1],
                   nratio_train)
     # slightly WRONG.  Should exclude train negatives too.
     test_lp = add_negs(ptest_lp, all_pos_lp, data_members, nratio_test)
-    exstructs = []
-    for lp in [train_lp, test_lp]:
-        lol_exs = lpairset_to_lol(lp) 
-        random.shuffle(lol_exs)
-        exstructs.append(Struct(examples=lol_exs, names=['id1','id2','hit']))
-    return exstructs # [ex_struct_train, ex_struct_test]
+    #exstructs = []
+    # for lp in [train_lp, test_lp]:
+    #     lol_exs = lpairset_to_lol(lp) 
+    #     random.shuffle(lol_exs)
+    #     exstructs.append(Struct(examples=lol_exs, names=['id1','id2','hit']))
+    # return exstructs # [ex_struct_train, ex_struct_test]
+    return [PairDict([(p[0],p[1],1 if p[2]=='true' else 0) for p in lp]) for lp
+                  in [train_lp, test_lp]]
 
 def lpairset_to_lol(lp):
     return list([list(tup) for tup in lp.pairs])
@@ -130,7 +133,10 @@ def positives_from_lps_sorted(lps, total_pairs, splits, ind_cycle=[0,1]):
 
 
 class LPairset(object):
-    # Labeled Pair Set
+    """
+    Labeled Pair Set
+    self.pairs: set of tuples of (id1,id2,'true/false')
+    """
 
     def __init__(self, pairset, name=None):
         self.pairs = self.dedupe(pairset)
