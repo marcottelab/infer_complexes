@@ -7,17 +7,30 @@ from collections import defaultdict
 import operator
 import utils as ut
 import elution as el
+import orth
 
 
-def scores_array(arr, elut_fs, scores, cutoff):
+def score_array_multi(arr, sp_base, seqdb, elut_fs, scores, cutoff):
     eluts = [(el.load_elution(f),f) for f in elut_fs]
     for e,f in eluts:
-        e.idict = ut.list_inv_to_dict(e.prots)
+        indices = orth_indices(sp_base, seqdb, f, e.prots)
         for score in scores:
             print score, f
-            score_array_precomp(arr, e, f, score, cutoff)
+            score_array(arr, e, f, score, cutoff, indices)
 
-def score_array_precomp(arr, elut, fname, score, cutoff):
+def orth_indices(sp_base, seqdb, filename, prot_list):
+    sp_target = ut.shortname(filename)[:2]
+    targ2inds = dict([(k,set([v]))
+                      for k,v in ut.list_inv_to_dict(prot_list).items()])
+    if sp_base == sp_target:
+        return targ2inds
+    else:
+        base2targ = orth.odict(sp_base+'_'+seqdb, sp_target+'_'+seqdb)
+        base2inds = ut.compose_dict_sets(base2targ, targ2inds)
+        base2inds = dict([(k,v) for k,v in base2inds.items() if len(v)>0])
+        return base2inds
+
+def score_array(arr, elut, fname, score, cutoff, idict):
     if score == 'apex':
         score_mat = ApexScores(elut)
     else:
@@ -26,12 +39,12 @@ def score_array_precomp(arr, elut, fname, score, cutoff):
                   '.T.wcc_width1' if score=='wcc' else
                   0 ) # no score: exception since string and int don't add
         score_mat = precalc_scores(fscore, cutoff)
-    idict = elut.idict
     name = name_score(fname,score)
     for i,row in enumerate(arr):
         p1,p2 = row['id1'],row['id2']
         if p1 in idict and p2 in idict:
-            row[name] = score_mat[idict[p1],idict[p2]]
+            row[name] = max([score_mat[i,j]
+                             for i in idict[p1] for j in idict[p2]])
         
 def name_score(fname, score):
     return ut.shortname(fname) + '_' + score 

@@ -30,8 +30,8 @@ def score_arr(arr, species, seqdb, fnet_file=None, genedict=None):
 
 def fnet_names(fnet_file):
     filename = ut.proj_path('fnet_path',fnet_file)
-    return [l[0].strip() for l in
-            ut.load_tab_file(ut.pre_ext(filename,'_names'))]
+    return [l[0].strip() if l[0].find('=')==-1 else l[0].split('=')[0].strip()
+            for l in ut.load_tab_file(ut.pre_ext(filename,'_names'))]
     
 def load_net(filename):
     """

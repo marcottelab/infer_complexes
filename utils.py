@@ -255,8 +255,7 @@ def compose_dict_sets(d1,d2,compose_op=set.union,default=set()):
     # compose_op must accept two V
     # default is for d2, it should return a V
     return dict(((k,reduce(compose_op, [d2.get(k2,default) for k2 in v],
-                           default))
-                 for (k,v) in d1.items()))
+                           default)) for (k,v) in d1.items()))
 
 def dict_combine_sets(d1,d2):
     # Assume that the values are sets, and combine them pairwise (union)

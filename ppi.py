@@ -22,9 +22,10 @@ def learning_examples(species, seqdb, elut_fs, scores=['poisson','wcc','apex'],
       figured out from species and seqdb as in ut.config.
     Provide base_pairdict as [extr,exte] to use saved examples.
     """
-    elut_prots = load_prot_set(elut_fs) # for test set negatives
     if base_pairdict is None:
         ppi_cxs,clean_cxs = load_training_complexes(species, seqdb)
+# TODO: should be done the same way as full predictions
+        elut_prots = load_prot_set(elut_fs) # for test set negatives
         train,test = ex.base_examples(ppi_cxs, clean_cxs, elut_prots, splits,
             nratio_train=neg_ratios[0], nratio_test=neg_ratios[1],
             pos_splits=pos_splits, ind_cycle=ind_cycle)
@@ -39,7 +40,7 @@ def learning_examples(species, seqdb, elut_fs, scores=['poisson','wcc','apex'],
 
 def score_and_filter(pdict, scores, elut_fs, cutoff, species, seqdb, fnet_file):
     arr = new_score_array(pdict, scores, elut_fs, fnet_file)
-    score.scores_array(arr, elut_fs, scores, cutoff)
+    score.score_array_multi(arr, species, seqdb, elut_fs, scores, cutoff)
     print 'filtering.'
     if cutoff != -1:
         columns = range(3,len(arr[0]))
@@ -86,7 +87,8 @@ def load_prot_set(elut_fs):
     return reduce(set.union, (set(el.load_elution(f).prots) for f in elut_fs))
 
 def stats(train_test):
-    nums =  [len([1 for row in arr if row['hit']==tf]) for arr in train_test for tf in [1,0]]
+    nums =  [len([1 for row in arr if row['hit']==tf])
+             for arr in train_test for tf in [1,0]]
     return 'train %sP/%sN; test %sP/%sN' % tuple(nums)
     
 def load_training_complexes(species, seqdb):
@@ -99,14 +101,15 @@ def convert_complexes(cxs, species, seqdb):
     #assert species=='Hs' or seqdb=='ensp', "translation not supported"
     if seqdb=='ensp':
         dconv = ut.load_dict_sets(ut.proj_path('convert','Hs_uni2Hs_ensp.tab'))
-        ps = seqs.load_prots_from_fasta(ut.proj_path('ensp_fasta','Hs_longest'))
+        ps = seqs.load_prots_from_fasta(ut.proj_path('ensp_fasta',
+                                                     'Hs_longest'))
         cxs = co.convert_complexes(cxs, dconv, ps)
     if species!='Hs':
         from_sp = 'Hs_'+seqdb
         to_sp = species+'_'+seqdb
         dconv = orth.odict(from_sp, to_sp)
         ps = seqs.load_prots_from_fasta(ut.proj_path('ensp_fasta',
-            species+'_longest'))
+                                                     species+'_longest'))
         cxs = co.convert_complexes(cxs, dconv, ps)
     return cxs
 
