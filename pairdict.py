@@ -1,5 +1,6 @@
 from __future__ import division
 import utils as ut
+from numpy import ndarray
 
 class PairDict(object):
     """

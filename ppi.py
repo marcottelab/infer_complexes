@@ -9,10 +9,11 @@ import pairarray as pa
 import numpy as np
 import fnet
 import score
+from numpy import zeros,ndarray
 
 def learning_examples(species, seqdb, elut_fs, scores=['poisson','wcc','apex'],
                       fnet_file=None, splits=[0,.33,.66,1], neg_ratios=[10,40],
-                      ind_cycle=[0,-1], score_cutoff=0.25, base_pairdict=None,
+                      ind_cycle=[0,-1], cutoff=0.25, base_pairdict=None,
                       pos_splits=None):
     """
     Species: 'Hs', 'Ce', ...
@@ -29,29 +30,42 @@ def learning_examples(species, seqdb, elut_fs, scores=['poisson','wcc','apex'],
             pos_splits=pos_splits, ind_cycle=ind_cycle)
     else:
         train,test = base_pairdict
-    ntest_pos = sum(parr.array[:,0])
-    return [score_and_filter(pdict) for pdict in train,test], ntest_pos
+    ntest_pos = len([v for k,v in test.d.items() if v[0]==1])
+    print 'total test positives:', ntest_pos
+    train_test = [score_and_filter(pdict, scores, elut_fs, cutoff, species,
+                      seqdb, fnet_file) for pdict in [train,test]]
+    print 'done.', stats(train_test)
+    return train_test, ntest_pos
 
-def score_and_filter(pdict, scores, cutoff, species, seqdb, fnet_file):
-    parr = new_score_array(pdict, scores, len(elut_fs))
-    score.scores_parray(parr, elut_fs, scores, score_cutoff)
-    #print exstats(exstructs)
-    if score_cutoff != -1:
-        filter_parr(parr, score_cutoff)
+def score_and_filter(pdict, scores, elut_fs, cutoff, species, seqdb, fnet_file):
+    arr = new_score_array(pdict, scores, elut_fs, fnet_file)
+    score.scores_array(arr, elut_fs, scores, cutoff)
+    print 'filtering.'
+    if cutoff != -1:
+        columns = range(3,len(arr[0]))
+        # note that this double-filters often. only an efficiency issue.
+        arr = filter_arr(arr, columns, cutoff)
     if fnet_file!=-1:
-        fnet.score_examples(exs, species, seqdb, fnet_file)
-    #print exstats(exstructs)
-    return parr 
+        fnet.score_arr(arr, species, seqdb, fnet_file)
+    return arr 
 
-def new_score_array(pd, scores, nfs):
-    # First column is 1/0 true/false; plus a column for every score/file
-    ncols = 1 + sum([nfs if score!='apex' else 1 for score in scores])
-    arr = np.ndarray(shape=(len(pd.d), ncols))
-    parr = pa.PairArray(pd, arr, ['hit'])
-    for i,(pair,lhit) in enumerate(parr.pdict.d.items()):
-        parr.pdict.d[pair] = i
-        parr.array[i,0] = lhit[0]
-    return parr
+def new_score_array(pd, scores, fs, fnet_file):
+    """
+    arr[0] returns the first row of data.
+    row[name_score(f,s)] returns the proper score
+    row['id1'],'id2','hit' index to the first three columns
+    """
+    data_names = [score.name_score(f,s) for f in fs for s in scores]
+    if fnet_file != -1:
+        data_names += fnet.fnet_names(fnet_file)
+    arr = zeros(shape = len(pd.d),
+                  dtype = ','.join(['a20']*2 + ['i1'] + ['f4']*len(data_names)))
+    names = ['id1','id2','hit'] + data_names
+    arr.dtype.names = tuple(names)
+    for i,((p1,p2),lhit) in enumerate(pd.d.items()):
+        row = arr[i]
+        row['id1'],row['id2'],row['hit'] = p1,p2,lhit
+    return arr
 
 def predict_all(species, seqdb, elut_fs, scores=['poisson','wcc','apex'],
                 fnet_file=None, score_cutoff=0.25):
@@ -71,15 +85,9 @@ def predict_all(species, seqdb, elut_fs, scores=['poisson','wcc','apex'],
 def load_prot_set(elut_fs):
     return reduce(set.union, (set(el.load_elution(f).prots) for f in elut_fs))
 
-def ex_struct(examples,names):
-    return Struct(examples=examples, names=names)
-
-def ex_struct_copy(exs):
-    return ex_struct(list(exs.examples),list(exs.names))
-
-def exstats(extr_exte):
-    stats = [len([e for e in ex.examples if e[2]==tf]) for ex in extr_exte for tf in ['true','false']]
-    return 'train %sP/%sN; test %sP/%sN' % tuple(stats)
+def stats(train_test):
+    nums =  [len([1 for row in arr if row['hit']==tf]) for arr in train_test for tf in [1,0]]
+    return 'train %sP/%sN; test %sP/%sN' % tuple(nums)
     
 def load_training_complexes(species, seqdb):
     ppi = co.load_complexes_singleline(ut.proj_path('ppi_cxs'))
@@ -102,18 +110,16 @@ def convert_complexes(cxs, species, seqdb):
         cxs = co.convert_complexes(cxs, dconv, ps)
     return cxs
 
-def filter_parr(parr, columns, cutoff):
-    TODO
+def filter_arr(arr, columns, cutoff):
+    """
+    Uses max: return a new array of all rows from input arr with at least one
+    value in columns exceeding cutoff.
+    """
+    newarr = arr[[i for i in range(len(arr)) if max([x for j,x in
+                enumerate(arr[i]) if j in columns]) > cutoff]]
+    del arr
+    return newarr
     
-def filter_scores(ex_struct, columns, cutoff, missing='?'):
-    def default_max(numlist, default):
-        if numlist==[]: return default
-        else: return max(numlist)
-    new_exlist = [e for e in ex_struct.examples if default_max([e[i] for i
-        in columns if e[i]!=missing], 0) > cutoff]
-    ex_struct.examples = new_exlist
-    
-
 def preds_thresh(tested, thresh):
     limit = None
     for i,t in enumerate(tested):

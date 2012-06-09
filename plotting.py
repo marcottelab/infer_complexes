@@ -13,9 +13,9 @@ COLORS = ['#4571A8', '#A8423F', '#89A64E', '#6E548D', '#3D96AE', '#DB843D',
            '#91C4D5', '#CE8E8D', '#B6CA93', '#8EA5CB', 'yellow', 'gray',
            'blue', 'black']
 
-def pr_ppi(extr_exte, ntest_pos, prec_check=0, label_stats=True,
+def pr_ppi(train_test, ntest_pos, prec_check=0, label_stats=True,
            cutoff_score=None, **kwargs):
-    tested = myml.fit_and_score(extr_exte)
+    tested = myml.fit_and_test(train_test)
     kwargs['label'] = kwargs.get('label','')+" %s Total Test Pos; " % \
            ntest_pos + ppi.exstats(extr_exte)
     pr_plot(tested, prec_check, ntest_pos, label_prec=False, **kwargs)

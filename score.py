@@ -9,42 +9,32 @@ import utils as ut
 import elution as el
 
 
-def scores_parray(parr, elut_fs, scores, cutoff):
+def scores_array(arr, elut_fs, scores, cutoff):
     eluts = [(el.load_elution(f),f) for f in elut_fs]
     for e,f in eluts:
         e.idict = ut.list_inv_to_dict(e.prots)
-    for score in scores:
-        col = len(parr.names)
-        assert abs(sum(parr.array[:,col]))<0.00001, 'Column used: ' + str(col)
-        print score, f, 'col', col
-        if score=='apex':
-            score_parray_apex(parr, eluts, cutoff, col)
-        else:
-            score_parray_precomp(parr, eluts, score, cutoff, col)
+        for score in scores:
+            print score, f
+            score_array_precomp(arr, e, f, score, cutoff)
 
-def score_parray_apex(parr, eluts, cutoff, col):
-    apexes_idicts = [(ApexScores(e),e.idict) for e,f in eluts]
-    for (p0,p1),index in parr.pdict.d.items():
-        parr.array[index, col] = sum([a[d.get(p0,0),d.get(p1,0)] for a,d in
-            apexes_idicts])
-    parr.names.append(name_score('apex', f))
-    
-
-def score_parray_precomp(parr, eluts, score, cutoff, col):
-    for e,f in eluts:
-        fscore = f + (
+def score_array_precomp(arr, elut, fname, score, cutoff):
+    if score == 'apex':
+        score_mat = ApexScores(elut)
+    else:
+        fscore = fname + (
                   '.corr_poisson' if score=='poisson' else
                   '.T.wcc_width1' if score=='wcc' else
                   0 ) # no score: exception since string and int don't add
         score_mat = precalc_scores(fscore, cutoff)
-        idict = e.idict
-        for (p0,p1),index in parr.pdict.d.items():
-            if p0 in idict and p1 in idict:
-                parr.array[index, col] = score_mat[idict[p0],idict[p1]]
-        parr.names.append(name_score(score, f))
+    idict = elut.idict
+    name = name_score(fname,score)
+    for i,row in enumerate(arr):
+        p1,p2 = row['id1'],row['id2']
+        if p1 in idict and p2 in idict:
+            row[name] = score_mat[idict[p1],idict[p2]]
         
-def name_score(score, fname):
-    return score + '_' + ut.shortname(fname)
+def name_score(fname, score):
+    return ut.shortname(fname) + '_' + score 
 
 def score_examples(exstruct, score_mat, labels, name, default='?'):
     examples_out = []
