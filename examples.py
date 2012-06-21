@@ -7,23 +7,24 @@ import random
 from Struct import Struct
 from pairdict import PairDict
 
-def base_examples(ppi_cxs, clean_cxs, data_members, splits=[0,0.33,0.66,1],
+def base_examples(ppi_cxs, clean_cxs, test_neg_set, splits=[0,0.33,0.66,1],
                   nratio_train=4, nratio_test=40, pos_lengths=None,
                   pos_splits=None, ind_cycle=[0,-1]):
     """
     Builds the training/test examples struct ready for scoring and learning.
-    Data_members: full list of proteins found in our data to use for test set
-                  negatives generation.
+    Test_neg_set: full list of proteins found in our data to use for test set
+                  negatives generation. Use None to make negs the same way as
+                  training, from the members of those complexes.
     """
     if pos_splits is None:
         pos_splits,clean_splits = positives_from_corum(ppi_cxs, clean_cxs,
               splits, ind_cycle)
     all_pos_lp = merge_lps(pos_splits)
     ptrain_lp,ptest_lp = pos_splits[:2]
-    train_lp = add_negs(ptrain_lp, all_pos_lp, ptrain_lp.members(),
+    train_lp = add_negs(ptrain_lp, all_pos_lp, None,
                   nratio_train)
     # slightly WRONG.  Should exclude train negatives too.
-    test_lp = add_negs(ptest_lp, all_pos_lp, data_members, nratio_test)
+    test_lp = add_negs(ptest_lp, all_pos_lp, test_neg_set, nratio_test)
     return [PairDict([(p[0],p[1],1 if p[2]=='true' else 0) for p in lp.pairs])
                   for lp in [train_lp, test_lp]]
 
@@ -39,6 +40,8 @@ def add_negs(pos_lp, all_pos_lp, from_set, ratio):
     only from from_set, which for training is the positives set, and for
     testing is the set of all proteins with scores in our data.
     """
+    if from_set is None:
+        from_set = pos_lp.members()
     k = len(pos_lp.pairs)*ratio
     nitems = len(from_set)
     if nitems*(nitems-1)/2 < 2*k:
@@ -122,7 +125,7 @@ def positives_from_lps_sorted(lps, total_pairs, splits, ind_cycle=[0,1]):
         split_lp = splits_lps[index]
         split_lp.merge(lp)
         splits_cxs[index].append(lp.name)
-        index = (index + ind_cycle[1]) % 3
+        index = (index + ind_cycle[1]) % len(splits_lps)
     print "split positives count:", [len(slp.pairs) for slp in splits_lps]
     return splits_lps, splits_cxs
 

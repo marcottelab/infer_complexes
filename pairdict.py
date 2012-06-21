@@ -20,6 +20,17 @@ class PairDict(object):
             k = key
         self.d[k] = val
 
+    def append(self, key, val):
+        # untested
+        k = self.find(key)
+        if k==None:
+            self.d[k] = val
+        else:
+            if isinstance(self.d[k],set):
+                self.d[k].add(*val)
+            else:
+                self.d[k].append(*val)
+
     def find(self, pair):
         if pair in self.d:
             return pair
@@ -39,7 +50,18 @@ def pd_flip(pair):
 def pd_lol(pd):
     return [[k[0],k[1]] + pd.d[k] for k in pd.d]
 
-def pd_union(a,b,adefaults=None,bdefaults=None):
+def pd_union_novals(a,b):
+    """
+    Merge two PairDicts and return a new one.
+    Any existing values in a will be smashed by b's corresponding values.
+    """
+    newpd = PairDict([])
+    newpd.d = a.d.copy()
+    for k,v in b.d.items():
+        newpd.set(k,v)
+    return newpd
+
+def pd_union_disjoint_vals(a,b,adefaults=None,bdefaults=None):
     """
     Merge two PairDicts and return a new one.
     Values for each pair become a list of avalues+bvalues, with defaults for

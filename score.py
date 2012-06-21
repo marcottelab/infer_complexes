@@ -38,7 +38,7 @@ def score_array(arr, elut, fname, score, cutoff, idict):
                   '.corr_poisson' if score=='poisson' else
                   '.T.wcc_width1' if score=='wcc' else
                   0 ) # no score: exception since string and int don't add
-        score_mat = precalc_scores(fscore, cutoff)
+        score_mat = precalc_scores(fscore)
     name = name_score(fname,score)
     for i,row in enumerate(arr):
         p1,p2 = row['id1'],row['id2']
@@ -63,20 +63,20 @@ def score_examples(exstruct, score_mat, labels, name, default='?'):
     exstruct.names.append(name)
     return exstruct
 
-def scorekey_elution(score_key, elution, cutoff):
+def scorekey_elution(score_key, elution):
     if score_key == 'apex':
         score_mat = ApexScores(elution)
     elif score_key == 'poisson':
-        score_mat = precalc_scores(elution.filename+'.corr_poisson', cutoff)
+        score_mat = precalc_scores(elution.filename+'.corr_poisson')
     elif score_key == 'wcc':
-        score_mat = precalc_scores(elution.filename+'.T.wcc_width1', cutoff)
+        score_mat = precalc_scores(elution.filename+'.T.wcc_width1')
     else:
         assert False, "key not supported:" + score_key
     return score_mat
     
     
 def score_examples_key(exstructs, score_key, elution, cutoff):
-    score_mat = scorekey_elution(score_key, elution, cutoff)
+    score_mat = scorekey_elution(score_key, elution)
     out = []
     for exstruct in exstructs:
         out.append(score_examples(exstruct, score_mat, elution.prots,
@@ -117,20 +117,19 @@ class ApexScores(object):
     def __getitem__(self, index):
         return int(self.apex_array[index[0]] == self.apex_array[index[1]])
 
-def precalc_scores(scoref, cutoff):
-    save_sparse = ut.config()['save_sparse_corrs'] 
-    sparsef = '%s.filt_%s.pyd' % (scoref, cutoff)
-    print cutoff, sparsef
-    if os.path.exists(sparsef): 
-        return ut.loadpy(sparsef)
+def precalc_scores(scoref, dtype='f2'):
+    # NOTE to change dtype you must change it in loadtxt below!!
+    save_compact = ut.config()['save_compact_corrs'] 
+    compactf = '%s.%s.pyd' % (scoref, dtype)
+    print compactf, dtype
+    if os.path.exists(compactf): 
+        return ut.loadpy(compactf)
     else:
-        mat = np.matrix(np.loadtxt(scoref))
-        mat[mat < cutoff] = 0
-        spmat = sparse.csr_matrix(mat)
-        if save_sparse:
-            print 'saving filtered ', sparsef
-            ut.savepy(spmat, sparsef)
-        return spmat
+        ascores = np.loadtxt(scoref, dtype='f2')
+        if save_compact:
+            print 'saving compact', compactf
+            ut.savepy(ascores, compactf)
+        return ascores
 
 
 class CosineLazyScores(object):
@@ -160,9 +159,9 @@ def pairs_exceeding(elut, skey, thresh):
     if skey == 'apex':
         apexes = ApexScores(elut).apex_array
         pair_inds = matching_pairs(apexes)
-    else:
-        # scorekey_elution now returns a csr sparse matrix
-        rows, cols = scorekey_elution(skey, elut, thresh).nonzero()
+    else: # loading precomputed indices is so far massively slower than this
+        score_mat = scorekey_elution(skey, elut)
+        rows, cols = np.where(score_mat > thresh)
         pair_inds =  ut.zip_exact(rows, cols)
     return pair_inds
 

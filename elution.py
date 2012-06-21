@@ -1,19 +1,22 @@
 from __future__ import division
+import itertools
 import numpy as np
 import operator
-import random
 import os
+import random
+import ml
+import orth
+import pairdict
+from pairdict import PairDict
+import score
 from Struct import Struct
 import utils as ut
-import score
-import cv
-import ml
-
 
 def load_elution(fname, getname=True):
     # expected file structure:
     # first col: gene id
-    # second col: treat differently if 2nd col header is 'Total' or 'Description'
+    # second col: treat differently if 2nd col header is 'Total' or
+    # 'Description'
     # remaining cols: elution profile data
     lines = [l for l in ut.load_tab_file(fname)]
     # final row: total count in msblender output; don't skip in cuihong's data
@@ -34,6 +37,53 @@ def load_elution(fname, getname=True):
         elut.column2vals = col2name_vals
     if getname: elut.name = os.path.basename(fname).split('.')[0]
     return elut
+
+def all_filtered_pairs(fnames, score_keys, cutoff=0.25, sp_base=None,
+                       seqdb=None, verbose=True):
+    allpairs = PairDict([])
+    for skey,f in itertools.product(score_keys,fnames):
+        if verbose: print skey, cutoff, f
+        elut = load_elution(f)
+        pair_inds = score.pairs_exceeding(elut, skey, thresh=cutoff)
+        newpairs = PairDict(((elut.prots[i], elut.prots[j])
+                             for (i,j) in pair_inds))
+        newpairs = translate_pairs(newpairs, sp_base, file_sp(f), seqdb)
+        allpairs = pairdict.pd_union_novals(allpairs, newpairs)
+    return allpairs
+
+def translate_pairs(pairs, sp_base, sp_target, seqdb):
+    t2b = targ2base(sp_base, sp_target, seqdb)
+    if t2b:
+        pairs = PairDict(((base1,base2)
+                          for t1,t2 in pairs.d
+                          for base1,base2 in
+                          itertools.product(t2b.get(t1,[]), t2b.get(t2,[]))))
+    return pairs
+    
+def targ2base(sp_base, sp_target, seqdb):
+    t2b = None
+    if sp_base:
+        if sp_base != sp_target:
+            t2b = orth.odict(sp_target+'_'+seqdb, sp_base+'_'+seqdb)
+    return t2b
+
+def file_sp(filename):
+    return ut.shortname(filename)[:2]
+
+def all_prots(elut_fs, sp_base=None, seqdb=None):
+    allprots = set([])
+    for f in elut_fs:
+        t2b = targ2base(sp_base, file_sp(f), seqdb)
+        newprots = set(load_elution(f).prots) 
+        if t2b:
+            newprots = set((b for t in newprots for b in t2b.get(t,[])))
+        allprots = set.union(allprots, newprots)
+    return allprots
+
+
+##################################################
+# Special-purpose or single-use
+##################################################
 
 def _fraction_elutions(fractions):
     """
@@ -127,12 +177,6 @@ def correlate_matches_dict(elut1, elut2, pdict_1to2):
         elut2.mat[elut2.prots.index(list(pdict_1to2[p])[0]),:])[0][1]) for p in
         overlap]
     
-def compute_cvpairs(elutfile, trueints, sample_frac, poisson_repeat=200):
-    basename = os.path.splitext(os.path.split(elutfile)[1])[0]
-    elut = load_elution_total(elutfile)
-    elut.corr = corr.traver_corr(elut.mat, repeat=poisson_repeat)
-    return cv.cv_pairs(elut.corr, trueints, elut.prots, sample_frac=sample_frac)
-
 def combine_elutions(e1, e2, combine_corr_func=None):
     # functions: np.maximum, sum, ...
     allprots = list(set.union(set(e1.prots), set(e2.prots)))
@@ -175,15 +219,6 @@ def test_combined_corrs(eluts, ncomparisons=10):
     return [[e.corr[e.prots.index(p1),e.prots.index(p2)] for e in eluts] for
 (p1,p2) in zip(p1s, p2s)]
 
-def combined_examples(pos_pairs, negatives, elutions, score_func, combine_func,
-    retain_scores=False):
-    col1 = 3
-    combine_col = 3 + len(elutions)
-    examples = ml.examples_from_scores(pos_pairs, negatives,
-        [(score_func(e), e.prots, e.name) for e in elutions])
-    return ml.examples_combine_scores(examples, col1, combine_col,
-        combine_func, retain_scores=retain_scores)
-
 def downsample_elution(elution, downsample, seed=0):
     """
     Return a new elution with every downsample-th fraction.
@@ -194,38 +229,3 @@ def downsample_elution(elution, downsample, seed=0):
     down_elut.fractions = elution.fractions[::2]
     down_elut.name = elution.name + '_down%i' % downsample
     return(down_elut)
-
-    
-def score_multi_exs(exstructs, fnames, score_keys, cutoff, verbose=True):
-    for k in score_keys:
-        start_index = len(exstructs[0].names)
-        end_index = start_index + len(fnames)
-        for f in fnames:
-            if verbose: ut.printnow(k+f)
-            elution = load_elution(f)
-            score.score_examples_key(exstructs, k, elution, cutoff)
-        if k == 'apex':
-            for exstruct in exstructs:
-                ml.examples_combine_scores(exstruct, start_index, end_index,
-                               operator.add, retain_scores=False)
-                
-def all_filtered_pairs(fnames, score_keys, cutoff=0.5, verbose=True):
-    allpairs = set([])
-    for skey in score_keys:
-        for f in fnames:
-            if verbose: print skey, cutoff, f
-            elut = load_elution(f)
-            pair_inds = score.pairs_exceeding(elut, skey, thresh=cutoff)
-            newpairs = set([(elut.prots[i], elut.prots[j]) for (i,j) in
-                pair_inds])
-            allpairs = set.union(allpairs, newpairs)
-    return set_pairs_dedup(allpairs)
-
-def all_prots(elut_fs):
-    return reduce(set.union, (set(load_elution(f).prots) for f in elut_fs))
-
-def set_pairs_dedup(pairset):
-    dedup_set = set([])
-    for i,j in pairset:
-        if (j,i) not in dedup_set: dedup_set.add((i,j))
-    return dedup_set
