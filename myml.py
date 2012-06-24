@@ -19,12 +19,13 @@ def fit_svm(arr_train, columns=None, cutoff=0.25):
 
 def test_svm(classer, arr_test, columns=None, cutoff=0.25):
     arr_test, names = filter_names_arr(arr_test, columns, cutoff)
+    print 'Features:', names
     probs = (x[1] for x in classer.predict_proba(features(arr_test, names)))
     tested = zip(arr_test['id1'], arr_test['id2'], probs, arr_test['hit'])
     tested.sort(key=lambda x:x[2],reverse=True)
     return tested
 
-def filter_names_arr(arr, columns, cutoff, nofilter='HS'):
+def filter_names_arr(arr, columns, cutoff, nofilter=['HS','CE','DM','SC']):
     """
     columns: either a list of column numbers or a space-sep string of
     2-letter matches for column names.
@@ -42,7 +43,7 @@ def filter_names_arr(arr, columns, cutoff, nofilter='HS'):
         newarr = arr
     else:
         # DON'T filter by network score columns: these don't qualify the row.
-        names_filt = [n for n in feat_names if not n.startswith(nofilter)]
+        names_filt = [n for n in feat_names if not n[:2] in (nofilter)]
         print 'filtering', names_filt
         nums_filt = ([i for i,name in enumerate(arr.dtype.names)
                   if name in names_filt])
@@ -57,9 +58,10 @@ def feature_inds(arr):
 
 def match_cols(arr, colstring):
     """
-    colstring like 'Hs Ce ...'
+    colstring like 'Hs Ce HS ...' or 'Hs Ce HS-GN ...'
     """
-    return [f for f in arr.dtype.names if f[:2] in colstring.split()]
+    return [f for f in arr.dtype.names if (f[:2] in colstring.split()
+                                           or f in colstring.split())]
 
 def rescale(p,n):
     """
@@ -67,16 +69,15 @@ def rescale(p,n):
     """
     return p/(1+(1-p)*n)
 
-def feature_selection(arr):
+def feature_selection(arr, columns=None, cutoff=0.25):
 
     # Build a forest and compute the feature importances
     forest = ExtraTreesClassifier(n_estimators=250,
                                   compute_importances=True,
                                   random_state=0)
-
-    X = features(*filter_names_arr(arr, None, 0))
+    arr,names = filter_names_arr(arr, columns, cutoff)
+    X = features(arr, names)
     y = arr['hit']
-    names = arr.dtype.names[3:]
     forest.fit(X, y)
     importances = forest.feature_importances_
     indices = np.argsort(importances)[::-1]
