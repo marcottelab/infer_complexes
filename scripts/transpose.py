@@ -5,10 +5,11 @@ import sys
 def transpose(d, fin, fout):
     sys.path.append(d+'/..')
     import utils as ut
-    #ignore comments, such as last line in spcount output
-    endindex = -1 if fin.find('spcount')>-1 else None
-    if endindex: print "skipping last line"
-    lines = [l for l in ut.load_tab_file(fin)][:endindex]
+    lines = [l for l in ut.load_tab_file(fin)]
+    if lines[-1][0].startswith('#'):
+        #ignore comments, such as last line in spcount output
+        lines = lines[:-1]
+        print "skipping last line"
     cols = ut.zip_exact(*lines) #zip messes up if these files aren't neat
     # _After_ zipping, get rid of the column 1 header--R doesn't like it.
     col0list = list(cols[0])
