@@ -71,6 +71,7 @@ def file_sp(filename):
     return ut.shortname(filename)[:2]
 
 def all_prots(elut_fs, sp_base=None, seqdb=None):
+    print 'Loading all proteins from files'
     allprots = set([])
     for f in elut_fs:
         t2b = targ2base(sp_base, file_sp(f), seqdb)
@@ -123,7 +124,7 @@ def write_elution(elut, fname, forR=False):
     prots = list(np.array(elut.prots)[nonzeros])
     if not forR:
         header = "#ProtID TotalCount".split() + elut.fractions
-        data = [[prots[i], np.sum(mat[i,:])] + arr[i,:].tolist() for i in
+        data = [[prots[i], np.sum(arr[i,:])] + arr[i,:].tolist() for i in
                 range(len(prots))]
     else: #R: no column header for first column, and transpose
         header = prots
@@ -178,7 +179,9 @@ def correlate_matches_dict(elut1, elut2, pdict_1to2):
         overlap]
     
 def combine_elutions(e1, e2, combine_corr_func=None):
-    # functions: np.maximum, sum, ...
+    # Assumes the fractions from each elution are mutually exclusive; puts them
+    # in order of e1fracs+e2fracs.
+    # Proteins (rows) are merged.
     allprots = list(set.union(set(e1.prots), set(e2.prots)))
     nprots = len(allprots)
     allfracs = e1.mat.shape[1] + e2.mat.shape[1]
@@ -186,7 +189,7 @@ def combine_elutions(e1, e2, combine_corr_func=None):
     mat[0:len(e1.prots),0:e1.mat.shape[1]] = e1.mat[:,:]
     for row2 in range(len(e2.prots)):
         mat[allprots.index(e2.prots[row2]), e1.mat.shape[1]:] = e2.mat[row2,:]
-    elut = Struct(mat=mat, prots=allprots,
+    elut = Struct(mat=mat, prots=allprots, fractions=e1.fractions+e2.fractions,
                   filename=e1.filename+e2.filename+str(combine_corr_func))
     if combine_corr_func:
         elut.corr = combine_corrs(e1, e2, allprots, combine_corr_func)
