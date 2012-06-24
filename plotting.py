@@ -8,20 +8,20 @@ import itertools
 import cv
 from Struct import Struct
 import utils as ut
-import myml
+#import myml
 import ppi
 COLORS = ['#4571A8', 'black', '#A8423F', '#89A64E', '#6E548D', '#3D96AE',
            '#DB843D', '#91C4D5', '#CE8E8D', '#B6CA93', '#8EA5CB', 'yellow',
            'gray', 'blue']
           
 
-def pr_ppi(train_test, ntest_pos, tested=None, prec_check=None,
-           label_stats=True, cutoff_score=None, columns=None, **kwargs):
-    tested = tested if tested else myml.fit_and_test(train_test, columns)
-    if label_stats:
-        kwargs['label'] = kwargs.get('label','')+" %s Total Test Pos; " % \
-           ntest_pos + ppi.stats(train_test)
-    pr_plot(tested, ntest_pos, prec_test=prec_check, **kwargs)
+# def pr_ppi(train_test, ntest_pos, tested=None, prec_check=None,
+#            label_stats=True, cutoff_score=None, columns=None, **kwargs):
+#     tested = tested if tested else myml.fit_and_test(train_test, columns)
+#     if label_stats:
+#         kwargs['label'] = kwargs.get('label','')+" %s Total Test Pos; " % \
+#            ntest_pos + ppi.stats(train_test)
+#     pr_plot(tested, ntest_pos, prec_test=prec_check, **kwargs)
 
 def boot_resample(extr_exte):
     return [Struct(names=ex.names,examples=ut.sample_wr(ex.examples, len(ex.examples))) for ex in extr_exte]
@@ -105,6 +105,20 @@ def imshow2(*args):
            # as say black by the colorbar if they're not 0.
            # Colormaps: bone, gray
 
+def examples_dist_arr(arr, score_indices, uselog=True, normed=True, default=-1,
+                   missing='?', linewidth=3, histtype='step', ncols=1,
+                   **kwargs):
+    nplots = len(score_indices)+1
+    pos,neg = [arr[[i for i in range(len(arr)) if arr[i][2]==t]] for t in 1,0]
+    for i, (ind, name) in enumerate([(ind,arr.dtype.names[ind]) for ind in score_indices]):
+        subplot(int(nplots/ncols)+1, ncols, i+2)
+        #kwargs['range'] = kwargs['range'] if 'range' in kwargs else \ [func([func(data) for data in [pos,neg]]) for func in [min,max]]
+        kwargs['bins'] = 30 if not 'bins' in kwargs else kwargs['bins']
+        (_,_,hp),(_,_,hn) = [hist(data, log=uselog, histtype='step', linewidth=linewidth, normed=normed, **kwargs) for data in pos[name],neg[name]]
+        title(name)
+    subplot(int(nplots/ncols)+2,ncols,1)
+    legend([hp[0],hn[0]],['Pos','Neg'])
+        
 def examples_dist(exlist, score_indices, uselog=True, normed=True, default=-1,
                    missing='?', linewidth=3, histtype='step', **kwargs):
     hs = []

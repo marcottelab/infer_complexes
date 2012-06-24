@@ -61,9 +61,10 @@ def predict_all(species, seqdb, elut_fs, scores=['poisson','wcc','apex'],
 
 def score_and_filter(arr, scores, elut_fs, cutoff, species, seqdb,
                      fnet_file, must_filter=True):
+    print 'Scoring.'
     score.score_array_multi(arr, species, seqdb, elut_fs, scores, cutoff)
     if must_filter and cutoff != -1:
-        print 'filtering.'
+        print 'Filtering.'
         columns = range(3,len(arr[0]))
         # note that this double-filters often. only an efficiency issue.
         arr = filter_arr(arr, columns, cutoff)

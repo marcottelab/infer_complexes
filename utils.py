@@ -232,6 +232,21 @@ def write_tab_file(ll, fname, formatter='{0}'):
                 f.write(formatter.format(x))
         f.write('\n')
 
+def print_lol(lol):
+    for l in lol:
+        print '\t'.join([str(i) for i in flatten(l)])
+
+def print_list(l):
+    print '\t'.join([str(i) for i in l])
+
+def flatten(lst):
+   out = []
+   for sublist in lst:
+       if not isinstance(sublist,list):
+           out.append(sublist)
+       else:
+           out.extend(sublist)
+   return out
 
 
 
