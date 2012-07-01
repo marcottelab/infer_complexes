@@ -30,6 +30,9 @@ class PairDict(object):
                 self.d[k].add(*val)
             else:
                 self.d[k].append(*val)
+                
+    def contains(self, pair):
+        return (self.find(pair) is not None)
 
     def find(self, pair):
         if pair in self.d:

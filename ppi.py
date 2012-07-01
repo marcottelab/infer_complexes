@@ -136,6 +136,3 @@ def preds_thresh(tested, thresh):
             break
     return limit
     
-def cyto_export(tested, fname, negmult=100):
-    ut.write_tab_file([(t[0],t[1],myml.rescale(t[2],negmult)) for t in
-        tested], fname)

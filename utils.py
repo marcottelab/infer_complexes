@@ -187,13 +187,13 @@ def load_dict_flat(fname):
     assert 0==1
     pass
 
-def load_tab_file(fname):
+def load_tab_file(fname, sep='\t'):
     """ Returns a generator of a list of list
     (assumes each element in a line is tab-delimited)
     """
     def clean(x):
         return x.strip() # remove the newlines
-    return (tuple(clean(l).split('\t')) for l in file(fname, 'r'))
+    return (tuple(clean(l).split(sep)) for l in file(fname, 'r'))
 
 def load_dict_sets(fname, lines='pairs'):
     # Returns a key->set(values) mapping
@@ -208,8 +208,8 @@ def load_list(fname):
 def load_array(fname):
     return np.loadtxt(fname)
 
-def load_list_of_lists(fname):
-    return [l for l in load_tab_file(fname)]
+def load_list_of_lists(fname, **kwargs):
+    return [l for l in load_tab_file(fname, **kwargs)]
 
 def write_dict_sets_lines(d,fname):
     write_tab_file([[i[0]]+list(i[1]) for i in d.items()],fname)

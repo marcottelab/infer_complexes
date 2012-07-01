@@ -1,18 +1,21 @@
-from sklearn import svm
+from sklearn.svm import SVC
 from sklearn.datasets import make_classification
 from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.ensemble import RandomForestClassifier
 import utils as ut
 from ppi import filter_arr
 import numpy as np
+import multiprocessing
 
-def fit_and_test(scored, columns=None, cutoff=0.25): #[arr_train, arr_test]
+NCORES = multiprocessing.cpu_count()
+
+def fit_and_test(scored, classer=None, columns=None, cutoff=0.25): #[arr_train, arr_test]
     arr_train, arr_test = scored
-    classer = fit_svm(arr_train, columns)
+    classer = fit_svm(arr_train, classer, columns)
     tested = test_svm(classer, arr_test, columns)
     return tested
 
-def fit_svm(arr_train, columns=None, cutoff=0.25):
-    classer = svm.SVC(kernel='linear', probability=True) 
+def fit_svm(arr_train, classer=None, columns=None, cutoff=0.25):
     arr_train, names = filter_names_arr(arr_train, columns, cutoff)
     classer.fit(features(arr_train, names), arr_train['hit'])
     return classer
@@ -25,7 +28,14 @@ def test_svm(classer, arr_test, columns=None, cutoff=0.25):
     tested.sort(key=lambda x:x[2],reverse=True)
     return tested
 
-def filter_names_arr(arr, columns, cutoff, nofilter=['HS','CE','DM','SC']):
+def tree(n_estimators=100,n_jobs=int(NCORES/2), bootstrap=True, **kwargs):
+    return ExtraTreesClassifier(n_estimators=n_estimators, n_jobs=n_jobs,
+                                bootstrap=bootstrap, **kwargs)
+
+def svm(kernel='linear', prob=True, **kwargs):
+    return SVC(kernel=kernel, probability=prob, **kwargs)
+
+def filter_names_arr(arr, columns, cutoff, nofilter=set(['HS','CE','DM','SC'])):
     """
     columns: either a list of column numbers or a space-sep string of
     2-letter matches for column names.
@@ -62,12 +72,6 @@ def match_cols(arr, colstring):
     """
     return [f for f in arr.dtype.names if (f[:2] in colstring.split()
                                            or f in colstring.split())]
-
-def rescale(p,n):
-    """
-    Rescale posterior probability p according to multiple of negatives n.
-    """
-    return p/(1+(1-p)*n)
 
 def feature_selection(arr, columns=None, cutoff=0.25):
 
