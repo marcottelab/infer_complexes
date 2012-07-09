@@ -6,8 +6,8 @@ import complex as co
 import utils as ut
 import pairdict
 
-def filter_c1(tested, negmult=50):
-    cxs = cluster_one(tested, negmult)
+def filter_c1(tested, negmult=50, **kwargs):
+    cxs = cluster_one(tested, negmult, **kwargs)
     pairs =co.pairs_from_complexes(dict([(i,set(cxs[i]))
                                          for i in range(len(cxs))]))
     pd = pairdict.PairDict(pairs)
@@ -16,19 +16,33 @@ def filter_c1(tested, negmult=50):
 def _filter_ints(inlist, pd):
     return [tup for tup in inlist if pd.contains((tup[0],tup[1]))]
     
-def cluster_one(tested, negmult):
-    fin='temp_interactions.tab'
-    fout = 'temp_complexes.tab'
-    export_ints(tested, fin, negmult)
-    ut.printnow('running cluster_one')
-    #shell_call('java -jar %s/cluster_one.jar -s 3 -d 0.0 --haircut 0.15 \
-    #--fluff %s > %s' % (os.path.expanduser('~/Dropbox/complex/tools'), fin,
-    #fout))
-    shell_call('java -jar %s/cluster_one.jar -s 3 -d 0.0 --haircut 0.15 %s > %s' % (os.path.expanduser('~/Dropbox/complex/tools'), fin, fout))
+c1defaults = {
+    'min_size': 2,
+    'min_density': 0.2,
+    'haircut': 0.0,
+    'penalty': 2.0,
+    'fluff': '--no-fluff',
+    'c1path': os.path.expanduser('~/Dropbox/complex/tools')+'/cluster_one.jar',
+    'fin': 'temp_interactions.tab',
+    'fout': 'temp_complexes.tab'
+    }
+
+def cluster_one(tested, negmult, **kwargs):
+    kwargs = set_defaults(kwargs, c1defaults)
+    export_ints(tested, kwargs['fin'], negmult)
+    command = 'java -jar %(c1path)s -s %(min_size)s -d %(min_density)s --haircut %(haircut)s --penalty %(penalty)s %(fluff)s %(fin)s > %(fout)s ' % kwargs
+    print command
+    shell_call(command)
     ut.printnow('finished cluster_one')
-    cxs = ut.load_list_of_lists(fout)
+    cxs = ut.load_list_of_lists(kwargs['fout'])
     return cxs
 
+def set_defaults(d, defaultd):
+    for k,v in defaultd.items():
+        if k not in d:
+            d[k] = v
+    return d
+    
 def export_ints(tested, fname, negmult):
     ut.write_tab_file([(t[0], t[1], rescale(t[2],negmult)) for t in
         tested], fname)
