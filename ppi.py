@@ -5,7 +5,6 @@ import orth
 import utils as ut
 import elution as el
 from Struct import Struct
-import pairarray as pa
 import numpy as np
 import fnet
 import score
@@ -46,7 +45,7 @@ def base_splits(species, seqdb, elut_fs, splits, neg_ratios, ind_cycle,
     return train,test
 
 def predict_all(species, seqdb, elut_fs, scores=['poisson','wcc','apex'],
-                fnet_file=None, cutoff=0.25):
+        fnet_file=None, cutoff=0.25):
     """
     Same more or less as full_examples above, but produces all predictions in
                   the elution files.
@@ -76,13 +75,13 @@ def new_score_array(pd, scores, fs, fnet_file):
     """
     arr[0] returns the first row of data.
     row[name_score(f,s)] returns the proper score
-    row['id1'],'id2','hit' index to the first three columns
+    row['id1','id2','hit'] index to the first three columns
     """
     data_names = [score.name_score(f,s) for f in fs for s in scores]
     if fnet_file != -1:
         data_names += fnet.fnet_names(fnet_file)
     arr = zeros(shape = len(pd.d),
-                dtype = ','.join(['a20']*2 + ['i1'] + ['f4']*len(data_names)))
+                dtype = ','.join(['a20']*2 + ['i1'] + ['f2']*len(data_names)))
     names = ['id1','id2','hit'] + data_names
     arr.dtype.names = tuple(names)
     for i,((p1,p2),lhit) in enumerate(pd.d.items()):

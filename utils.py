@@ -24,8 +24,8 @@ def savepy(obj,fname,safe=False):
         save(obj, fname+'.partial', safe=False)
         shutil.move(fname+'.partial', fname)
         return
-    # Because reloading a module thwarts pickling (the new class is not the same
-    # as the old)
+    # Because reloading a module thwarts pickling 
+    # (the new class is not the same as the old)
     def maybe_reload(obj):
         if hasattr(obj, '_pickle_reload'):
             obj = obj._pickle_reload()
@@ -47,6 +47,13 @@ def loadpy(fname):
         pass # Some objects don't have a filename
     return obj
 
+def loadpylab(fname, labpath='/Users/blakeweb/lab/Dropbox/complex/exp/07_realcomplexes/'):
+    f = os.path.join(labpath,fname)
+    if os.path.isfile(f):
+        return loadpy(f)
+    else:
+        print "not found:", f
+    
 
 ########################################################################
 ## COLLECTIONS and math functions
@@ -69,6 +76,14 @@ def column_totals(mat):
 
 def column_uniques(mat):
     return np.array((mat > 0).sum(axis=0)).flatten()
+
+def count_collect(items, length):
+    d = {}
+    for i in items:
+        init = i[:length]
+        d[init] = d.get(init,0) + 1
+    return ut.fsort(ut.fsort(d.items(), key=lambda x: x[0]),
+                    key=lambda x: len(x[0]), reverse=True)
 
 def every(pred, bag):
     # Like the Common Lisp EVERY
@@ -139,6 +154,12 @@ def printnow(s):
 def ravg(l):
     return rsum(l) / len(l)
 
+def rescale(p,n):
+    """
+    Rescale posterior probability p according to multiple of negatives n.
+    """
+    return p/(1+(1-p)*n)
+
 def rsum(l): #reduce sum
     # This is exactly like the Python built-in sum, but scipy overloads it
     # with its own sum function.
@@ -187,13 +208,16 @@ def load_dict_flat(fname):
     assert 0==1
     pass
 
-def load_tab_file(fname, sep='\t'):
+def load_tab_file(fname, sep='\t', use_special_clean=False):
     """ Returns a generator of a list of list
     (assumes each element in a line is tab-delimited)
     """
     def clean(x):
         return x.strip() # remove the newlines
-    return (tuple(clean(l).split(sep)) for l in file(fname, 'r'))
+    if use_special_clean:
+        return (tuple(l.split(sep)[:-1]+[l.split(sep)[-1].strip()]) for l in file(fname, 'r'))
+    else:
+        return (tuple(clean(l).split(sep)) for l in file(fname, 'r'))
 
 def load_dict_sets(fname, lines='pairs'):
     # Returns a key->set(values) mapping
@@ -316,9 +340,18 @@ def dict_dedup(d):
                     d_dedup[vi].remove(k)
     return d_dedup
 
+##########################################
+# Arrays
+##########################################
+
+def retype_array(arr, newtypes, newnames=None):
+    newarr = np.zeros(shape=len(arr), dtype = ','.join(newtypes))
+    newarr.dtype.names = tuple(newnames) if newnames else arr.dtype.names
+    newarr[:] = arr[:]
+    return newarr
 
 ##########################################
-# Other convenience
+# Configuration Filenames/Paths/Etc
 ##########################################
 
 dir_project = "~/Dropbox/complex"
