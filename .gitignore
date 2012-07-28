@@ -14,6 +14,7 @@
 *.pyd
 *.py#
 *.arff
+*.swp
 data/
 tools/
 docs/

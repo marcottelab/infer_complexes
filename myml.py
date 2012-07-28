@@ -1,3 +1,9 @@
+from __future__ import division
+import os
+import sys
+if not '/home/blakeb/.local/lib/python2.7/scikit_learn-0.11-py2.7-linux-x86_64.egg' in sys.path:
+    if os.path.exists('/home/blakeb/.local/lib/python2.7/scikit_learn-0.11-py2.7-linux-x86_64.egg'):
+        sys.path.append('/home/blakeb/.local/lib/python2.7/scikit_learn-0.11-py2.7-linux-x86_64.egg')
 from sklearn.svm import SVC
 from sklearn.datasets import make_classification
 from sklearn.ensemble import ExtraTreesClassifier
@@ -6,27 +12,48 @@ import utils as ut
 from ppi import filter_arr
 import numpy as np
 import multiprocessing
+import operator
 
 NCORES = multiprocessing.cpu_count()
+NET_SPS = 'HS CE DM SC'.split()
 
-def fit_and_test(scored, classer=None, columns=None, cutoff=0.25): #[arr_train, arr_test]
+def fit_and_test(scored, classer, columns=None, cutoff=0.25): 
+    """
+    scored: [arr_train, arr_test]
+    """
     arr_train, arr_test = scored
     classer = fit_svm(arr_train, classer, columns)
     tested = test_svm(classer, arr_test, columns)
     return tested
 
-def fit_svm(arr_train, classer=None, columns=None, cutoff=0.25):
+def fit_svm(arr_train, classer, columns=None, cutoff=0.25):
     arr_train, names = filter_names_arr(arr_train, columns, cutoff)
     classer.fit(features(arr_train, names), arr_train['hit'])
     return classer
 
-def test_svm(classer, arr_test, columns=None, cutoff=0.25):
+def test_svm(classer, arr_test, columns=None, cutoff=0.25, savef=None):
     arr_test, names = filter_names_arr(arr_test, columns, cutoff)
-    print 'Features:', names
+    if columns: print 'Features:', ut.count_collect(names, 6)
     probs = (x[1] for x in classer.predict_proba(features(arr_test, names)))
     tested = zip(arr_test['id1'], arr_test['id2'], probs, arr_test['hit'])
     tested.sort(key=lambda x:x[2],reverse=True)
+    if savef: ut.savepy(tested, savef)
     return tested
+
+def test_svm_slice(classer,arr_test, perslice, savef=None, columns=None,
+        cutoff=0.25, maintain=True, startslice=0):
+    nslices = int(np.ceil(len(arr_test) / perslice))
+    slices = (test_svm(classer, arr_test[i*perslice:(i+1)*perslice],
+                       savef=(savef+str(i)+'.pyd') if savef else None,
+                       columns=columns, cutoff=cutoff)
+              for i in range(startslice, nslices))
+    if maintain==True:
+        tested = reduce(operator.add, slices)
+        tested.sort(key=lambda x:x[2],reverse=True)
+        return tested
+    else:
+        for i,s in enumerate(slices):
+            print i, savef
 
 def tree(n_estimators=100,n_jobs=int(NCORES/2), bootstrap=True, **kwargs):
     return ExtraTreesClassifier(n_estimators=n_estimators, n_jobs=n_jobs,
@@ -35,12 +62,14 @@ def tree(n_estimators=100,n_jobs=int(NCORES/2), bootstrap=True, **kwargs):
 def svm(kernel='linear', prob=True, **kwargs):
     return SVC(kernel=kernel, probability=prob, **kwargs)
 
-def filter_names_arr(arr, columns, cutoff, nofilter=set(['HS','CE','DM','SC'])):
+def filter_names_arr(arr, columns, cutoff, nofilter=set(NET_SPS)):
     """
     columns: either a list of column numbers or a space-sep string of
     2-letter matches for column names.
     Filters the given array, returning the full rows (not just those named
     columns) for which at least one item passes the given cutoff.
+    Those beginning with items in nofilter are not used in qualifying
+    threshold-passing rows.
     """
     columns = columns if columns else feature_inds(arr)
     feat_names = ([arr.dtype.names[i] for i in columns]
@@ -54,10 +83,15 @@ def filter_names_arr(arr, columns, cutoff, nofilter=set(['HS','CE','DM','SC'])):
     else:
         # DON'T filter by network score columns: these don't qualify the row.
         names_filt = [n for n in feat_names if not n[:2] in (nofilter)]
-        print 'filtering', names_filt
-        nums_filt = ([i for i,name in enumerate(arr.dtype.names)
-                  if name in names_filt])
-        newarr = filter_arr(arr, nums_filt, cutoff)
+        all_possible = [n for n in arr.dtype.names if not n[:2] in nofilter]
+        if set(names_filt) == set(all_possible):
+            print 'no filtering'
+            newarr = arr
+        else:
+            print 'filtering', names_filt
+            nums_filt = ([i for i,name in enumerate(arr.dtype.names)
+                      if name in names_filt])
+            newarr = filter_arr(arr, nums_filt, cutoff)
     return newarr, feat_names
 
 def features(arr, feat_names):
@@ -104,3 +138,39 @@ def feature_selection(arr, columns=None, cutoff=0.25):
 
     pl.plot(indnums, importances[indices], "b")
     pl.show()
+
+def filter_nsp(arr, nsp=2, cutoff=0.25, dontfilt=True):
+    """
+    Filter to only leave interactions for which evidence exists in nsp species.
+    scores: [arr_train, arr_test]
+    """
+    if len(arr) == 2:
+        # user provided [trainarr, testarr]
+        return [filter_nsp(a, nsp=nsp, cutoff=cutoff, dontfilt=dontfilt)
+                for a in arr]
+    if dontfilt and nsp==1 and cutoff==0.25:
+        print "Assuming no need to filter: nsp=%s, cutoff=%s" % (nsp, cutoff)
+        return arr
+    features = arr.dtype.names[3:]
+    sps = set([n[:2] for n in features if n[:2] not in set(NET_SPS)])
+    print 'Filtering >=%s of these species >=%s:' % (nsp, cutoff), sps
+    spcols = [[f for f in features if f[:2] == s] for s in sps]
+    maxes = [[max(i) for i in arr[scs]] for scs in spcols]
+    exceed_inds = [i for i in range(len(arr))
+                   if len([i for m in maxes if m[i] > cutoff]) >= nsp]
+    return arr[exceed_inds]
+    
+if __name__ == '__main__':
+    nargs = len(sys.argv)
+    if nargs < 6:
+        sys.exit("usage: python myml.py f_examples f_classifier \
+               perslice islice path")
+    exs = np.load(sys.argv[1])
+    clf = ut.loadpy(sys.argv[2])
+    perslice = int(sys.argv[3])
+    i = int(sys.argv[4])
+    path = sys.argv[5]
+    exs_slice = exs[i*perslice:(i+1)*perslice]
+    del exs
+    test_svm_slice(clf, exs_slice, 100000, savef=(path+str(i)+'_'),
+            maintain=False, startslice=30)

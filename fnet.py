@@ -98,7 +98,7 @@ def score_examples(ex_struct, species, seqdb, fnet_file=None, genedict=None):
 def munge_original(fdata, column_inds, fnames, fout, first_names=1):
     """
     Keep selected columns, replace 'NA' with '?', remove empty rows.
-    Do not include 0 or 1 for ids--they are kept automatically.
+    Ids (first 2 columns) are kept automatically.
     For column inds, start with 0 for scores.
     Keep the same columns from the fnames file so I have a record of it.
     """
