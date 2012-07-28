@@ -232,3 +232,18 @@ def downsample_elution(elution, downsample, seed=0):
     down_elut.fractions = elution.fractions[::2]
     down_elut.name = elution.name + '_down%i' % downsample
     return(down_elut)
+
+def subset_elution(elution, prot_set):
+    """ 
+    Return an elution only containing the proteins contained in the
+    provided prot_set.
+    """
+    newel = Struct()
+    newel.__dict__ = elution.__dict__.copy()
+    prot_inds, newprots = zip(*[(i,p) for i,p in enumerate(elution.prots) 
+        if p in prot_set])
+    newel.mat = elution.mat[prot_inds,:]
+    newel.prots = newprots
+    print len(newel.prots), 'prots from', elution.filename, 'in set'
+    return newel
+
