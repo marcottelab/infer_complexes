@@ -18,6 +18,7 @@
 data/
 tools/
 docs/
+exp/
 
 # OS files
 *.DS_Store*
