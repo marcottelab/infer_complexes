@@ -8,8 +8,8 @@ import pairdict
 
 def filter_c1(tested, negmult=50, **kwargs):
     cxs = cluster_one(tested, negmult, **kwargs)
-    pairs =co.pairs_from_complexes(dict([(i,set(cxs[i]))
-                                         for i in range(len(cxs))]))
+    d_cxs = dict([(i,set(c)) for i,c in enumerate(cxs)]) 
+    pairs = co.pairs_from_complexes(d_cxs)
     pd = pairdict.PairDict(pairs)
     return _filter_ints(tested, pd)
     
@@ -23,10 +23,21 @@ c1defaults = {
     'penalty': 2.0,
     'fluff': '--no-fluff',
     'c1path': os.path.expanduser('~/Dropbox/complex/tools')+'/cluster_one.jar',
-    'fin': 'temp_interactions.tab',
-    'fout': 'temp_complexes.tab'
+    'fin':
+        os.path.expanduser('~/bigdata/complex/predictions')+
+        '/temp_interactions.tab',
+    'fout': os.path.expanduser('~/bigdata/complex/predictions') +
+        '/temp_complexes.tab'
     }
 
+def thresh(tested, score):
+    return tested[:n_thresh(tested, score)]
+
+def n_thresh(tested, score):
+    for i,t in enumerate(tested):
+        if t[2] < score:
+            return i
+    
 def cluster_one(tested, negmult, **kwargs):
     kwargs = set_defaults(kwargs, c1defaults)
     export_ints(tested, kwargs['fin'], negmult)
@@ -43,16 +54,10 @@ def set_defaults(d, defaultd):
             d[k] = v
     return d
     
-def export_ints(tested, fname, negmult):
-    ut.write_tab_file([(t[0], t[1], rescale(t[2],negmult)) for t in
+def export_c1(tested, fname, negmult):
+    ut.write_tab_file([(t[0], t[1], ut.rescale(t[2],negmult)) for t in
         tested], fname)
     
-def rescale(p,n):
-    """
-    Rescale posterior probability p according to multiple of negatives n.
-    """
-    return p/(1+(1-p)*n)
-
 def shell_call(command):
     # http://www.doughellmann.com/PyMOTW/subprocess/
     # use Popen when you want lots of control over the process and output
