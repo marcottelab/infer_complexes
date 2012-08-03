@@ -47,13 +47,20 @@ def loadpy(fname):
         pass # Some objects don't have a filename
     return obj
 
-def loadpylab(fname, labpath='/Users/blakeweb/lab/Dropbox/complex/exp/07_realcomplexes/'):
-    f = os.path.join(labpath,fname)
-    if os.path.isfile(f):
-        return loadpy(f)
+def loadpylab(fname, save_local=True,
+        labpath='/Users/blakeweb/lab/Dropbox/complex/exp/08_metacx02/'):
+    remotef = os.path.join(labpath,fname)
+    contents = None
+    if os.path.isfile(remotef):
+        contents = loadpy(remotef)
     else:
-        print "not found:", f
-    
+        print "not found:", remotef
+    if save_local:
+        if not os.path.isfile(fname):
+            savepy(contents, fname)
+        else:
+            print "local file exists; not saved."
+    return contents
 
 ########################################################################
 ## COLLECTIONS and math functions
