@@ -32,7 +32,7 @@ def fnet_names(fnet_file):
     filename = ut.proj_path('fnet_path',fnet_file)
     return [l[0].strip() if l[0].find('=')==-1 else l[0].split('=')[0].strip()
             for l in ut.load_tab_file(ut.pre_ext(filename,'_names'))]
-    
+
 def load_net(filename):
     """
     Output: dict: { ensg1-ensg2: [score1, score2, ...], ensg1-ensg5: ...}
@@ -55,9 +55,10 @@ def scores_pair(id1, id2, net, conv2ensg, default):
     if len(pairs)==0:
         return default
     scores = [net[_idpair(p1,p2)] for p1,p2 in pairs if _idpair(p1,p2) in net]
-    if len(scores)==0:
+    nscores = len(scores)
+    if nscores==0:
         return default
-    elif len(scores)==1:
+    elif nscores==1:
         return scores[0]
     else:
         return max_scores(scores)
