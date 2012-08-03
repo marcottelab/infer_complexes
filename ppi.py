@@ -9,6 +9,7 @@ import numpy as np
 import fnet
 import score
 from numpy import zeros,ndarray
+from pairdict import PairDict
 
 def learning_examples(species, seqdb, elut_fs, scores=['poisson','wcc','apex'],
                       fnet_file=None, splits=[0,.33,.66,1], neg_ratios=[10,40],
@@ -33,6 +34,9 @@ def learning_examples(species, seqdb, elut_fs, scores=['poisson','wcc','apex'],
                       seqdb, fnet_file) for arr in atrain,atest]
     print 'done.', stats(train_test)
     return train_test, ntest_pos
+
+def base_pd_from_tt(train_test):
+    return [PairDict([[p[0],p[1],p[2]] for p in t]) for t in train_test]
 
 def base_splits(species, seqdb, elut_fs, splits, neg_ratios, ind_cycle,
                 test_negs, pos_splits=None):
