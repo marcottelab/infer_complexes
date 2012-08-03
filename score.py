@@ -49,20 +49,6 @@ def score_array(arr, elut, fname, score, cutoff, idict):
 def name_score(fname, score):
     return ut.shortname(fname) + '_' + score 
 
-def score_examples(exstruct, score_mat, labels, name, default='?'):
-    examples_out = []
-    d = ut.list_inv_to_dict(labels)
-    for e in exstruct.examples:
-        p1 = e[0]
-        p2 = e[1]
-        if p1 in d and p2 in d:
-            examples_out.append(e + [score_mat[d[p1],d[p2]]])
-        else:
-            examples_out.append(e + [default])
-    exstruct.examples = examples_out
-    exstruct.names.append(name)
-    return exstruct
-
 def scorekey_elution(score_key, elution):
     if score_key == 'apex':
         score_mat = ApexScores(elution)
@@ -75,14 +61,6 @@ def scorekey_elution(score_key, elution):
     return score_mat
     
     
-def score_examples_key(exstructs, score_key, elution, cutoff):
-    score_mat = scorekey_elution(score_key, elution)
-    out = []
-    for exstruct in exstructs:
-        out.append(score_examples(exstruct, score_mat, elution.prots,
-                name_score(score_key, elution.filename)))
-    return out 
-
 def traver_corr(mat, repeat=200, norm='columns', verbose=True):
     # As described in supplementary information in paper.
     # Randomly draw from poisson(C=A+1/M) for each cell
