@@ -1,5 +1,5 @@
 import examples as ex
-import complex as co
+import corum as co
 import seqs
 import orth
 import utils as ut

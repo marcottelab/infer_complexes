@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 import subprocess
 import os
-import complex as co
+import corum as co
 import utils as ut
 import pairdict
 

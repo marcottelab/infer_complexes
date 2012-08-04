@@ -3,7 +3,7 @@ import utils as ut
 import pairdict as pd
 from pairdict import PairDict
 import ppi
-import complex as co
+import corum as co
 import itertools as it
 
 def cyto_prep(preds, cxs, arrtrain, fname, species='Hs', seqdb='ensp', 
