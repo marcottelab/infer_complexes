@@ -347,6 +347,12 @@ def dict_dedup(d):
                     d_dedup[vi].remove(k)
     return d_dedup
 
+def dict_disjoint_union(d1,d2):
+    """
+    Simply combine the two dicts, assuming keys are disjoint.
+    """
+    return dict([(k,v) for k,v in d1.items()]+[(k,v) for k,v in d2.items()])
+
 ##########################################
 # Arrays
 ##########################################
@@ -375,6 +381,7 @@ def config():
         return (True if string.lower() == 'true' else False if string.lower() ==
             'false' else string)
     conf_path = os.path.join(base_path, 'config.txt')
-    dconf = dict([(l.split()[0],str_to_bool(l.split()[1])) for l in load_list(conf_path)])
+    dconf = dict([(l.split()[0],str_to_bool(l.split()[1])) 
+        for l in load_list(conf_path) if len(l)>0 and l[0]!='#'])
     return dconf
     

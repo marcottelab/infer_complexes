@@ -1,22 +1,17 @@
 import os
 import utils as ut
+import orth
 
-def score_arr(arr, species, seqdb, fnet_file=None, genedict=None):
-    # genedict: { exid: set([ensg1, ensg2,...]), exid2: ...}
-    if genedict is None:
-        dictf = ut.proj_path('convert_net', '%s_%s2%s_net.tab' % (species,
-                                                              seqdb, species))
-        if os.path.exists(dictf):
-            genedict = ut.load_dict_sets(dictf)
-    if fnet_file is None:
-        fnet_file = ut.config()['fnet_%s_%s' % (species, seqdb)]
-    print 'Functional network:', fnet_file, 'Dict:', os.path.basename(dictf), \
-        len(genedict) if genedict else 0, 'keys'
-    filename = ut.proj_path('fnet_path',fnet_file)
+def score_arr(arr, species, ext_key):
+    ext_file = ut.config()[ext_key]
+    print 'External Data:', ext_file
+    genedict = convdict_from_fname(species, ext_file)
+    filename = ut.proj_path('fnet_path', ext_file)
     net = load_net(filename)
-    num_items = len(net.items()[0][1])
-    names = fnet_names(fnet_file)
-    default = ['?']*num_items
+    print 'Ext data size:', len(net)
+    nitems = len(net.items()[0][1])
+    names = fnet_names(ext_file) if nitems>1 else [ext_key]
+    default = ['?']*nitems
     num_hits = 0
     for i,row in enumerate(arr):
         p1,p2 = row['id1'],row['id2']
@@ -32,6 +27,19 @@ def fnet_names(fnet_file):
     filename = ut.proj_path('fnet_path',fnet_file)
     return [l[0].strip() if l[0].find('=')==-1 else l[0].split('=')[0].strip()
             for l in ut.load_tab_file(ut.pre_ext(filename,'_names'))]
+
+def convdict_from_fname(species, ext_file):
+    # Doesn't yet work for the general case of possibly needing to go two
+    # steps--to the new species, then to a new seqdb
+    totype = '_'.join(ext_file.split('/')[-1].split('_')[:2]) #Hs_entrez;Dm_fbgn
+    # If there's no matching conversion file, assume it's not needed.
+    genedict = None
+    try:
+        genedict = orth.convert_dict(species, totype)
+        print 'Conversion file:', species, totype, len(genedict), 'keys'
+    except IOError as e:
+        print 'No external conversion file:', species, totype, e.strerror
+    return genedict
 
 def load_net(filename):
     """
@@ -68,34 +76,6 @@ def max_scores(scores):
     print "fix max scores--this one was length ", len(scores)
     return scores[0]
 
-def score_examples(ex_struct, species, seqdb, fnet_file=None, genedict=None):
-    # exs: struct with exs.names: ['score1', 'score2', ...]
-    # and exs.examples: [[id1, id2, 'true/false', score1, score2, ...], ..]
-    # genedict: { exid: set([ensg1, ensg2,...]), exid2: ...}
-    if genedict is None:
-        dictf = ut.proj_path('convert_net', '%s_%s2%s_net.tab' % (species,
-                                                              seqdb, species))
-        if os.path.exists(dictf):
-            genedict = ut.load_dict_sets(dictf)
-    if fnet_file is None:
-        fnet_file = ut.config()['fnet_%s_%s' % (species, seqdb)]
-    print 'Functional network:', fnet_file, 'Dict:', os.path.basename(dictf), \
-        len(genedict) if genedict else 0, 'keys'
-    filename = ut.proj_path('fnet_path',fnet_file)
-    net = load_net(filename)
-    num_items = len(net.items()[0][1])
-    out_examples = []
-    default = ['?']*num_items
-    num_hits = 0
-    for ex in ex_struct.examples:
-        scores = scores_pair(ex[0], ex[1], net, genedict, default)
-        out_examples.append(ex + scores)
-        if scores != default: num_hits += 1
-    print num_hits, 'network scores found for ', len(out_examples), 'pairs'
-    ex_struct.examples = out_examples
-    ex_struct.names += [l[0] for l in
-                        ut.load_list_of_lists(ut.pre_ext(filename,'_names'))]
-    
 def munge_original(fdata, column_inds, fnames, fout, first_names=1):
     """
     Keep selected columns, replace 'NA' with '?', remove empty rows.

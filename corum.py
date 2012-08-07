@@ -4,37 +4,8 @@ import random
 import os
 import utils as ut
 
-keys = {
-    #'uppi': ('~/Dropbox/complex/data/corum/corum_overlaps_forppi.tab', 'lists'),
-    #'eppi': ('~/Dropbox/complex/data/corum/corum_overlaps_forppi_en.tab', 'lists'),
-    #'uclean': ('~/Dropbox/complex/data/corum/corum_clean_nooverlaps_supptable3.tab', 'singles'),
-    #'eclean':
-    #('~/Dropbox/complex/data/corum/corum_clean_nooverlaps_supptable3_ensp.tab',
-    #'singles')
-    'hs_eptrain': '~/Dropbox/complex/data/corum/pairs/ensp_pairs_ppi.tab',
-    'hs_eptrain_negs': '~/Dropbox/complex/data/corum/pairs/ensp_pairs_ppi_negs.tab',
-    'hs_eptest':
-    '~/Dropbox/complex/data/corum/pairs/ensp_pairs_ppi_exclude.tab',
-    'hs_eptest': '~/Dropbox/complex/data/corum/pairs/ensp_pairs_ppi_negs_exclude.tab',
-    'hs_uptrain': '~/Dropbox/complex/data/corum/pairs/uni_pairs_ppi.tab',
-    'hs_uptrain_negs': '~/Dropbox/complex/data/corum/pairs/uni_pairs_ppi_negs.tab',
-    'hs_uptest':
-    '~/Dropbox/complex/data/corum/pairs/uni_pairs_ppi_exclude.tab',
-    'hs_uptest_negs': '~/Dropbox/complex/data/corum/pairs/uni_pairs_ppi_negs_exclude.tab',
-    'ce_eptrain': '~/Dropbox/complex/data/corum/pairs/ce_ensp_pairs_ppi.tab',
-    'ce_eptrain_negs': '~/Dropbox/complex/data/corum/pairs/ce_ensp_pairs_ppi_negs.tab',
-    'ce_eptest':
-    '~/Dropbox/complex/data/corum/pairs/ce_ensp_pairs_ppi_exclude.tab',
-    'ce_eptest_negs': '~/Dropbox/complex/data/corum/pairs/ce_ensp_pairs_ppi_negs_exclude.tab'
-    }
-
-
-def _dep_pairs_key(key):
-    return [list(e) for e in ut.load_tab_file(os.path.expanduser(keys[key]))]
-
 def pairs(fname):
     return [list(e) for e in ut.load_tab_file(fname)]
-
 
 def pairs_from_complexes(complexes):
     intdict = corum_ints_duped(complexes)

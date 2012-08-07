@@ -6,9 +6,8 @@ import ppi
 import corum as co
 import itertools as it
 
-def cyto_prep(preds, cxs, arrtrain, fname, species='Hs', seqdb='ensp', 
-        negmult=50):
-    preds = preds_gold_standard(preds, arrtrain, species, seqdb)
+def cyto_prep(preds, cxs, arrtrain, fname, species='Hs', negmult=50):
+    preds = preds_gold_standard(preds, arrtrain, species)
     preds = preds_as_cxs(preds, cxs)
     export_ints(preds, fname, negmult)
     export_idconvert(preds, fname)
@@ -23,10 +22,10 @@ def export_idconvert(preds, fname):
     pfx_convert = [['nodeid', 'ENSPID']] + pfx_convert
     ut.write_tab_file(pfx_convert, ut.pre_ext(fname,'pfx_convert'))
 
-def preds_gold_standard(preds, arrtrain, species, seqdb):
+def preds_gold_standard(preds, arrtrain, species):
     pdpreds = PairDict([p[:3] for p in preds])
     print len(pdpreds.d), "predicted interactions"
-    ppi_cxs,_ = ppi.load_training_complexes(species, seqdb)
+    ppi_cxs,_ = ppi.load_training_complexes(species)
     pdcorum = PairDict([(i[0],i[1],'gold') for i in
                         co.pairs_from_complexes(ppi_cxs)])
     print len(pdcorum.d), "total gold standard"

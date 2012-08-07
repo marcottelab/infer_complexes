@@ -10,22 +10,22 @@ import elution as el
 import orth
 
 
-def score_array_multi(arr, sp_base, seqdb, elut_fs, scores, cutoff):
+def score_array_multi(arr, sp_base, elut_fs, scores, cutoff):
     eluts = [(el.load_elution(f),f) for f in elut_fs]
     for e,f in eluts:
-        indices = orth_indices(sp_base, seqdb, f, e.prots)
+        indices = orth_indices(sp_base, f, e.prots)
         for score in scores:
             print score, f
             score_array(arr, e, f, score, cutoff, indices)
 
-def orth_indices(sp_base, seqdb, filename, prot_list):
+def orth_indices(sp_base, filename, prot_list):
     sp_target = ut.shortname(filename)[:2]
     targ2inds = dict([(k,set([v]))
                       for k,v in ut.list_inv_to_dict(prot_list).items()])
     if sp_base == sp_target:
         return targ2inds
     else:
-        base2targ = orth.odict(sp_base+'_'+seqdb, sp_target+'_'+seqdb)
+        base2targ = orth.odict(sp_base, sp_target)
         base2inds = ut.compose_dict_sets(base2targ, targ2inds)
         base2inds = dict([(k,v) for k,v in base2inds.items() if len(v)>0])
         return base2inds

@@ -39,7 +39,7 @@ def load_elution(fname, getname=True):
     return elut
 
 def all_filtered_pairs(fnames, score_keys, cutoff=0.25, sp_base=None,
-                       seqdb=None, verbose=True):
+                       verbose=True):
     allpairs = PairDict([])
     for skey,f in itertools.product(score_keys,fnames):
         if verbose: print skey, cutoff, f
@@ -47,12 +47,12 @@ def all_filtered_pairs(fnames, score_keys, cutoff=0.25, sp_base=None,
         pair_inds = score.pairs_exceeding(elut, skey, thresh=cutoff)
         newpairs = PairDict(((elut.prots[i], elut.prots[j])
                              for (i,j) in pair_inds))
-        newpairs = translate_pairs(newpairs, sp_base, file_sp(f), seqdb)
+        newpairs = translate_pairs(newpairs, sp_base, file_sp(f))
         allpairs = pairdict.pd_union_novals(allpairs, newpairs)
     return allpairs
 
-def translate_pairs(pairs, sp_base, sp_target, seqdb):
-    t2b = targ2base(sp_base, sp_target, seqdb)
+def translate_pairs(pairs, sp_base, sp_target):
+    t2b = targ2base(sp_base, sp_target)
     if t2b:
         pairs = PairDict(((base1,base2)
                           for t1,t2 in pairs.d
@@ -60,21 +60,21 @@ def translate_pairs(pairs, sp_base, sp_target, seqdb):
                           itertools.product(t2b.get(t1,[]), t2b.get(t2,[]))))
     return pairs
     
-def targ2base(sp_base, sp_target, seqdb):
+def targ2base(sp_base, sp_target):
     t2b = None
     if sp_base:
         if sp_base != sp_target:
-            t2b = orth.odict(sp_target+'_'+seqdb, sp_base+'_'+seqdb)
+            t2b = orth.odict(sp_target, sp_base)
     return t2b
 
 def file_sp(filename):
     return ut.shortname(filename)[:2]
 
-def all_prots(elut_fs, sp_base=None, seqdb=None):
+def all_prots(elut_fs, sp_base=None):
     print 'Loading all proteins from files'
     allprots = set([])
     for f in elut_fs:
-        t2b = targ2base(sp_base, file_sp(f), seqdb)
+        t2b = targ2base(sp_base, file_sp(f))
         newprots = set(load_elution(f).prots) 
         if t2b:
             newprots = set((b for t in newprots for b in t2b.get(t,[])))

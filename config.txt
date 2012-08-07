@@ -1,11 +1,27 @@
 convert     data/convert
 convert_orth     data/convert/orth
-convert_net     data/convert/net
-fnet_path   data/functional
-fnet_Ce_ensp    Ce/Ce_net_ce4.tab
-fnet_Hs_ensp    Hs/Hs_net_hs4.tab
+
+fnet_path   data/extdata
+
+# Corum
+# !!conversion file is specific to the corum download--get a new one if changed
+corum_convert   data/convert/Hs_uni_corum2Hs_ensg_201208.tab
 corum_pairs data/corum/pairs
 ppi_cxs     data/corum/corum_overlaps_forppi.tab
 clean_cxs   data/corum/corum_clean_nooverlaps_supptable3.tab
-ensp_fasta  data/sequences/canon
+
+fastadir  data/sequences/canon
 save_compact_corrs  True
+
+# Ext files
+net_Hs19    Hs_net/Hs_net_19.tab
+ext_Hs_malo    Hs_entrez_malovannaya_cxs.tab
+ext_Dm_guru    Dm_fbgn_guruharsha_ints.tab
+
+# fasta identifier type defaults
+Ce_default  wbgn
+Dd_default  ddg
+Dm_default  fbgn
+Hs_default  ensg
+Mm_default  ensmusg
+Sp_default  spbase

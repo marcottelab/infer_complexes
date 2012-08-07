@@ -1,7 +1,7 @@
 import utils as ut
 import os
 
-keys = "Hs_ensp-Ce_ensp Hs_ensp-Dd_ensp Hs_ensp-Dm_ensp Hs_ensp-Mm_ensp Hs_ensp-Sp_ensp Hs_uni-Ce_uni".split()
+keys = "Hs-Ce Hs-Dd Hs-Dm Hs-Mm Hs-Sp Hs_uni-Ce_uni".split()
 def odict(from_sp, to_sp):
     """
     Load a dict from file, eg:
@@ -20,6 +20,20 @@ def odict(from_sp, to_sp):
                                                         'table.'+key)),
                              swap_order=swap_order)
 
+def convert_dict(fromtype, totype):
+    """
+    totype: must be sp_seqdb
+    """
+    tosp, toseqdb = totype.split('_')
+    if toseqdb == ut.config()[tosp+'_default']:
+        totype = tosp
+    if fromtype == totype:
+        return None
+    elif len(fromtype) == len(totype) == 2:
+        return odict(fromtype, totype)
+    else:
+        fname = "%s2%s.tab" % (fromtype, totype)
+        return ut.load_dict_sets(ut.proj_path('convert',fname))
             
 def _ogroups_to_odict(ogroups, swap_order=False):
     """

@@ -2,7 +2,8 @@ import operator
 import utils as ut
 import difflib
 
-def ensembl_prots_to_genes(fname, bar_split=None, second_split=False, only_geneid_on_line=False):
+def ensembl_prots_to_genes(fname, bar_split=None, second_split=False, 
+        only_geneid_on_line=False, pid_replace=False):
     """
     Take a protein sequence file and keep only the longest sequence for each
     gene.  Designed for ensembl fasta sequence downloads.  Purpose is to run
@@ -10,12 +11,27 @@ def ensembl_prots_to_genes(fname, bar_split=None, second_split=False, only_genei
     have gene-based orthology, which is cleaner to understand.
     bar_split: use 1 for Dd, Sp, leave out for standard ensembl
     for Sp, use second_split=True
+    pid_replace only works the first time--don't try it again after replacement
     """
-    genes_dict = _longest_seqs(fname, bar_split, only_geneid_on_line=only_geneid_on_line)
+    genes_dict = _longest_seqs_dep(fname, bar_split, 
+            only_geneid_on_line=only_geneid_on_line)
+    if pid_replace:
+        for geneid, lines in genes_dict.items():
+            items = lines[0].split(' ')
+            protid = items[0].strip().strip('>')
+            items[0] = '>' + geneid
+            items.append('protein:' + protid)
+            lines[0] = ' '.join(items)
     genes_list = reduce(operator.add,[lines for g,lines in genes_dict.items()])
     ut.write_tab_file(genes_list, fname+'_longest')
 
-def _longest_seqs(fname, bar_split, second_split=False,
+def prots2genes(fname):
+    lines = ut.load_list(fname)
+    return dict([(p.split()[-1].split(':')[1], p.split()[0].strip('>'))
+                    for p in lines if p[0]=='>'])
+
+
+def _longest_seqs_dep(fname, bar_split, second_split=False,
                  only_geneid_on_line=False):
     prots = _load_prots_to_lol(fname)
     genes_dict = {}
@@ -47,6 +63,15 @@ def _load_prots_to_lol(fname):
     return prots_clean
 
 def load_prots_from_fasta(fname):
+    """
+    Files are in data/sequences/canon.  
+    Returns a set since usually I'm searching against it.
+    """
+    protlines = [l for l in ut.load_list(fname) if l[0]=='>']
+    genes = set([l.split(' ')[0].strip('>') for l in protlines])
+    return genes
+
+def load_prots_from_fasta_dep(fname):
     """
     Files are in data/sequences/canon.  All so far can be split by both space
     and |.
@@ -87,3 +112,32 @@ def ensp_clean_chroms(protlol, set_badchs, start=0, end=0):
     protfix = [plines for plines in protlol
         if plines[0].split(' ')[2].split(':')[2][start:end] not in set_badchs]
     return protfix
+
+def all_p2g(fs):
+    return reduce(ut.dict_disjoint_union, [prots2genes(f) for f in fs])
+
+def orth_pid2geneid(fname, p2g):
+    lines = ut.load_tab_file(fname)
+    def process(lines):
+        def replistp2g(pclist):
+            return ' '.join([el if i%2 else p2g[el] 
+                            for i,el in enumerate(pclist)])
+        for n,items in enumerate(lines):
+            if n==1:
+                yield items
+            else:
+                newitems = list(items[:2])
+                for i in 2,3:
+                    newitems.append(replistp2g(items[i].split()))
+                yield newitems
+    ut.write_tab_file(process(lines), fname+'_fix')
+
+def elut_p2g(fname, p2g):
+    lines = ut.load_tab_file(fname)
+    def process(lines):
+        for items in lines:
+            if items[0][0] != '#':
+                yield [p2g[items[0]]] + list(items[1:])
+            else:
+                yield items
+    ut.write_tab_file(process(lines), fname+'_fix')
