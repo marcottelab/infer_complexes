@@ -139,22 +139,28 @@ def feature_selection(arr, columns=None, cutoff=0.25):
     pl.plot(indnums, importances[indices], "b")
     pl.show()
 
-def filter_nsp(arr, nsp=2, cutoff=0.25, dontfilt=True):
+def filter_nsp(arr, nsp=2, cutoff=0.25, dontfilt=True, count_ext=True):
     """
     Filter to only leave interactions for which evidence exists in nsp species.
     scores: [arr_train, arr_test]
     """
     if len(arr) == 2:
         # user provided [trainarr, testarr]
-        return [filter_nsp(a, nsp=nsp, cutoff=cutoff, dontfilt=dontfilt)
+        return [filter_nsp(a, nsp=nsp, cutoff=cutoff, dontfilt=dontfilt,
+            count_ext=count_ext)
                 for a in arr]
     if dontfilt and nsp==1 and cutoff==0.25:
         print "Assuming no need to filter: nsp=%s, cutoff=%s" % (nsp, cutoff)
         return arr
     features = arr.dtype.names[3:]
-    sps = set([n[:2] for n in features if n[:2] not in set(NET_SPS)])
+    sps = set([n[:2] for n in features 
+                if n[:2] not in set(NET_SPS) and n[:2] != 'ex'])
     print 'Filtering >=%s of these species >=%s:' % (nsp, cutoff), sps
-    spcols = [[f for f in features if f[:2] == s] for s in sps]
+    spcols = [[f for f in features 
+                if f[:2]==s or (count_ext==True and f[:2]=='ex' and f[4:6]==s)]
+                for s in sps]
+    # useful if adding new data and debugging
+    # print spcols
     maxes = [[max(i) for i in arr[scs]] for scs in spcols]
     exceed_inds = [i for i in range(len(arr))
                    if len([i for m in maxes if m[i] > cutoff]) >= nsp]
@@ -173,4 +179,4 @@ if __name__ == '__main__':
     exs_slice = exs[i*perslice:(i+1)*perslice]
     del exs
     test_svm_slice(clf, exs_slice, 100000, savef=(path+str(i)+'_'),
-            maintain=False, startslice=30)
+            maintain=False, startslice=0)
