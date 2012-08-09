@@ -1,6 +1,8 @@
 import os
 import utils as ut
 import orth
+import pairdict as pd
+import itertools as it
 
 def score_arr(arr, species, ext_key):
     ext_file = ut.config()[ext_key]
@@ -95,3 +97,32 @@ def munge_original(fdata, column_inds, fnames, fout, first_names=1):
     names = [l for i,l in enumerate( list( ut.load_tab_file(
         fnames))[first_names:]) if i in column_inds]
     ut.write_tab_file(names, ut.pre_ext(fout, '_names')) 
+
+def munge_malov(fdata):
+    # load from proper columns
+    cxs = {}
+    for line in ut.load_tab_file(fdata):
+        g,c = line[:2]
+        cxs.setdefault(c,set([])).add(g)
+    # remove (many) singletons
+    for c,gset in cxs.items():
+        if len(gset) < 2: 
+            del cxs[c]
+    ints = pd.PairDict([])
+    # interpret "approved"/"provisional"/"temporary"
+    def scorec(c):
+        if c[0] == 'A':
+            return 10
+        elif c[0] == 'P':
+            return 3
+        elif c[0] == 'T':
+            return 1
+        else:
+            print c[0]
+            return 1
+    for c,gset in cxs.items():
+        score = scorec(c)
+        for pair in it.combinations(gset,2):
+            assert not ints.contains(pair), "ints contains %s" % pair[0]+pair[1]
+            ints.append(pair, score)
+    return ints
