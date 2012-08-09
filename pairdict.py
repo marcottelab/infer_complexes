@@ -21,16 +21,15 @@ class PairDict(object):
         self.d[k] = val
 
     def append(self, key, val):
-        # untested
         k = self.find(key)
         if k==None:
-            self.d[k] = val
+            self.d[key] = val
         else:
             if isinstance(self.d[k],set):
                 self.d[k].add(*val)
             else:
                 self.d[k].append(*val)
-                
+
     def contains(self, pair):
         return (self.find(pair) is not None)
 

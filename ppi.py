@@ -25,6 +25,7 @@ def learning_examples(species, elut_fs, scores=['poisson','wcc','apex'],
                  base_splits(species, elut_fs, splits, neg_ratios,
                       ind_cycle, test_negs, pos_splits)
     ntest_pos = len([v for k,v in test.d.items() if v[0]==1])
+    # Note this is wrong if base_tt is supplied since that is already filtered.
     print 'total test positives:', ntest_pos
     atrain,atest = [new_score_array(pdict, scores, elut_fs, extdata)
                     for pdict in train,test]

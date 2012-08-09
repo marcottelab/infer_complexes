@@ -40,7 +40,7 @@ def n_thresh(tested, score):
     
 def cluster_one(tested, negmult, **kwargs):
     kwargs = set_defaults(kwargs, c1defaults)
-    export_ints(tested, kwargs['fin'], negmult)
+    export_c1(tested, kwargs['fin'], negmult)
     command = 'java -jar %(c1path)s -s %(min_size)s -d %(min_density)s --haircut %(haircut)s --penalty %(penalty)s %(fluff)s %(fin)s > %(fout)s ' % kwargs
     print command
     shell_call(command)

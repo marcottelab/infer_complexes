@@ -26,7 +26,7 @@ COLORS = ['#4571A8', 'black', '#A8423F', '#89A64E', '#6E548D', '#3D96AE',
 def boot_resample(extr_exte):
     return [Struct(names=ex.names,examples=ut.sample_wr(ex.examples, len(ex.examples))) for ex in extr_exte]
     
-def score_threshold(tested, show=1000, window=50, **kwargs):
+def rolling_scores(tested, show=1000, window=50, **kwargs):
     #rolling = [len([t for t in tested[i:i+window] if t[3]==1])/window for i in
     #range(show-window)]
     padded = list(np.zeros((50,4)))+list(tested)
@@ -36,6 +36,7 @@ def score_threshold(tested, show=1000, window=50, **kwargs):
     plot([t[2] for t in tested[:show]], **kwargs)
     xlabel('starting index in scored examples')
     ylabel('fraction true in index:index+%s'%window)
+    legend(['fraction true','score'])
     
 # def cluster(corr):
 #     # corr: a matrix of similarity scores, such as a covariance matrix

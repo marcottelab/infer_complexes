@@ -19,7 +19,7 @@ def export_ints(tested, fname, negmult, header=['id1', 'id2', 'score', 'corum',
 
 def export_idconvert(preds, fname):
     pfx_convert = [[p[i], p[i].split('_')[1]] for p in preds for i in 0,1]
-    pfx_convert = [['nodeid', 'ENSPID']] + pfx_convert
+    pfx_convert = [['nodeid', 'ENSGID']] + pfx_convert
     ut.write_tab_file(pfx_convert, ut.pre_ext(fname,'pfx_convert'))
 
 def preds_gold_standard(preds, arrtrain, species):

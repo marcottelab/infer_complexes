@@ -48,18 +48,18 @@ def loadpy(fname):
     return obj
 
 def loadpylab(fname, save_local=True,
-        labpath='/Users/blakeweb/lab/Dropbox/complex/exp/08_metacx02/'):
+        labpath='/Users/blakeweb/lab/Dropbox/complex/exp/09_metacx03/'):
     remotef = os.path.join(labpath,fname)
     contents = None
     if os.path.isfile(remotef):
         contents = loadpy(remotef)
+        if save_local:
+            if not os.path.isfile(fname):
+                savepy(contents, fname)
+            else:
+                print "local file exists; not saved."
     else:
         print "not found:", remotef
-    if save_local:
-        if not os.path.isfile(fname):
-            savepy(contents, fname)
-        else:
-            print "local file exists; not saved."
     return contents
 
 ########################################################################
