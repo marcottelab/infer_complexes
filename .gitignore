@@ -22,6 +22,7 @@ exp/
 
 # OS files
 *.DS_Store*
+nohup.out
 
 # directories that keep showing up
 exp/12-03-elution/convert/
