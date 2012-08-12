@@ -12,7 +12,6 @@ import orth
 
 def score_array_multi(arr, sp_base, elut_fs, scores, cutoff, verbose=False):
     eluts = [(el.load_elution(f),f) for f in elut_fs]
-    print "Fix 2, try2."
     current_sp = ''
     for e,f in eluts:
         new_sp = os.path.basename(f)[:2]
@@ -62,14 +61,11 @@ def score_array(arr, elut, fname, score, cutoff, id2inds):
     score_name = name_score(fname,score)
     for i,row in enumerate(arr):
         id1,id2 = row['id1'],row['id2']
-        #if id1 in id2inds and id2 in id2inds and id2inds[id1]!=id2inds[id2]: 
-        if id1 in id2inds and id2 in id2inds: 
+        if id1 in id2inds and id2 in id2inds and id2inds[id1]!=id2inds[id2]: 
             # Could also check for i!=j but would have no effect here since
             # these mappings come from disjoint orthogroups.
-            #row[score_name] = max([score_mat[i,j] for i in id2inds[id1] for j in id2inds[id2]])
-            scores = [score_mat[i,j] for i in id2inds[id1] for j in id2inds[id2] if i!=j]
-            if len(scores)>0: 
-                row[score_name] = max(scores)
+            row[score_name] = max([score_mat[i,j]
+                             for i in id2inds[id1] for j in id2inds[id2]])
         
 def name_score(fname, score):
     return ut.shortname(fname) + '_' + score 
