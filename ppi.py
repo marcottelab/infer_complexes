@@ -13,9 +13,9 @@ from pairdict import PairDict
 
 def learning_examples(species, elut_fs, scores=['poisson','wcc','apex'],
                       extdata=['net_Hs19', 'ext_Dm_guru','ext_Hs_malo'], 
-                      splits=[0,.33,.66,1], neg_ratios=[10,40],
+                      splits=[0,.33,.66,1], neg_ratios=[2.5,230],
                       ind_cycle=[0,-1], cutoff=0.25, base_tt=None,
-                      pos_splits=None, test_negs=None):
+                      pos_splits=None, test_negs=None): 
     """
     Species: 'Hs', 'Ce', ...
     Provide base_tt as [arrtest,arrtrain] to use saved examples.
@@ -57,19 +57,25 @@ def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
     for k in pairs.d: pairs.d[k] = -1 #interaction marked as unknown
     arr = new_score_array(pairs, scores, elut_fs, extdata)
     del pairs #lots of memory
-    return score_and_filter(arr, scores, elut_fs, cutoff, species,
+    scored_arr = score_and_filter(arr, scores, elut_fs, cutoff, species,
                 extdata, must_filter=False)
+    return scored_arr
 
 def score_and_filter(arr, scores, elut_fs, cutoff, species, 
-                     extdata, must_filter=True):
-    print 'Scoring.'
+                     extdata):
+    print '\nScoring %s elutions with %s base, scores: %s.' % (len(elut_fs),
+            species, ','.join(scores))
     score.score_array_multi(arr, species, elut_fs, scores, cutoff)
-    if must_filter and cutoff != -1:
+    if cutoff != -1:
         print 'Filtering.'
         columns = range(3,len(arr[0]))
         # note that this double-filters often. only an efficiency issue.
         arr = filter_arr(arr, columns, cutoff)
-    for d in extdata: fnet.score_arr(arr, species, d)
+    if extdata:
+        print '\nScoring with external data:', ','.join(extdata)
+        for d in extdata: fnet.score_arr(arr, species, d)
+    if cutoff == -1:
+        arr = remove_empties(arr)
     return arr 
 
 def new_score_array(pd, scores, fs, extdata):
@@ -139,3 +145,8 @@ def preds_thresh(tested, thresh):
             break
     return limit
 
+def remove_empties(arr):
+    if len(arr)==2: # assume this is test-train
+        return [remove_empties(a) for a in arr]
+    newarr = arr[list(arr.dtype.names[3:])]
+    return arr[np.where([max(newarr[i]) for i in range(len(newarr))])]
