@@ -10,6 +10,7 @@ import itertools
 import string
 import warnings
 import numpy as np
+import shutil
 
 
 
@@ -47,20 +48,31 @@ def loadpy(fname):
         pass # Some objects don't have a filename
     return obj
 
-def loadpylab(fname, save_local=True,
-        labpath='/Users/blakeweb/lab/Dropbox/complex/exp/09_metacx03/'):
-    remotef = os.path.join(labpath,fname)
-    contents = None
+def loadlab(fname, loadfunc=loadpy, copy=True):
+    remotef = remoted(fname)
     if os.path.isfile(remotef):
-        contents = loadpy(remotef)
-        if save_local:
+        if copy:
             if not os.path.isfile(fname):
-                savepy(contents, fname)
+                shutil.copy(remotef, fname)
+                return loadfunc(fname)
             else:
-                print "local file exists; not saved."
+                print "Local file exists; not copied."
+                return loadfunc(remotef)
+        else:
+            return loadfunc(remotef)
     else:
-        print "not found:", remotef
-    return contents
+        print "Not found:", remotef
+
+def remoted(fname=''):
+    return os.path.join('/Volumes/users/Dropbox/', exp_dirs(), fname)
+
+def exp_dirs():
+    return '/'.join(os.path.abspath('.').split('/')[-3:])
+
+def bigd(fname=''):
+    basepath = os.path.expanduser('~/bigdata/')
+    return os.path.join(basepath, exp_dirs(), fname)
+
 
 ########################################################################
 ## COLLECTIONS and math functions
@@ -347,11 +359,35 @@ def dict_dedup(d):
                     d_dedup[vi].remove(k)
     return d_dedup
 
-def dict_disjoint_union(d1,d2):
+def dict_quick_merge(d1,d2):
     """
     Simply combine the two dicts, assuming keys are disjoint.
     """
     return dict([(k,v) for k,v in d1.items()]+[(k,v) for k,v in d2.items()])
+
+def dict_select(d, keys):
+    """
+    Return a dict only with keys in the list of keys.
+    example:
+    clust_kw = 'min_density min_size haircut penalty'.split()
+    clust_kwargs = ut.dict_select(kwargs, clust_kw)
+    """
+    return dict([(k,d[k]) for k in keys if k in d])
+
+def dict_bicliques(d, minlen=1):
+    bis = []
+    tried = set([])
+    ks = [k for k,v in d.items() if len(v)>minlen]
+    for k in ks:
+        if k not in tried:
+            right = d[k]
+            invd = dict_inverse_sets(d)
+            left = invd[list(right)[0]]
+            tried = set.union(tried, left)
+            if (all([right==d[l] for l in left]) and all([left==invd[r] for r
+                in right])):
+                bis.append((k, len(right), len(left)))
+    return bis
 
 ##########################################
 # Arrays
@@ -384,4 +420,3 @@ def config():
     dconf = dict([(l.split()[0],str_to_bool(l.split()[1])) 
         for l in load_list(conf_path) if len(l)>0 and l[0]!='#'])
     return dconf
-    

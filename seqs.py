@@ -114,7 +114,7 @@ def ensp_clean_chroms(protlol, set_badchs, start=0, end=0):
     return protfix
 
 def all_p2g(fs):
-    return reduce(ut.dict_disjoint_union, [prots2genes(f) for f in fs])
+    return reduce(ut.dict_quick_merge, [prots2genes(f) for f in fs])
 
 def orth_pid2geneid(fname, p2g):
     lines = ut.load_tab_file(fname)
