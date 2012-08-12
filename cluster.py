@@ -11,7 +11,7 @@ def filter_c1(tested, negmult=50, **kwargs):
     d_cxs = dict([(i,set(c)) for i,c in enumerate(cxs)]) 
     pairs = co.pairs_from_complexes(d_cxs)
     pd = pairdict.PairDict(pairs)
-    return _filter_ints(tested, pd)
+    return cxs, _filter_ints(tested, pd)
     
 def _filter_ints(inlist, pd):
     return [tup for tup in inlist if pd.contains((tup[0],tup[1]))]
@@ -55,7 +55,7 @@ def set_defaults(d, defaultd):
     return d
     
 def export_c1(tested, fname, negmult):
-    ut.write_tab_file([(t[0], t[1], ut.rescale(t[2],negmult)) for t in
+    ut.write_tab_file([(t[0], t[1], ut.rescale(float(t[2]),negmult)) for t in
         tested], fname)
     
 def shell_call(command):
