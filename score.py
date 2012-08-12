@@ -10,16 +10,28 @@ import elution as el
 import orth
 
 
-def score_array_multi(arr, sp_base, elut_fs, scores, cutoff):
+def score_array_multi(arr, sp_base, elut_fs, scores, cutoff, verbose=False):
     eluts = [(el.load_elution(f),f) for f in elut_fs]
+    current_sp = ''
     for e,f in eluts:
-        indices = orth_indices(sp_base, f, e.prots)
+        new_sp = os.path.basename(f)[:2]
+        if new_sp != current_sp:
+            print "Starting first %s file: %s" % (new_sp, os.path.basename(f))
+            current_sp = new_sp
+        sp_target = ut.shortname(f)[:2]
+        baseid2inds = orth_indices(sp_base, sp_target, e.prots)
         for score in scores:
-            print score, f
-            score_array(arr, e, f, score, cutoff, indices)
+            if verbose: print score, f
+            score_array(arr, e, f, score, cutoff, baseid2inds)
 
-def orth_indices(sp_base, filename, prot_list):
-    sp_target = ut.shortname(filename)[:2]
+def orth_indices(sp_base, sp_target, prot_list):
+    """
+    Using appropriate orthology, take a list of target species gene ids
+    (corresponding to rows in the target species score matrix), and
+    return a dict mapping base species gene ids to (sets of) indices in that
+    list and therefore to (sets of) row/column indices in the square
+    interaction score matrix. 
+    """
     targ2inds = dict([(k,set([v]))
                       for k,v in ut.list_inv_to_dict(prot_list).items()])
     if sp_base == sp_target:
@@ -30,7 +42,14 @@ def orth_indices(sp_base, filename, prot_list):
         base2inds = dict([(k,v) for k,v in base2inds.items() if len(v)>0])
         return base2inds
 
-def score_array(arr, elut, fname, score, cutoff, idict):
+def score_array(arr, elut, fname, score, cutoff, id2inds):
+    """
+    Use the target species score matrix to get interaction pair in the base
+    species array.  Don't score and just leave as default (0 now) cases where
+    either: 1) One of the pair is not in this score matrix, or 2) The two base
+    ids in the pair map to identical targets, since in that case we also can
+    get no information from this data (see notes 2012.08.12).
+    """
     if score == 'apex':
         score_mat = ApexScores(elut)
     else:
@@ -39,12 +58,14 @@ def score_array(arr, elut, fname, score, cutoff, idict):
                   '.T.wcc_width1' if score=='wcc' else
                   0 ) # no score: exception since string and int don't add
         score_mat = precalc_scores(fscore)
-    name = name_score(fname,score)
+    score_name = name_score(fname,score)
     for i,row in enumerate(arr):
-        p1,p2 = row['id1'],row['id2']
-        if p1 in idict and p2 in idict:
-            row[name] = max([score_mat[i,j]
-                             for i in idict[p1] for j in idict[p2]])
+        id1,id2 = row['id1'],row['id2']
+        if id1 in id2inds and id2 in id2inds and id2inds[id1]!=id2inds[id2]: 
+            # Could also check for i!=j but would have no effect here since
+            # these mappings come from disjoint orthogroups.
+            row[score_name] = max([score_mat[i,j]
+                             for i in id2inds[id1] for j in id2inds[id2]])
         
 def name_score(fname, score):
     return ut.shortname(fname) + '_' + score 
@@ -99,7 +120,6 @@ def precalc_scores(scoref, dtype='f2'):
     # NOTE to change dtype you must change it in loadtxt below!!
     save_compact = ut.config()['save_compact_corrs'] 
     compactf = '%s.%s.pyd' % (scoref, dtype)
-    print compactf, dtype
     if os.path.exists(compactf): 
         return ut.loadpy(compactf)
     else:

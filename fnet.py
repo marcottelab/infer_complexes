@@ -6,24 +6,26 @@ import itertools as it
 
 def score_arr(arr, species, ext_key):
     ext_file = ut.config()[ext_key]
-    print 'External Data:', ext_file
     genedict = convdict_from_fname(species, ext_file)
     filename = ut.proj_path('fnet_path', ext_file)
     net = load_net(filename)
-    print 'Ext data size:', len(net)
+    print 'External data file: %s size: %s' % (ext_file, len(net))
     nitems = len(net.items()[0][1])
     names = fnet_names(ext_file) if nitems>1 else [ext_key]
     default = ['?']*nitems
     num_hits = 0
+    multiscores = []
     for i,row in enumerate(arr):
         p1,p2 = row['id1'],row['id2']
-        scores = scores_pair(p1, p2, net, genedict, default)
+        scores, multiscores = scores_pair(p1, p2, net, genedict, default,
+                multiscores)
         if scores != default:
             num_hits += 1
             for score,name in zip(scores,names):
                 if score != '?':
                     row[name] = score
     print num_hits, 'network scores found for ', len(arr), 'pairs'
+    print '%s multiple scores found:' % len(multiscores), multiscores
 
 def fnet_names(fnet_file):
     filename = ut.proj_path('fnet_path',fnet_file)
@@ -54,28 +56,36 @@ def load_net(filename):
 def _idpair(id1, id2):
     return '-'.join([id1,id2])
 
-def scores_pair(id1, id2, net, conv2ensg, default):
+def scores_pair(id1, id2, net, conv2ensg, default, multiscores):
     """
-    Return the maximum score for each score found in corresponding net
+    Return the maximum score for each score found in corresponding net.
+    If the two specified genes map to the same set of target genes per the
+    conversion dictionary, I can learn nothing about their interaction from
+    this dataset. This probably doesn't affect outcome as much as I would hope
+    though, since these files will already have self-interactions removed.
     """
     # Our conversion dict is sets: get a list for each id in the pair
     id1s = conv2ensg.get(id1,[]) if conv2ensg else [id1]
     id2s = conv2ensg.get(id2,[]) if conv2ensg else [id2]
-    pairs = [(a,b) for a in id1s for b in id2s] + [(b,a) for a in id1s for b in id2s]
-    if len(pairs)==0:
-        return default
-    scores = [net[_idpair(p1,p2)] for p1,p2 in pairs if _idpair(p1,p2) in net]
-    nscores = len(scores)
-    if nscores==0:
-        return default
-    elif nscores==1:
-        return scores[0]
+    pairs = ([(a,b) for a in id1s for b in id2s] + 
+            [(b,a) for a in id1s for b in id2s])
+    if id1s == id2s or len(pairs) == 0: 
+        result = default
     else:
-        return max_scores(scores)
+        scores = [net[_idpair(p1,p2)] for p1,p2 in pairs 
+                if _idpair(p1,p2) in net]
+        nscores = len(scores)
+        if nscores==0:
+            result = default
+        elif nscores==1:
+            result = scores[0]
+        else:
+            multiscores.append(len(scores))
+            result = max_scores(scores)
+    return result, multiscores
 
 def max_scores(scores):
     # TODO: fix this after initial testing
-    print "fix max scores--this one was length ", len(scores)
     return scores[0]
 
 def munge_original(fdata, column_inds, fnames, fout, first_names=1):
