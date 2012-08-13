@@ -22,7 +22,7 @@ def cyto_prep(ppis, arrtrain, fname, f_geneatts, cxs=None, species='Hs',
 
 def export_ints(tested, fname, negmult, header):
     ut.write_tab_file([header] + [[t[0], t[1], ut.rescale(t[2],negmult)]
-        + t[3:] for t in tested], fname)
+        + list(t[3:]) for t in tested], fname)
 
 def export_idconvert(ppis, dict_cxlabels, fname):
     cxs_labeled = set([])

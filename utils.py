@@ -386,7 +386,7 @@ def dict_bicliques(d, minlen=1):
             tried = set.union(tried, left)
             if (all([right==d[l] for l in left]) and all([left==invd[r] for r
                 in right])):
-                bis.append((k, len(right), len(left)))
+                bis.append((k, len(right), len(left), right, left))
     return bis
 
 ##########################################
