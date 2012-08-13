@@ -40,9 +40,13 @@ def convdict_from_fname(species, ext_file):
     genedict = None
     try:
         genedict = orth.convert_dict(species, totype)
-        print 'Conversion file:', species, totype, len(genedict), 'keys'
     except IOError as e:
         print 'No external conversion file:', species, totype, e.strerror
+    else: 
+        if genedict is None:
+            print 'No external conversion file:', species, totype
+        else:
+            print 'Conversion file:', species, totype, len(genedict), 'keys'
     return genedict
 
 def load_net(filename):
