@@ -21,6 +21,7 @@ c1defaults = {
     'min_density': 0.2,
     'haircut': 0.0,
     'penalty': 2.0,
+    'max_overlap': 1.0,
     'fluff': '--no-fluff',
     'c1path': os.path.expanduser('~/Dropbox/complex/tools')+'/cluster_one.jar',
     'fin':
@@ -41,7 +42,7 @@ def n_thresh(tested, score):
 def cluster_one(tested, negmult, **kwargs):
     kwargs = set_defaults(kwargs, c1defaults)
     export_c1(tested, kwargs['fin'], negmult)
-    command = 'java -jar %(c1path)s -s %(min_size)s -d %(min_density)s --haircut %(haircut)s --penalty %(penalty)s %(fluff)s %(fin)s > %(fout)s ' % kwargs
+    command = 'java -jar %(c1path)s -s %(min_size)s -d %(min_density)s --haircut %(haircut)s --penalty %(penalty)s --max-overlap %(max_overlap)s %(fluff)s %(fin)s > %(fout)s ' % kwargs
     print command
     shell_call(command)
     ut.printnow('finished cluster_one')
