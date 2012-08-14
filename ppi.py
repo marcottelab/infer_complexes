@@ -15,20 +15,30 @@ def learning_examples(species, elut_fs, scores=['poisson','wcc','apex'],
                       extdata=['net_Hs19', 'ext_Dm_guru','ext_Hs_malo'], 
                       splits=[0,.33,.66,1], neg_ratios=[2.5,230],
                       ind_cycle=[0,-1], cutoff=0.25, base_tt=None,
-                      pos_splits=None, test_negs=None): 
+                      pos_splits=None, test_negs=None, other_evidence=[]): 
     """
-    Species: 'Hs', 'Ce', ...
-    Provide base_tt as [arrtest,arrtrain] to use saved examples.
-    Give test_negs as 'all' to use full set of proteins from fs elution data.
-    """
+    - Species: 'Hs' or 'Ce'... The base of the predictions in terms of
+      identifiers used and orthology pairings.
+    - base_tt: as [arrtest,arrtrain] to use saved examples.
+    - Test_negs: 'all' to use full set of proteins from fs elution data; None
+      to generate test negatives like training negatives, from inter-complex
+      interactions.
+    - extdata: list of items that are either a string data_key matching to
+      those specified in config.py, or a tuple ('name', data): made for _as_ext
+      re-use of ml scores as a new feature, but could support any data set
+      provided as a variable rather than file. The data should simply be a
+      sequence of list/tuple of (id1, id2, score). other_evidence just appends
+      to this.
+      """
     train,test = pd_from_tt(base_tt) if base_tt else \
                  base_splits(species, elut_fs, splits, neg_ratios,
                       ind_cycle, test_negs, pos_splits)
     ntest_pos = len([v for k,v in test.d.items() if v[0]==1])
     # Note this is wrong if base_tt is supplied since that is already filtered.
     print 'total test positives:', ntest_pos
-    atrain,atest = [new_score_array(pdict, scores, elut_fs, extdata)
-                    for pdict in train,test]
+    extdata = extdata + other_evidence
+    atrain,atest = [new_score_array(pdict, scores, elut_fs, extdata) 
+            for pdict in train,test]
     train_test = [score_and_filter(arr, scores, elut_fs, cutoff, species,
                       extdata) for arr in atrain,atest]
     print 'done.', stats(train_test)
@@ -47,22 +57,26 @@ def base_splits(species, elut_fs, splits, neg_ratios, ind_cycle,
     return train,test
 
 def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
-              extdata=['net_Hs19', 'ext_Dm_guru','ext_Hs_malo'], cutoff=0.25):
+              extdata=['net_Hs19', 'ext_Dm_guru','ext_Hs_malo'], cutoff=0.25,
+              other_evidence=[], base_arr=None):
     """
     Same more or less as full_examples above, but produces all predictions in
                   the elution files.
     """
-    pairs = el.all_filtered_pairs(elut_fs, scores, cutoff, species)
-    print len(pairs.d), 'total interactions passing cutoff'
-    for k in pairs.d: pairs.d[k] = -1 #interaction marked as unknown
-    arr = new_score_array(pairs, scores, elut_fs, extdata)
-    del pairs #lots of memory
+    extdata = extdata + other_evidence
+    if not base_arr:
+        pd_all = el.all_filtered_pairs(elut_fs, scores, cutoff, species)
+        print len(pd_all.d), 'total interactions passing cutoff'
+        for k in pd_all.d: pd_all.d[k] = -1 #interaction marked as unknown
+        arr = new_score_array(pd_all, scores, elut_fs, extdata)
+        del pd_all #lots of memory
+    else:
+        arr = base_arr
     scored_arr = score_and_filter(arr, scores, elut_fs, cutoff, species,
                 extdata, must_filter=False)
     return scored_arr
 
-def score_and_filter(arr, scores, elut_fs, cutoff, species, 
-                     extdata):
+def score_and_filter(arr, scores, elut_fs, cutoff, species, extdata):
     print '\nScoring %s elutions with %s base, scores: %s.' % (len(elut_fs),
             species, ','.join(scores))
     score.score_array_multi(arr, species, elut_fs, scores, cutoff)
@@ -72,8 +86,9 @@ def score_and_filter(arr, scores, elut_fs, cutoff, species,
         # note that this double-filters often. only an efficiency issue.
         arr = filter_arr(arr, columns, cutoff)
     if extdata:
-        print '\nScoring with external data:', ','.join(extdata)
-        for d in extdata: fnet.score_arr(arr, species, d)
+        exnames = [e if isinstance(e,str) else e[0] for e in extdata]
+        print '\nScoring with external data:', ','.join(exnames)
+        for d in extdata: fnet.score_arr_ext(arr, species, d)
     if cutoff == -1:
         arr = remove_empties(arr)
     return arr 
@@ -86,11 +101,17 @@ def new_score_array(pd, scores, fs, extdata):
     row['id1','id2','hit'] index to the first three columns
     """
     data_names = [score.name_score(f,s) for f in fs for s in scores]
-    for key in extdata:
-        if key[:3] == 'net':
-            data_names += fnet.fnet_names(ut.config()[key])
+    for key_or_namedata in extdata:
+        if isinstance(key_or_namedata, str):
+            key = key_or_namedata
+            ext_names = fnet.fnet_names(ut.config()[key])
+            if ext_names:
+                data_names += ext_names
+            else:
+                data_names.append(key)
         else:
-            data_names.append(key)
+            name = key_or_namedata[0]
+            data_names.append(name)
     arr = zeros(shape = len(pd.d),
                 dtype = ','.join(['a20']*2 + ['i1'] + ['f2']*len(data_names)))
     names = ['id1','id2','hit'] + data_names

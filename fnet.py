@@ -4,21 +4,36 @@ import orth
 import pairdict as pd
 import itertools as it
 
-def score_arr(arr, species, ext_key):
-    ext_file = ut.config()[ext_key]
-    genedict = convdict_from_fname(species, ext_file)
-    filename = ut.proj_path('fnet_path', ext_file)
-    net = load_net(filename)
-    print 'External data file: %s size: %s' % (ext_file, len(net))
-    nitems = len(net.items()[0][1])
-    names = fnet_names(ext_file) if nitems>1 else [ext_key]
-    default = ['?']*nitems
+def score_arr_ext(arr, species, key_or_data):
+    """
+    Key_or_data: either a string matching one of the keys for ext data in
+    config.py, or a tuple of (name,data) where data is a sequence of (id1, id2,
+    score), and the sequence can be a generator.
+    """
+    if isinstance(key_or_data,str):
+        ext_key = key_or_data
+        ext_file = ut.config()[ext_key]
+        conv_dict = convdict_from_fname(species, ext_file)
+        filename = ut.proj_path('fnet_path', ext_file)
+        data = ut.load_tab_file(filename)
+        stored_names = fnet_names(ext_file) # None if only one data column.
+        names = stored_names if stored_names else [ext_key]
+    else:
+        name,data = key_or_data
+        names = [name]
+        conv_dict = None
+    data_dict = load_net(data)
+    print 'External data file: %s size: %s' % (ext_file, len(data_dict))
+    score_arr(arr, species, names, data_dict, conv_dict)
+
+def score_arr(arr, species, names, data_dict, conv_dict):
+    default = ['?']*len(names)
     num_hits = 0
     multiscores = []
     for i,row in enumerate(arr):
         p1,p2 = row['id1'],row['id2']
-        scores, multiscores = scores_pair(p1, p2, net, genedict, default,
-                multiscores)
+        scores, multiscores = scores_pair(p1, p2, data_dict, conv_dict,
+                default, multiscores)
         if scores != default:
             num_hits += 1
             for score,name in zip(scores,names):
@@ -29,8 +44,14 @@ def score_arr(arr, species, ext_key):
 
 def fnet_names(fnet_file):
     filename = ut.proj_path('fnet_path',fnet_file)
-    return [l[0].strip() if l[0].find('=')==-1 else l[0].split('=')[0].strip()
-            for l in ut.load_tab_file(ut.pre_ext(filename,'_names'))]
+    first = ut.load_tab_file(filename).next()
+    nfields = len(first)-2
+    if nfields > 1:
+        return [l[0].strip() if l[0].find('=')==-1 else
+                l[0].split('=')[0].strip() for l in
+                ut.load_tab_file(ut.pre_ext(filename,'_names'))]
+    else:
+        return None #means there is only one data column.
 
 def convdict_from_fname(species, ext_file):
     # Doesn't yet work for the general case of possibly needing to go two
@@ -49,18 +70,17 @@ def convdict_from_fname(species, ext_file):
             print 'Conversion file:', species, totype, len(genedict), 'keys'
     return genedict
 
-def load_net(filename):
+def load_net(data):
     """
     Output: dict: { ensg1-ensg2: [score1, score2, ...], ensg1-ensg5: ...}
     """
-    net = dict([(_idpair(l[0], l[1]), list(l[2:])) for l in
-                ut.load_tab_file(filename)])
+    net = dict([(_idpair(l[0], l[1]), list(l[2:])) for l in data])
     return net
 
 def _idpair(id1, id2):
     return '-'.join([id1,id2])
 
-def scores_pair(id1, id2, net, conv2ensg, default, multiscores):
+def scores_pair(id1, id2, net, conv_dict, default, multiscores):
     """
     Return the maximum score for each score found in corresponding net.
     If the two specified genes map to the same set of target genes per the
@@ -69,8 +89,8 @@ def scores_pair(id1, id2, net, conv2ensg, default, multiscores):
     though, since these files will already have self-interactions removed.
     """
     # Our conversion dict is sets: get a list for each id in the pair
-    id1s = conv2ensg.get(id1,[]) if conv2ensg else [id1]
-    id2s = conv2ensg.get(id2,[]) if conv2ensg else [id2]
+    id1s = conv_dict.get(id1,[]) if conv_dict else [id1]
+    id2s = conv_dict.get(id2,[]) if conv_dict else [id2]
     pairs = ([(a,b) for a in id1s for b in id2s] + 
             [(b,a) for a in id1s for b in id2s])
     if id1s == id2s or len(pairs) == 0: 

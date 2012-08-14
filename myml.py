@@ -150,15 +150,16 @@ def filter_nsp(arr, nsp=2, cutoff=0.25, dontfilt=True, count_ext=True):
     In addition to returning the filtered array, returns a matching pairdict of
     species counts.
     """
+    if dontfilt and nsp==1 and cutoff==0.25:
+        print "Assuming no need to filter: nsp=%s, cutoff=%s" % (nsp, cutoff)
+        return arr, None
     if len(arr) == 2:
         # user provided [trainarr, testarr]
         return [filter_nsp(a, nsp=nsp, cutoff=cutoff, dontfilt=dontfilt,
             count_ext=count_ext)
                 for a in arr]
-    if dontfilt and nsp==1 and cutoff==0.25:
-        print "Assuming no need to filter: nsp=%s, cutoff=%s" % (nsp, cutoff)
-        return arr
     features = arr.dtype.names[3:]
+    assert 'eluts' not in features, "Counting sps not supported with 'eluts'"
     sps = set([n[:2] for n in features 
                 if n[:2] not in set(NET_SPS) and n[:2] != 'ex'])
     print 'Filtering >=%s of these species >=%s:' % (nsp, cutoff), sps
@@ -175,6 +176,13 @@ def filter_nsp(arr, nsp=2, cutoff=0.25, dontfilt=True, count_ext=True):
     pd_spcounts = pd.PairDict([[arrfilt[i][0],arrfilt[i][1],sp_counts[i]] 
                             for i in range(len(arrfilt))])
     return arr[exceed_inds], pd_spcounts
+
+def filter_nsp_pd(arr, nsp, pd_spcounts):
+    def pd_check_count(pd, checkpair, mincount):
+        counts = pd.find(checkpair)
+        return False if counts is None else counts[0] > mincount
+    return arr[(i for i in range(len(arr)) if pd_check_count(pd_spcounts,
+        (arr[i][0], arr[i][1]), nsp))]
 
 if __name__ == '__main__':
     nargs = len(sys.argv)
