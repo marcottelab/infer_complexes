@@ -17,10 +17,6 @@ save_compact_corrs  True
 net_Hs19    Hs_net/Hs_net_19.tab
 ext_Hs_malo    Hs_entrez_malovannaya_ints.tab
 ext_Dm_guru    Dm_fbgn_guruharsha_ints.tab
-ext_Hs_elut Hs_ensg_elution_as_ext_ints.tab
-ext_Hs_metaext Hs_ensg_elasextplusext_as_ext_ints.tab
-ext_Hs_elutonly Hs_ensg_elutonly_as_ext_ints.tab
-ext_Hs_extonly Hs_ensg_extonly_as_ext_ints.tab
 
 # fasta identifier type defaults
 Ce_default  wbgn
