@@ -41,6 +41,12 @@ class PairDict(object):
         else:
             return None
 
+    def get(self, pair):
+        usepair = self.find(pair)
+        if usepair:
+            return self.d[usepair]
+
+
 def pd_copy(pd):
     newpd = PairDict([])
     newpd.d = pd.d.copy()

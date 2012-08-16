@@ -33,14 +33,15 @@ def fit_clf(arr_train, clfbase, columns=None, cutoff=0.25):
         len(names))
     clfbase.fit(features(arr_train, names), arr_train['hit'])
 
-def classify(clf, arr_test, columns=None, cutoff=0.25, savef=None):
+def classify(clf, arr_test, columns=None, cutoff=0.25, savef=None,
+        do_sort=True):
     arr_test, names = filter_names_arr(arr_test, columns, cutoff)
     if columns: print 'Features:', ut.count_collect(names, 6)
     print "Classifying: %s examples, %s features" % (len(arr_test), 
             len(names))
     probs = (x[1] for x in clf.predict_proba(features(arr_test, names)))
     tested = zip(arr_test['id1'], arr_test['id2'], probs, arr_test['hit'])
-    tested.sort(key=lambda x:x[2],reverse=True)
+    if do_sort: tested.sort(key=lambda x:x[2],reverse=True)
     if savef: ut.savepy(tested, savef)
     return tested
 
@@ -59,7 +60,7 @@ def classify_slice(clf,arr_test, perslice, savef=None, columns=None,
         for i,s in enumerate(slices):
             print i, savef
 
-def tree(n_estimators=100,n_jobs=int(NCORES/2), bootstrap=True, **kwargs):
+def tree(n_estimators=200,n_jobs=int(NCORES/2), bootstrap=True, **kwargs):
     return ExtraTreesClassifier(n_estimators=n_estimators, n_jobs=n_jobs,
                                 bootstrap=bootstrap, **kwargs)
 
@@ -143,20 +144,20 @@ def feature_selection(arr, columns=None, cutoff=0.25):
     pl.plot(indnums, importances[indices], "b")
     pl.show()
 
-def filter_nsp(arr, nsp=2, cutoff=0.25, dontfilt=True, count_ext=True):
+def filter_nsp(arr, nsp=2, cutoff=0.25, maybedontfilt=True, count_ext=True):
     """
     Filter to only leave interactions for which evidence exists in nsp species.
     scores: [arr_train, arr_test]
     In addition to returning the filtered array, returns a matching pairdict of
     species counts.
     """
-    if dontfilt and nsp==1 and cutoff==0.25:
+    if maybedontfilt and nsp==1 and cutoff==0.25:
         print "Assuming no need to filter: nsp=%s, cutoff=%s" % (nsp, cutoff)
         return arr, None
     if len(arr) == 2:
         # user provided [trainarr, testarr]
-        return [filter_nsp(a, nsp=nsp, cutoff=cutoff, dontfilt=dontfilt,
-            count_ext=count_ext)
+        return [filter_nsp(a, nsp=nsp, cutoff=cutoff,
+            maybedontfilt=maybedontfilt, count_ext=count_ext)
                 for a in arr]
     features = arr.dtype.names[3:]
     assert 'eluts' not in features, "Counting sps not supported with 'eluts'"
@@ -170,19 +171,13 @@ def filter_nsp(arr, nsp=2, cutoff=0.25, dontfilt=True, count_ext=True):
     maxes = [[max(i) for i in arr[scs]] for scs in spcols]
     exceed_inds = [i for i in range(len(arr))
                    if len([i for m in maxes if m[i] > cutoff]) >= nsp]
-    sp_counts = [c for c in [len([1 for m in maxes if m[i] > cutoff]) 
-        for i in range(len(arr))] if c >= nsp]
+    orig_sp_counts = [len([1 for m in maxes if m[i] > cutoff]) 
+        for i in range(len(arr))]
+    sp_counts_filt = [c for c in orig_sp_counts if c >=nsp]
     arrfilt = arr[exceed_inds]
-    pd_spcounts = pd.PairDict([[arrfilt[i][0],arrfilt[i][1],sp_counts[i]] 
+    pd_spcounts = pd.PairDict([[arrfilt[i][0],arrfilt[i][1],sp_counts_filt[i]] 
                             for i in range(len(arrfilt))])
-    return arr[exceed_inds], pd_spcounts
-
-def filter_nsp_pd(arr, nsp, pd_spcounts):
-    def pd_check_count(pd, checkpair, mincount):
-        counts = pd.find(checkpair)
-        return False if counts is None else counts[0] > mincount
-    return arr[(i for i in range(len(arr)) if pd_check_count(pd_spcounts,
-        (arr[i][0], arr[i][1]), nsp))]
+    return arrfilt, pd_spcounts, orig_sp_counts
 
 if __name__ == '__main__':
     nargs = len(sys.argv)

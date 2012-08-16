@@ -15,8 +15,11 @@ save_compact_corrs  True
 
 # Ext files
 net_Hs19    Hs_net/Hs_net_19.tab
+net_Hs_hs6    Hs_net/Hs_net_hs6.tab
 ext_Hs_malo    Hs_entrez_malovannaya_ints.tab
 ext_Dm_guru    Dm_fbgn_guruharsha_ints.tab
+net_Ce_ce5  Ce_net/Ce_net_ce5.tab
+net_Ce_multi15  Ce_net/Ce_net_multi15.tab
 
 # fasta identifier type defaults
 Ce_default  wbgn
@@ -25,3 +28,5 @@ Dm_default  fbgn
 Hs_default  ensg
 Mm_default  ensmusg
 Sp_default  spbase
+
+elut_species Ce_Dm_Hs_Mm_Sp

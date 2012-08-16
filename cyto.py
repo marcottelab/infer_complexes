@@ -21,7 +21,7 @@ def cyto_prep(ppis, arrtrain, fname, f_geneatts, cxs=None, species='Hs',
 
 
 def export_ints(tested, fname, negmult, header):
-    ut.write_tab_file([header] + [[t[0], t[1], ut.rescale(t[2],negmult)]
+    ut.write_tab_file([header] + [[t[0], t[1], ut.rescale(float(t[2]),negmult)]
         + list(t[3:]) for t in tested], fname)
 
 def export_idconvert(ppis, dict_cxlabels, fname):
@@ -93,7 +93,7 @@ def best_match(names, i):
 def ppis_gold_standard(ppis, arrtrain, species):
     pdppis = PairDict([p[:3] for p in ppis])
     print len(pdppis.d), "predicted interactions"
-    ppi_cxs,_ = ppi.load_training_complexes(species)
+    ppi_cxs,_ = ppi.load_training_complexes(species, '') #conv doesn't matter
     pdcorum = PairDict([(i[0],i[1],'gold') for i in
                         co.pairs_from_complexes(ppi_cxs)])
     print len(pdcorum.d), "total gold standard"

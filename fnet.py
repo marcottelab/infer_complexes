@@ -4,24 +4,18 @@ import orth
 import pairdict as pd
 import itertools as it
 
-def score_arr_ext(arr, species, key_or_data):
+def score_arr_ext(arr, species, ext_key):
     """
     Key_or_data: either a string matching one of the keys for ext data in
     config.py, or a tuple of (name,data) where data is a sequence of (id1, id2,
     score), and the sequence can be a generator.
     """
-    if isinstance(key_or_data,str):
-        ext_key = key_or_data
-        ext_file = ut.config()[ext_key]
-        conv_dict = convdict_from_fname(species, ext_file)
-        filename = ut.proj_path('fnet_path', ext_file)
-        data = ut.load_tab_file(filename)
-        stored_names = fnet_names(ext_file) # None if only one data column.
-        names = stored_names if stored_names else [ext_key]
-    else:
-        name,data = key_or_data
-        names = [name]
-        conv_dict = None
+    ext_file = ut.config()[ext_key]
+    conv_dict = convdict_from_fname(species, ext_file)
+    filename = ut.proj_path('fnet_path', ext_file)
+    data = ut.load_tab_file(filename)
+    stored_names = fnet_names(ext_file) # None if only one data column.
+    names = stored_names if stored_names else [ext_key]
     data_dict = load_net(data)
     print 'External data file: %s size: %s' % (ext_file, len(data_dict))
     score_arr(arr, species, names, data_dict, conv_dict)

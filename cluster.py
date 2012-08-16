@@ -21,7 +21,7 @@ c1defaults = {
     'min_density': 0.2,
     'haircut': 0.0,
     'penalty': 2.0,
-    'max_overlap': 1.0,
+    'max_overlap': 0.6,
     'fluff': '--no-fluff',
     'c1path': os.path.expanduser('~/Dropbox/complex/tools')+'/cluster_one.jar',
     'fin':
