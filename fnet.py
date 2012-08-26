@@ -13,10 +13,9 @@ def score_arr_ext(arr, species, ext_key):
     ext_file = ut.config()[ext_key]
     conv_dict = convdict_from_fname(species, ext_file)
     filename = ut.proj_path('fnet_path', ext_file)
-    data = ut.load_tab_file(filename)
     stored_names = fnet_names(ext_file) # None if only one data column.
     names = stored_names if stored_names else [ext_key]
-    data_dict = load_net(data)
+    data_dict = load_net(ut.load_tab_file(filename))
     print 'External data file: %s size: %s' % (ext_file, len(data_dict))
     score_arr(arr, species, names, data_dict, conv_dict)
 

@@ -252,7 +252,10 @@ def load_array(fname):
     return np.loadtxt(fname)
 
 def load_list_of_lists(fname, **kwargs):
-    return [l for l in load_tab_file(fname, **kwargs)]
+    return load_list_of_type(fname, list, **kwargs)
+
+def load_list_of_type(fname, argtype, **kwargs):
+    return [argtype(l) for l in load_tab_file(fname, **kwargs)]
 
 def write_dict_sets_lines(d,fname):
     write_tab_file([[i[0]]+list(i[1]) for i in d.items()],fname)

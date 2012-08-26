@@ -43,11 +43,12 @@ def predict(name, sp, arr, clf, nsp, nsp_cutoff=0.25):
     return Struct(ppis=ppis,name=name, species=sp, pd_spcounts=pd_spcounts,
             ppi_params=str(clf))  
 
-def cyto_export(result, arrtrain, ppis=None,
-        geneatts='Hs_ensg_name_desc_uni_entrez.tab', species=None):
-    fname = 'cy_'+result.name+'.tab'
+def cyto_export(result, arrtrain, ppis=None, cxs=None, geneatts=
+        'Hs_ensg_name_desc_uni_entrez.tab', species=None, name_ext=''):
+    fname = 'cy_'+result.name+name_ext+'.tab'
     species = species if species else result.species
     ppis = ppis if ppis else result.cxppis
+    cxs = cxs if cxs else result.cxs
     cyto.cyto_prep(result.cxppis, arrtrain, fname, geneatts, cxs=result.cxs,
             species=species, pd_spcounts=result.pd_spcounts)
 
