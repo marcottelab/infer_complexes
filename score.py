@@ -117,11 +117,17 @@ class ApexScores(object):
         return int(self.apex_array[index[0]] == self.apex_array[index[1]])
 
 def precalc_scores(scoref, dtype='f2'):
+    """
+    Also zero out the diagonal.
+    """
     # NOTE to change dtype you must change it in loadtxt below!!
     save_compact = ut.config()['save_compact_corrs'] 
     compactf = '%s.%s.pyd' % (scoref, dtype)
     if os.path.exists(compactf): 
-        return ut.loadpy(compactf)
+        mat = ut.loadpy(compactf)
+        inds = range(mat.shape[0]) # always square score matrix
+        mat[inds, inds] = 0
+        return mat
     else:
         ascores = np.loadtxt(scoref, dtype='f2')
         if save_compact:
@@ -146,7 +152,8 @@ class CosineLazyScores(object):
 
 def matching_pairs(values):
     """
-    Return all pairs of indices in the given list whose values match
+    Return all pairs of indices in the given list whose values match.
+    Will not return identity matches since uses combinations.
     """
     d = defaultdict(list)
     for ind,val in enumerate(values):
