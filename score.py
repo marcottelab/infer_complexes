@@ -161,6 +161,9 @@ def matching_pairs(values):
     return [(i,j) for value in d for i,j in itertools.combinations(d[value],2)]
     
 def pairs_exceeding(elut, skey, thresh):
+    """
+    Doesn't return self-self interactions.
+    """
     if skey == 'apex':
         apexes = ApexScores(elut).apex_array
         pair_inds = matching_pairs(apexes)

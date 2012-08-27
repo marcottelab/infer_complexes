@@ -58,6 +58,17 @@ def pd_flip(pair):
 def pd_lol(pd):
     return [[k[0],k[1]] + pd.d[k] for k in pd.d]
 
+def pd_intersect_avals(pda, pdb):
+    """
+    Merge two PairDicts and return a new one.
+    Values in the intersection will be taken from the first argument, pda.
+    """
+    newpd = PairDict([])
+    for pair,val in pda.d.items():
+        if pdb.contains(pair):
+            newpd.set(pair,val)
+    return newpd
+
 def pd_union_novals(a,b):
     """
     Merge two PairDicts and return a new one.

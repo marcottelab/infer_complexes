@@ -1,5 +1,6 @@
 from __future__ import division
 import utils as ut
+import pairdict as pd
 
 def jaccard(a, b):
     """
@@ -40,4 +41,15 @@ def matchpairset(pair,losetpairs):
         if (pair[0] in p[0] and pair[1] in p[1]) or (pair[1] in p[0] and pair[0] in p[1]):
             return True
 
-    
+def ints_overlap(pairs_iterables):
+    """ 
+    Provide a list: [pairsa, pairsb(, pairsc)]
+    """
+    return pds_overlap(pairs_iterables)
+
+def pds_overlap(pds):
+    """
+    pds: list of pairdicts
+    """
+    return len(reduce(pd.pd_intersect_avals, pds).d)
+
