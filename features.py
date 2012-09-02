@@ -19,105 +19,8 @@ import pairdict as pd
 NCORES = multiprocessing.cpu_count()
 NET_SPS = 'HS CE DM SC'.split()
 
-def fit_and_test(scored, clf, columns=None, cutoff=0.25): 
-    """
-    scored: [arr_train, arr_test]
-    """
-    arr_train, arr_test = scored
-    fit_clf(arr_train, clf, columns)
-    tested = classify(clf, arr_test, columns)
-    return tested
-
-def fit_clf(arr_train, clfbase, columns=None, cutoff=0.25):
-    arr_train, names = filter_names_arr(arr_train, columns, cutoff)
-    print "Training classifier: %s examples, %s features" % (len(arr_train),
-        len(names))
-    X = features(arr_train, names)
-    y = arr_train['hit']
-    if norm: X = preprocess(X)
-    clfbase.fit(X,y)
-
-def classify(clf, arr_test, columns=None, cutoff=0.25, savef=None,
-        do_sort=True):
-    arr_test, names = filter_names_arr(arr_test, columns, cutoff)
-    if columns: print 'Features:', ut.count_collect(names, 6)
-    print "Classifying: %s examples, %s features" % (len(arr_test), 
-            len(names))
-    probs = (x[1] for x in clf.predict_proba(features(arr_test, names)))
-    tested = zip(arr_test['id1'], arr_test['id2'], probs, arr_test['hit'])
-    if do_sort: tested.sort(key=lambda x:x[2],reverse=True)
-    if savef: ut.savepy(tested, savef)
-    return tested
-
-def normalize(arr):
-    """
-    Mean-center and rescale features.
-    """
-    for n in arr.dtype.names[3:]: 
-        arr[n] = sk.preprocessing.scale(arr[n])
-
-def classify_slice(clf,arr_test, perslice, savef=None, columns=None,
-        cutoff=0.25, maintain=True, startslice=0):
-    nslices = int(np.ceil(len(arr_test) / perslice))
-    slices = (classify(clf, arr_test[i*perslice:(i+1)*perslice],
-                       savef=(savef+str(i)+'.pyd') if savef else None,
-                       columns=columns, cutoff=cutoff)
-              for i in range(startslice, nslices))
-    if maintain==True:
-        tested = reduce(operator.add, slices)
-        tested.sort(key=lambda x:x[2],reverse=True)
-        return tested
-    else:
-        for i,s in enumerate(slices):
-            print i, savef
-
-def tree(n_estimators=200,n_jobs=int(NCORES/2), bootstrap=True, **kwargs):
-    return ExtraTreesClassifier(n_estimators=n_estimators, n_jobs=n_jobs,
-                                bootstrap=bootstrap, **kwargs)
-
 def boot_arr(arr):
     return arr[ut.sample_wr(range(len(arr)), len(arr))]
-
-def svm(kernel='linear', cache_size=2000, **kwargs):
-    return SVC(kernel=kernel, probability=True, **kwargs)
-
-def filter_names_arr(arr, columns, cutoff, nofilter=set(NET_SPS)):
-    """
-    columns: either a list of column numbers or a space-sep string of
-    2-letter matches for column names.
-    Filters the given array, returning the full rows (not just those named
-    columns) for which at least one item passes the given cutoff.
-    Those beginning with items in nofilter are not used in qualifying
-    threshold-passing rows.
-    """
-    columns = columns if columns else feature_inds(arr)
-    feat_names = ([arr.dtype.names[i] for i in columns]
-                  if isinstance(columns, list)
-                  else match_cols(arr,columns))
-    feat_nums = ([i for i,name in enumerate(arr.dtype.names)
-                  if name in feat_names])
-    if feat_nums == feature_inds(arr):
-        print 'no filtering'
-        newarr = arr
-    else:
-        # DON'T filter by network score columns: these don't qualify the row.
-        names_filt = [n for n in feat_names if not n[:2] in (nofilter)]
-        all_possible = [n for n in arr.dtype.names if not n[:2] in nofilter]
-        if set(names_filt) == set(all_possible):
-            print 'no filtering'
-            newarr = arr
-        else:
-            print 'filtering', names_filt
-            nums_filt = ([i for i,name in enumerate(arr.dtype.names)
-                      if name in names_filt])
-            newarr = filter_arr(arr, nums_filt, cutoff)
-    return newarr, feat_names
-
-def features(arr, feat_names):
-    return [[x for x in l] for l in arr[feat_names]]
-
-def feature_inds(arr):
-    return range(3, len(arr[0]))
 
 def match_cols(arr, colstring):
     """
@@ -125,7 +28,6 @@ def match_cols(arr, colstring):
     """
     return [f for f in arr.dtype.names if (f[:2] in colstring.split()
                                            or f in colstring.split())]
-
 def keep_cols(arr, colnames):
     return arr[['id1','id2','hit'] + colnames]
 
@@ -186,6 +88,38 @@ def feature_selection(arr, columns=None, cutoff=0.25, n_est=50,
         pl.plot(indnums, importances[indices], "b")
         pl.show()
     return ranked
+
+def filter_names_arr(arr, columns, cutoff, nofilter=set(NET_SPS)):
+    """
+    columns: either a list of column numbers or a space-sep string of
+    2-letter matches for column names.
+    Filters the given array, returning the full rows (not just those named
+    columns) for which at least one item passes the given cutoff.
+    Those beginning with items in nofilter are not used in qualifying
+    threshold-passing rows.
+    """
+    columns = columns if columns else feature_inds(arr)
+    feat_names = ([arr.dtype.names[i] for i in columns]
+                  if isinstance(columns, list)
+                  else match_cols(arr,columns))
+    feat_nums = ([i for i,name in enumerate(arr.dtype.names)
+                  if name in feat_names])
+    if feat_nums == feature_inds(arr):
+        print 'no filtering'
+        newarr = arr
+    else:
+        # DON'T filter by network score columns: these don't qualify the row.
+        names_filt = [n for n in feat_names if not n[:2] in (nofilter)]
+        all_possible = [n for n in arr.dtype.names if not n[:2] in nofilter]
+        if set(names_filt) == set(all_possible):
+            print 'no filtering'
+            newarr = arr
+        else:
+            print 'filtering', names_filt
+            nums_filt = ([i for i,name in enumerate(arr.dtype.names)
+                      if name in names_filt])
+            newarr = filter_arr(arr, nums_filt, cutoff)
+    return newarr, feat_names
 
 def filter_nsp(arr, nsp=2, cutoff=0.25, maybedontfilt=True, count_ext=True):
     """
