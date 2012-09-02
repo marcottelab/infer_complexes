@@ -4,6 +4,7 @@ import sys
 if not '/home/blakeb/.local/lib/python2.7/scikit_learn-0.11-py2.7-linux-x86_64.egg' in sys.path:
     if os.path.exists('/home/blakeb/.local/lib/python2.7/scikit_learn-0.11-py2.7-linux-x86_64.egg'):
         sys.path.append('/home/blakeb/.local/lib/python2.7/scikit_learn-0.11-py2.7-linux-x86_64.egg')
+import sklearn as sk
 from sklearn.svm import SVC
 from sklearn.datasets import make_classification
 from sklearn.ensemble import ExtraTreesClassifier
@@ -31,7 +32,10 @@ def fit_clf(arr_train, clfbase, columns=None, cutoff=0.25):
     arr_train, names = filter_names_arr(arr_train, columns, cutoff)
     print "Training classifier: %s examples, %s features" % (len(arr_train),
         len(names))
-    clfbase.fit(features(arr_train, names), arr_train['hit'])
+    X = features(arr_train, names)
+    y = arr_train['hit']
+    if norm: X = preprocess(X)
+    clfbase.fit(X,y)
 
 def classify(clf, arr_test, columns=None, cutoff=0.25, savef=None,
         do_sort=True):
@@ -44,6 +48,13 @@ def classify(clf, arr_test, columns=None, cutoff=0.25, savef=None,
     if do_sort: tested.sort(key=lambda x:x[2],reverse=True)
     if savef: ut.savepy(tested, savef)
     return tested
+
+def normalize(arr):
+    """
+    Mean-center and rescale features.
+    """
+    for n in arr.dtype.names[3:]: 
+        arr[n] = sk.preprocessing.scale(arr[n])
 
 def classify_slice(clf,arr_test, perslice, savef=None, columns=None,
         cutoff=0.25, maintain=True, startslice=0):
@@ -67,8 +78,8 @@ def tree(n_estimators=200,n_jobs=int(NCORES/2), bootstrap=True, **kwargs):
 def boot_arr(arr):
     return arr[ut.sample_wr(range(len(arr)), len(arr))]
 
-def svm(kernel='linear', prob=True, **kwargs):
-    return SVC(kernel=kernel, probability=prob, **kwargs)
+def svm(kernel='linear', cache_size=2000, **kwargs):
+    return SVC(kernel=kernel, probability=True, **kwargs)
 
 def filter_names_arr(arr, columns, cutoff, nofilter=set(NET_SPS)):
     """
@@ -114,6 +125,9 @@ def match_cols(arr, colstring):
     """
     return [f for f in arr.dtype.names if (f[:2] in colstring.split()
                                            or f in colstring.split())]
+
+def keep_cols(arr, colnames):
+    return arr[['id1','id2','hit'] + colnames]
 
 def regex_cols(arr, pattern):
     return arr[['id1','id2','hit'] + ut.regex_filter(arr.dtype.names, pattern)]
