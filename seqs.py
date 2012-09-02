@@ -132,7 +132,7 @@ def orth_pid2geneid(fname, p2g):
                 yield newitems
     ut.write_tab_file(process(lines), fname+'_fix')
 
-def elut_p2g(fname, p2g):
+def elut_p2g(fname, p2g, suffix='_fix'):
     lines = ut.load_tab_file(fname)
     def process(lines):
         for items in lines:
@@ -140,4 +140,4 @@ def elut_p2g(fname, p2g):
                 yield [p2g[items[0]]] + list(items[1:])
             else:
                 yield items
-    ut.write_tab_file(process(lines), fname+'_fix')
+    ut.write_tab_file(process(lines), fname+suffix)

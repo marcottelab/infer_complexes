@@ -2,8 +2,7 @@ from __future__ import division
 import cPickle
 import sys
 import os
-#from scipy import array, random # causing errors weirdly on mac air
-#import scipy
+import re
 import random
 import operator
 import itertools
@@ -85,6 +84,12 @@ def all_same(f, bag):
     for x in bag[1:]:
         if f(x) != v: return False
     return True
+
+def arr_copy(arr):
+    newarr = np.empty(arr.shape, dtype=arr.dtype.descr)
+    for n in arr.dtype.names:
+        newarr[n] = arr[n]
+    return newarr
 
 def bin(list, binsize):
     nbins = int(np.ceil(len(list)/binsize))
@@ -178,6 +183,10 @@ def rescale(p,n):
     Rescale posterior probability p according to multiple of negatives n.
     """
     return p/(1+(1-p)*n)
+
+def regex_filter(seq, pattern):
+    feats = [n for n in seq if len(re.findall(pattern, n))>0]
+    return feats
 
 def rsum(l): #reduce sum
     # This is exactly like the Python built-in sum, but scipy overloads it
