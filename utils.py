@@ -147,6 +147,15 @@ def hyperg_cum(c, N, m, n):
         assert(s>0)
         return s
 
+def i0(seq):
+    return inds(seq,0)
+
+def i1(seq):
+    return inds(seq,1)
+
+def inds(seq,ind):
+    return map(lambda x: x[ind], seq)
+
 def idpr(x): #useful sometimes for printing nested in expressions
     print x
     return x
