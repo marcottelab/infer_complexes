@@ -11,14 +11,12 @@ import orth
 
 
 def score_array_multi(arr, sp_base, elut_fs, scores, cutoff, verbose=False):
-    eluts = [(el.load_elution(f),f) for f in elut_fs]
     current_sp = ''
-    for e,f in eluts:
-        new_sp = os.path.basename(f)[:2]
-        if new_sp != current_sp:
-            print "Starting first %s file: %s" % (new_sp, os.path.basename(f))
-            current_sp = new_sp
+    for e,f in [(el.load_elution(f),f) for f in elut_fs]:
         sp_target = ut.shortname(f)[:2]
+        if sp_target != current_sp: # Just for status output
+            print "Starting first %s file: %s" % (sp_target, ut.shortname(f))
+            current_sp = sp_target
         baseid2inds = orth_indices(sp_base, sp_target, e.prots)
         for score in scores:
             if verbose: print score, f
@@ -49,6 +47,7 @@ def score_array(arr, elut, fname, score, cutoff, id2inds):
     either: 1) One of the pair is not in this score matrix, or 2) The two base
     ids in the pair map to identical targets, since in that case we also can
     get no information from this data (see notes 2012.08.12).
+    Also exclude any proteins with just one total count in this elution.
     """
     if score == 'apex':
         score_mat = ApexScores(elut)
@@ -59,16 +58,26 @@ def score_array(arr, elut, fname, score, cutoff, id2inds):
                   0 ) # no score: exception since string and int don't add
         score_mat = precalc_scores(fscore)
     score_name = name_score(fname,score)
+    singles = prots_singles(elut)
     for i,row in enumerate(arr):
         id1,id2 = row['id1'],row['id2']
-        if id1 in id2inds and id2 in id2inds and id2inds[id1]!=id2inds[id2]: 
+        if (id1 in id2inds and id2 in id2inds 
+                and id1 not in singles and id2 not in singles
+                and id2inds[id1]!=id2inds[id2]): 
             # Could also check for i!=j but would have no effect here since
             # these mappings come from disjoint orthogroups.
             row[score_name] = max([score_mat[i,j]
                              for i in id2inds[id1] for j in id2inds[id2]])
-        
+
 def name_score(fname, score):
     return ut.shortname(fname) + '_' + score 
+
+def prots_singles(elut):
+    """
+    Using where to find proteins with only one count: messy but fast
+    """
+    singles_inds = np.array(np.where(elut.mat.sum(axis=1) == 1)[0])[0]
+    return set(np.array(elut.prots)[singles_inds])
 
 def scorekey_elution(score_key, elution):
     if score_key == 'apex':
@@ -150,28 +159,30 @@ class CosineLazyScores(object):
         return float(self.mat_rownormed[index[0],:] *
                     self.mat_rownormed[index[1],:].T)
 
-def matching_pairs(values):
+def matching_pairs(values, ids):
     """
-    Return all pairs of indices in the given list whose values match.
+    Return all pairs of ids for indices in the given list whose values match.
     Will not return identity matches since uses combinations.
     """
     d = defaultdict(list)
     for ind,val in enumerate(values):
-        d[val].append(ind)
+        d[val].append(ids[ind])
     return [(i,j) for value in d for i,j in itertools.combinations(d[value],2)]
     
 def pairs_exceeding(elut, skey, thresh):
     """
     Doesn't return self-self interactions.
     """
+    arr_prots = np.array(elut.prots)
     if skey == 'apex':
         apexes = ApexScores(elut).apex_array
-        pair_inds = matching_pairs(apexes)
+        pairs = matching_pairs(apexes, arr_prots)
     else: # loading precomputed indices is so far massively slower than this
         score_mat = scorekey_elution(skey, elut)
         rows, cols = np.where(score_mat > thresh)
-        pair_inds =  ut.zip_exact(rows, cols)
-    return pair_inds
+        p1s, p2s = [arr_prots[ids] for ids in rows, cols]
+        pairs =  ut.zip_exact(p1s, p2s)
+    return pairs
 
 if __name__ == '__main__':
     nargs = len(sys.argv)

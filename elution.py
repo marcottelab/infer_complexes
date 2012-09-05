@@ -43,9 +43,11 @@ def all_filtered_pairs(fnames, score_keys, cutoff=0.25, sp_base=None,
     for skey,f in itertools.product(score_keys,fnames):
         if verbose: print skey, cutoff, f
         elut = load_elution(f)
-        pair_inds = score.pairs_exceeding(elut, skey, thresh=cutoff)
-        newpairs = PairDict(((elut.prots[i], elut.prots[j])
-                             for (i,j) in pair_inds))
+        pairs = score.pairs_exceeding(elut, skey, thresh=cutoff)
+        singles = score.prots_singles(elut)
+        #newpairs = PairDict(((p1,p2) for p1,p2 in pairs))
+        newpairs = PairDict(((p1,p2) for p1,p2 in pairs
+            if p1 not in singles and p2 not in singles))
         newpairs = translate_pairs(newpairs, sp_base, file_sp(f))
         allpairs = pairdict.pd_union_novals(allpairs, newpairs)
     return allpairs
