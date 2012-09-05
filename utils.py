@@ -318,6 +318,8 @@ def flatten(lst):
 # DICT OPERATIONS
 #######################################
 
+def constant_factory(value):
+    return itertools.repeat(value).next
 
 def dict_remove_if_value(d,remove_val):
     emptys = []
