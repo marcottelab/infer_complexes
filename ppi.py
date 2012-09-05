@@ -62,8 +62,8 @@ def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
               extdata=['net_Hs19', 'ext_Dm_guru','ext_Hs_malo'], cutoff=0.25,
               base_arr=None, do_filter=False):
     """
-    Same more or less as full_examples above, but produces all predictions in
-                  the elution files.
+    Same more or less as learning_examples above, but produces all predictions
+    in the elution files.
     """
     if not base_arr:
         pd_all = el.all_filtered_pairs(elut_fs, scores, cutoff, species)

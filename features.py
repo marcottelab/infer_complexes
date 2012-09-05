@@ -34,60 +34,45 @@ def keep_cols(arr, colnames):
 def regex_cols(arr, pattern):
     return arr[['id1','id2','hit'] + ut.regex_filter(arr.dtype.names, pattern)]
 
-def merge_features(arr, pattern, func):
+def merge_features(arr, pattern, func, do_remove):
     feats = ut.regex_filter(arr.dtype.names, pattern)
-    merged = reduce(func, [arr[feat] for feat in feats])
+    print "features matched:", feats
+    merged = [func(i) for i in arr[feats]]
     name = pattern + '_' + func.__name__
-    setfeats = set(feats)
-    keepdtypes = [dt for dt in arr.dtype.descr if not dt[0] in setfeats]
-    newdtype = np.dtype(keepdtypes + [(name, merged.dtype)])
+    removefeats = set(feats) if do_remove else set([])
+    keepdtypes = [dt for dt in arr.dtype.descr if not dt[0] in removefeats]
+    newdtype = np.dtype(keepdtypes + [(name, arr[feats[0]].dtype)])
     newarr = np.empty(arr.shape, dtype=newdtype)
     for field in [d[0] for d in keepdtypes]:
         newarr[field] = arr[field]
     newarr[name] = merged
     return newarr
 
-def merge_by_species(arr, match, func):
+def retype_arr(arr, oldtype='f2', newtype='f4'):
+    newdtype = [(dt[0],dt[1].replace(oldtype,newtype)) 
+            for dt in arr.dtype.descr]
+    newarr = np.empty(arr.shape, dtype=newdtype)
+    for field in newarr.dtype.names:
+        newarr[field] = arr[field]
+    return newarr
+
+def merge_by_species(arr, matches, func, remove=False):
     """
-    match: like wcc, apex, ...
+    matches: like [apex] or [wcc, apex, ...]
     Makes patterns with match for each species, like 'Hs.*apex
     """
+    assert not isinstance(matches,str), "matches is list, not string"
     def merge_recurse(arr, patterns, func):
         if patterns:
-            newarr = merge_features(arr, patterns[0], func)
+            newarr = merge_features(arr, patterns[0], func, remove)
             return merge_recurse(newarr, patterns[1:], func)
         else:
             return arr
-    patterns = [sp+'.*'+match for sp in ut.config()['elut_species'].split('_')]
+    # Won't match a merged feature since that will have a * in it.
+    patterns = [sp+'\w*'+match for match in matches for sp in
+            ut.config()['elut_species'].split('_')]
     return merge_recurse(arr, patterns, func)
 
-def feature_selection(arr, columns=None, cutoff=0.25, n_est=50,
-        n_jobs=NCORES-1, do_plot=False):
-    # Build a forest and compute the feature importances
-    forest = ExtraTreesClassifier(n_estimators=n_est,
-                                  compute_importances=True,
-                                  random_state=0, n_jobs=n_jobs)
-    arr,names = filter_names_arr(arr, columns, cutoff)
-    X = features(arr, names)
-    y = arr['hit']
-    forest.fit(X, y)
-    importances = forest.feature_importances_
-    indices = np.argsort(importances)[::-1]
-    # Print the feature ranking
-    ranked = [(names[index], importances[index]) for index in indices]
-    print "Feature ranking:"
-    for i,(name,imp) in enumerate(ranked):
-        print "%d. %s (%f)" % (i + 1, name, imp)
-    # Plot the feature importances of the trees and of the forest
-    if do_plot:
-        import pylab as pl
-        pl.figure()
-        pl.title("Feature importances")
-        for tree in forest.estimators_:
-            pl.plot(indnums, tree.feature_importances_[indices], "r")
-        pl.plot(indnums, importances[indices], "b")
-        pl.show()
-    return ranked
 
 def filter_names_arr(arr, columns, cutoff, nofilter=set(NET_SPS)):
     """
