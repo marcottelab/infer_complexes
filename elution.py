@@ -27,7 +27,7 @@ def load_elution(fname, getname=True):
         fractions.remove(fractions[0])
     else:
         start_data_col = 1
-    mat = np.matrix([row[start_data_col:] for row in rows],dtype='float64')
+    mat = np.matrix([row[start_data_col:] for row in rows],dtype='float32')
     prots = [row[0] for row in rows]
     elut = Struct(mat=mat, prots=prots, fractions=fractions, filename=fname,
                   filename_original=fname)
