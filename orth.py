@@ -1,7 +1,8 @@
 import utils as ut
 import os
 
-keys = "Hs-Ce Hs-Dd Hs-Dm Hs-Mm Hs-Sp Hs_uni-Ce_uni Ce-Dm".split()
+keys = "Hs-Ce Hs-Dd Hs-Dm Hs-Mm Hs-Sp Hs_uni-Ce_uni Ce-Dm Ce-Mm Ce-Sp Sp-Dm Sp-Mm".split()
+
 def odict(from_sp, to_sp):
     """
     Load a dict from file, eg:
@@ -15,25 +16,55 @@ def odict(from_sp, to_sp):
         if key in keys:
             swap_order=True
         else:
-            assert False, "Orthogroup key not found"
+            assert False, "Orthogroup key not in keys list"
     return _ogroups_to_odict(_load_ogroups(ut.proj_path('convert_orth',
                                                         'table.'+key)),
                              swap_order=swap_order)
 
-def convert_dict(fromtype, totype):
+def convert_dict_single(fromtype, totype):
     """
-    totype: must be sp_seqdb
+    totype: must be Sp (eg 'Hs') or Sp_seqdb
+    Returns None if not necessary or not found.
     """
-    tosp, toseqdb = totype.split('_')
-    if toseqdb == ut.config()[tosp+'_default']:
-        totype = tosp
+    if len(totype.split('_')) > 1:
+        # Get rid of the 2nd half of totype if it's default for that species
+        tosp, toseqdb = totype.split('_')
+        if toseqdb == ut.config()[tosp+'_default']:
+            totype = tosp
     if fromtype == totype:
         return None
     elif len(fromtype) == len(totype) == 2:
         return odict(fromtype, totype)
     else:
-        fname = "%s2%s.tab" % (fromtype, totype)
-        return ut.load_dict_sets(ut.proj_path('convert',fname))
+        return custom_conversion(fromtype, totype)
+
+def convert_dict(fromtype, totype):
+    """
+    First looks for single conversion step. If not found, splits it up.
+    Returns None if not necessary or not found.
+    """
+    conv1 = convert_dict_single(fromtype, totype)
+    if conv1:
+        return conv1
+    else:
+        # If we made it here, try first converting to second species, 
+        # then looking for other conversion.
+        conv1 = convert_dict_single(fromtype, totype[:2])
+        conv2 = convert_dict_single(totype[:2], totype)
+        if conv1 and conv2:
+            return ut.compose_dict_sets(conv1,conv2)
+
+def custom_conversion(fromtype, totype):
+    """
+    Check for a custom file in data/convert
+    Return None if not found.
+    """
+    fname = "%s2%s.tab" % (fromtype, totype)
+    fpath = ut.proj_path('convert',fname)
+    if os.path.exists(fpath):
+        return ut.load_dict_sets(fpath)
+
+
             
 def _ogroups_to_odict(ogroups, swap_order=False):
     """
