@@ -27,6 +27,8 @@ def fit_and_test(scored, clf, norm=True):
     return tested
 
 def fit_clf(arr, clfbase, norm=True):
+    if norm:
+        arr = fe.retype_arr(arr) # change f2 to f4 to prevent overflow
     X,y = arr_feats(arr), arr['hit']
     scaler = None
     if norm:

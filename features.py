@@ -106,6 +106,14 @@ def filter_names_arr(arr, columns, cutoff, nofilter=set(NET_SPS)):
             newarr = filter_arr(arr, nums_filt, cutoff)
     return newarr, feat_names
 
+def filter_require_sp(arr, species, cutoff=0.25, count_ext=True):
+    features = arr.dtype.names[3:]
+    cols = [f for f in features if f[:2]==species or (count_ext==True and
+        f[:2]=='ex' and f[4:6]==species) ]
+    sp_max = [max(r) for r in arr[cols]]
+    passing_inds = [i for i,m in enumerate(sp_max) if m > cutoff]
+    return arr[passing_inds]
+
 def filter_nsp(arr, nsp=2, cutoff=0.25, maybedontfilt=True, count_ext=True):
     """
     Filter to only leave interactions for which evidence exists in nsp species.
@@ -113,16 +121,7 @@ def filter_nsp(arr, nsp=2, cutoff=0.25, maybedontfilt=True, count_ext=True):
     In addition to returning the filtered array, returns a matching pairdict of
     species counts.
     """
-    if maybedontfilt and nsp==1 and cutoff==0.25:
-        print "Assuming no need to filter: nsp=%s, cutoff=%s" % (nsp, cutoff)
-        return arr, None
-    if len(arr) == 2:
-        # user provided [trainarr, testarr]
-        return [filter_nsp(a, nsp=nsp, cutoff=cutoff,
-            maybedontfilt=maybedontfilt, count_ext=count_ext)
-                for a in arr]
     features = arr.dtype.names[3:]
-    assert 'eluts' not in features, "Counting sps not supported with 'eluts'"
     sps = set([n[:2] for n in features 
                 if n[:2] not in set(NET_SPS) and n[:2] != 'ex'])
     print 'Filtering >=%s of these species >=%s:' % (nsp, cutoff), sps
@@ -133,13 +132,11 @@ def filter_nsp(arr, nsp=2, cutoff=0.25, maybedontfilt=True, count_ext=True):
     maxes = [[max(i) for i in arr[scs]] for scs in spcols]
     exceed_inds = [i for i in range(len(arr))
                    if len([i for m in maxes if m[i] > cutoff]) >= nsp]
-    orig_sp_counts = [len([1 for m in maxes if m[i] > cutoff]) 
-        for i in range(len(arr))]
     sp_counts_filt = [c for c in orig_sp_counts if c >=nsp]
     arrfilt = arr[exceed_inds]
     pd_spcounts = pd.PairDict([[arrfilt[i][0],arrfilt[i][1],sp_counts_filt[i]] 
                             for i in range(len(arrfilt))])
-    return arrfilt, pd_spcounts, orig_sp_counts
+    return arrfilt, pd_spcounts
 
 if __name__ == '__main__':
     nargs = len(sys.argv)

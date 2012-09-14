@@ -10,7 +10,7 @@ import cyto
 def test(name, sp, test_train_npos, clf, nsp, nsp_cutoff=0.25):
     (arr_train, arr_test), npos = test_train_npos
     myml.fit_clf(arr_train, clf)
-    arr_test_filt, pd_spcounts, _ =  myml.filter_nsp(arr_test, nsp=nsp,
+    arr_test_filt, pd_spcounts =  myml.filter_nsp(arr_test, nsp=nsp,
             cutoff=nsp_cutoff, maybedontfilt=False)
     if nsp==1: assert (arr_test==arr_test_filt).all(), 'species filtering issue'
     ppis = myml.classify(clf, arr_test_filt)
@@ -31,7 +31,7 @@ def cluster(result, fracppis, **kwargs):
 def predict(name, sp, arr, clf, nsp, nsp_cutoff=0.25):
     ut.savepy(arr, ut.bigd('all_'+name+'.pyd'))
     assert hasattr(clf, 'n_classes_'), "Classifier not yet trained."
-    arr_filt, pd_spcounts, _ =  myml.filter_nsp(arr, nsp=nsp,
+    arr_filt, pd_spcounts =  myml.filter_nsp(arr, nsp=nsp,
             cutoff=nsp_cutoff, maybedontfilt=False)
     assert len(arr_filt)>0, "No interactions passed filter."
     #if nsp==1: 
