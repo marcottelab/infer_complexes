@@ -15,6 +15,7 @@
 *.py#
 *.arff
 *.swp
+*.swo
 data/
 tools/
 docs/
