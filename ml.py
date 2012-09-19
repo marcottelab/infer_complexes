@@ -63,13 +63,14 @@ def svm(kernel='linear', cache_size=2000, **kwargs):
 def linear(dual=False, **kwargs):
     return LinearSVC(dual=dual, **kwargs)
 
-def feature_selection(arr, clf, clftype='tree', do_plot=False):
+def feature_selection(arr, clf, do_plot=False):
     """
     clf: ml.tree(compute_importances=True) or ml.linear()
     """
     names = arr.dtype.names[3:]
     fit_clf(arr, clf, norm=True)
-    importances = clf.feature_importances_ if clftype=='tree' else clf.coef_[0]
+    importances = (clf.coef_[0] if hasattr(clf, 'coef_') else
+            clf.feature_importances_)
     indices = np.argsort(importances)[::-1]
     ranked = [(names[index], importances[index]) for index in indices]
     for i,(name,imp) in enumerate(ranked):
@@ -83,7 +84,8 @@ def feature_selection(arr, clf, clftype='tree', do_plot=False):
             pl.plot(indnums, tree.feature_importances_[indices], "r")
         pl.plot(indnums, importances[indices], "b")
         pl.show()
-    return ranked
+    feats, weights = zip(*ranked)
+    return list(feats), list(weights)
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
