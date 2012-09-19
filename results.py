@@ -22,11 +22,11 @@ def test(name, base_sp, nsp, fs, ttbase, clf=None, clf_feats=None, nfeats=0,
     else:
         feats = []
     clf = clf if clf else ml.svm()
-    ml.fit_clf(arr_train, clf)
-    ppis = ml.classify(clf, arr_test)
-    result = Struct(train=arr_train[['id1','id2','hit']], clf=clf, ppis=ppis, 
-            npos=npos, name=name, species=base_sp, ppi_params=str(clf),
-            feats=feats)
+    scaler = ml.fit_clf(arr_train, clf)
+    ppis = ml.classify(clf, arr_test, scaler=scaler)
+    result = Struct(train=arr_train[['id1','id2','hit']], clf=clf,
+            scaler=scaler, ppis=ppis, npos=npos, name=name, species=base_sp,
+            ppi_params=str(clf), feats=feats)
     return result
 
 def cluster(result, fracppis, **kwargs):
