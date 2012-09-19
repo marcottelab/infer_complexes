@@ -10,13 +10,14 @@ import fnet
 import score
 from numpy import zeros,ndarray
 from pairdict import PairDict
+import features as fe
 
 def learning_examples(species, elut_fs, base_tt, nsp, scores=['poisson','wcc','apex'],
                       extdata=['net_Hs19', 'ext_Dm_guru','ext_Hs_malo'], 
                       splits=[0,.33,.66,1], neg_ratios=[2.5,230],
                       ind_cycle=[0,-1], cutoff=0.25, 
                       pos_splits=None, test_negs=None, gold_consv_sp='Dm', 
-                      do_filter=True): 
+                      do_filter=True, require_base=False): 
     """
     - Species: 'Hs' or 'Ce'... The base of the predictions in terms of
       identifiers used and orthology pairings.
@@ -31,6 +32,8 @@ def learning_examples(species, elut_fs, base_tt, nsp, scores=['poisson','wcc','a
       sequence of list/tuple of (id1, id2, score). other_evidence just appends
       to this.
     - do_filter: only set to false if you want a full unfiltered test/train arr
+    - require_base: if True, only keeps interactions with score exceeding
+      cutoff in the base species.  if False, in any species.
       """
     gold_consv_sp = gold_consv_sp if nsp>1 else '' #ignore for 1-sp case
     train,test = pd_from_tt(base_tt) if base_tt else \
@@ -42,7 +45,10 @@ def learning_examples(species, elut_fs, base_tt, nsp, scores=['poisson','wcc','a
     atrain,atest = [new_score_array(pdict, scores, elut_fs, extdata) 
             for pdict in train,test]
     train_test = [score_and_filter(arr, scores, elut_fs, cutoff, species,
-                      extdata, do_filter) for arr in atrain,atest]
+                      extdata, do_filter, require_base) for arr in atrain,atest]
+    if nsp > 1:
+        train_test = [fe.filter_nsp_nocounts(arr, nsp=nsp, cutoff=cutoff) 
+                for arr in train_test]
     print 'done.', stats(train_test)
     return train_test, ntest_pos
 
@@ -78,19 +84,19 @@ def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
     return scored_arr
 
 def score_and_filter(arr, scores, elut_fs, cutoff, species, extdata,
-        do_filter):
+        do_filter, require_base):
     print '\nScoring %s elutions with %s base, scores: %s.' % (len(elut_fs),
             species, ','.join(scores))
     score.score_array_multi(arr, species, elut_fs, scores, cutoff)
     if cutoff != -1 and do_filter:
-        print 'Filtering.'
-        columns = range(3,len(arr[0]))
-        # note that this double-filters often. only an efficiency issue.
-        arr = filter_arr(arr, columns, cutoff)
+        print 'Filtering, require_base =', require_base
+        require_species = set([species]) if require_base else None
+        arr = fe.filter_require_sp(arr, require_species, cutoff=cutoff,
+                count_ext=False)
     if extdata:
         print '\nScoring with external data:', ','.join(extdata)
         for d in extdata: fnet.score_arr_ext(arr, species, d)
-    if cutoff == -1 and do_filter: # correct: filter this if we haven't before.
+    if cutoff == -1 and do_filter: # filter this if we haven't before.
         arr = remove_empties(arr)
     return arr 
 
@@ -157,16 +163,6 @@ def convert_complexes(cxs, species, consv_sp):
         cxs = dict([(c,set([g for g in gs if g in conserved])) for c,gs in
             cxs.items()])
     return cxs
-
-def filter_arr(arr, columns, cutoff):
-    """
-    Uses max: return a new array of all rows from input arr with at least one
-    value in columns exceeding cutoff.
-    """
-    newarr = arr[[row for row in range(len(arr)) if max([val for col,val in
-                enumerate(arr[row]) if col in columns]) > cutoff]]
-    del arr
-    return newarr
 
 def preds_thresh(tested, thresh):
     limit = None
