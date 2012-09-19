@@ -15,6 +15,10 @@ import multiprocessing
 import operator
 import pairdict as pd
 
+"""
+Test github commit reversion.
+"""
+
 NCORES = multiprocessing.cpu_count()
 NET_SPS = 'HS CE DM SC'.split()
 
