@@ -10,6 +10,7 @@ from sklearn.datasets import make_classification
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.ensemble import RandomForestClassifier
 import utils as ut
+from ppi import filter_arr
 import numpy as np
 import multiprocessing
 import operator
@@ -73,54 +74,47 @@ def merge_by_species(arr, matches, func, remove=False):
     return merge_recurse(arr, patterns, func)
 
 
-#def filter_names_arr(arr, columns, cutoff, nofilter=set(NET_SPS)):
-    #"""
-    #columns: either a list of column numbers or a space-sep string of
-    #2-letter matches for column names.
-    #Filters the given array, returning the full rows (not just those named
-    #columns) for which at least one item passes the given cutoff.
-    #Those beginning with items in nofilter are not used in qualifying
-    #threshold-passing rows.
-    #"""
-    #columns = columns if columns else feature_inds(arr)
-    #feat_names = ([arr.dtype.names[i] for i in columns]
-                  #if isinstance(columns, list)
-                  #else match_cols(arr,columns))
-    #feat_nums = ([i for i,name in enumerate(arr.dtype.names)
-                  #if name in feat_names])
-    #if feat_nums == feature_inds(arr):
-        #print 'no filtering'
-        #newarr = arr
-    #else:
-        ## DON'T filter by network score columns: these don't qualify the row.
-        #names_filt = [n for n in feat_names if not n[:2] in (nofilter)]
-        #all_possible = [n for n in arr.dtype.names if not n[:2] in nofilter]
-        #if set(names_filt) == set(all_possible):
-            #print 'no filtering'
-            #newarr = arr
-        #else:
-            #print 'filtering', names_filt
-            #nums_filt = ([i for i,name in enumerate(arr.dtype.names)
-                      #if name in names_filt])
-            #newarr = filter_arr(arr, nums_filt, cutoff)
-    #return newarr, feat_names
-
-def filter_require_sp(arr, set_species, cutoff=0.25, count_ext=True):
+def filter_names_arr(arr, columns, cutoff, nofilter=set(NET_SPS)):
     """
-    Set_species: if None, just requires any column in the array to pass the
-    cutoff.
+    columns: either a list of column numbers or a space-sep string of
+    2-letter matches for column names.
+    Filters the given array, returning the full rows (not just those named
+    columns) for which at least one item passes the given cutoff.
+    Those beginning with items in nofilter are not used in qualifying
+    threshold-passing rows.
     """
-    features = arr.dtype.names[3:]
-    if set_species:
-        cols = [f for f in features if f[:2] in set_species or (count_ext==True
-            and f[:2]=='ex' and f[4:6] in set_species) ]
+    columns = columns if columns else feature_inds(arr)
+    feat_names = ([arr.dtype.names[i] for i in columns]
+                  if isinstance(columns, list)
+                  else match_cols(arr,columns))
+    feat_nums = ([i for i,name in enumerate(arr.dtype.names)
+                  if name in feat_names])
+    if feat_nums == feature_inds(arr):
+        print 'no filtering'
+        newarr = arr
     else:
-        cols = list(arr.dtype.names[3:])
+        # DON'T filter by network score columns: these don't qualify the row.
+        names_filt = [n for n in feat_names if not n[:2] in (nofilter)]
+        all_possible = [n for n in arr.dtype.names if not n[:2] in nofilter]
+        if set(names_filt) == set(all_possible):
+            print 'no filtering'
+            newarr = arr
+        else:
+            print 'filtering', names_filt
+            nums_filt = ([i for i,name in enumerate(arr.dtype.names)
+                      if name in names_filt])
+            newarr = filter_arr(arr, nums_filt, cutoff)
+    return newarr, feat_names
+
+def filter_require_sp(arr, species, cutoff=0.25, count_ext=True):
+    features = arr.dtype.names[3:]
+    cols = [f for f in features if f[:2]==species or (count_ext==True and
+        f[:2]=='ex' and f[4:6]==species) ]
     sp_max = [max(r) for r in arr[cols]]
     passing_inds = [i for i,m in enumerate(sp_max) if m > cutoff]
     return arr[passing_inds]
 
-def filter_nsp(arr, nsp=2, cutoff=0.25, count_ext=True, do_counts=True):
+def filter_nsp(arr, nsp=2, cutoff=0.25, maybedontfilt=True, count_ext=True):
     """
     Filter to only leave interactions for which evidence exists in nsp species.
     scores: [arr_train, arr_test]
@@ -140,16 +134,9 @@ def filter_nsp(arr, nsp=2, cutoff=0.25, count_ext=True, do_counts=True):
                    if len([i for m in maxes if m[i] > cutoff]) >= nsp]
     sp_counts_filt = [c for c in orig_sp_counts if c >=nsp]
     arrfilt = arr[exceed_inds]
-    if do_counts:
-        pd_spcounts = pd.PairDict([[arrfilt[i][0],arrfilt[i][1],
-            sp_counts_filt[i]] 
-            for i in range(len(arrfilt))])
-    else:
-        pd_spcounts = None
+    pd_spcounts = pd.PairDict([[arrfilt[i][0],arrfilt[i][1],sp_counts_filt[i]] 
+                            for i in range(len(arrfilt))])
     return arrfilt, pd_spcounts
-
-def filter_nsp_nocounts(arr, **kwargs):
-    return filter_nsp(arr, do_counts=False, **kwargs)[0]
 
 if __name__ == '__main__':
     nargs = len(sys.argv)
