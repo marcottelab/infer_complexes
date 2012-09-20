@@ -47,5 +47,5 @@ if __name__ == '__main__':
         sys.exit("usage: python protein_counts.py f_peplist only_uniques")
     only_uniques = sys.argv[2] == 'True'
     print 'Counting proteins.  Only uniques:', only_uniques
-    write_prot_count(sys.argv[1], only_uniques)
+    write_prot_counts(sys.argv[1], only_uniques)
 
