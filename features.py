@@ -27,8 +27,11 @@ def match_cols(arr, colstring):
     """
     return [f for f in arr.dtype.names if (f[:2] in colstring.split()
                                            or f in colstring.split())]
+def keep_rows(arr, rows):
+    return arr_copy(arr[rows])
+
 def keep_cols(arr, colnames):
-    return arr[['id1','id2','hit'] + colnames]
+    return arr_copy(arr[['id1','id2','hit'] + colnames])
 
 def regex_cols(arr, pattern):
     return arr[['id1','id2','hit'] + ut.regex_filter(arr.dtype.names, pattern)]
@@ -50,11 +53,15 @@ def merge_features(arr, pattern, func, do_remove):
 def retype_arr(arr, oldtype='f2', newtype='f4'):
     newdtype = [(dt[0],dt[1].replace(oldtype,newtype)) 
             for dt in arr.dtype.descr]
-    newarr = np.empty(arr.shape, dtype=newdtype)
+    return arr_copy(arr, newdtype=newdtype)
+
+def arr_copy(arr, newdtype=None):
+    dtype = newdtype if newdtype else arr.dtype
+    newarr = np.empty(arr.shape, dtype=dtype)
     for field in newarr.dtype.names:
         newarr[field] = arr[field]
     return newarr
-
+    
 def merge_by_species(arr, matches, func, remove=False):
     """
     matches: like [apex] or [wcc, apex, ...]
@@ -118,6 +125,7 @@ def filter_require_sp(arr, set_species, cutoff=0.25, count_ext=True):
         cols = list(arr.dtype.names[3:])
     sp_max = [max(r) for r in arr[cols]]
     passing_inds = [i for i,m in enumerate(sp_max) if m > cutoff]
+    # previously said newarr=arr[cols], del arr, return newarr.  new bug?
     return arr[passing_inds]
 
 def filter_nsp(arr, nsp=2, cutoff=0.25, count_ext=True, do_counts=True):
@@ -138,9 +146,11 @@ def filter_nsp(arr, nsp=2, cutoff=0.25, count_ext=True, do_counts=True):
     maxes = [[max(i) for i in arr[scs]] for scs in spcols]
     exceed_inds = [i for i in range(len(arr))
                    if len([i for m in maxes if m[i] > cutoff]) >= nsp]
-    sp_counts_filt = [c for c in orig_sp_counts if c >=nsp]
     arrfilt = arr[exceed_inds]
     if do_counts:
+        orig_sp_counts = [len([1 for m in maxes if m[i] > cutoff]) for i in
+                range(len(arr))]
+        sp_counts_filt = [c for c in orig_sp_counts if c >=nsp]
         pd_spcounts = pd.PairDict([[arrfilt[i][0],arrfilt[i][1],
             sp_counts_filt[i]] 
             for i in range(len(arrfilt))])

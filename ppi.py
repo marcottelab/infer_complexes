@@ -46,7 +46,7 @@ def learning_examples(species, elut_fs, base_tt, nsp, scores=['poisson','wcc','a
             for pdict in train,test]
     train_test = [score_and_filter(arr, scores, elut_fs, cutoff, species,
                       extdata, do_filter, require_base) for arr in atrain,atest]
-    if nsp > 1:
+    if nsp > 1 and do_filter:
         train_test = [fe.filter_nsp_nocounts(arr, nsp=nsp, cutoff=cutoff) 
                 for arr in train_test]
     print 'done.', stats(train_test)
@@ -100,6 +100,16 @@ def score_and_filter(arr, scores, elut_fs, cutoff, species, extdata,
         arr = remove_empties(arr)
     return arr 
 
+def filter_arr(arr, columns, cutoff):
+    """
+    Uses max: return a new array of all rows from input arr with at least one
+    value in columns exceeding cutoff.
+    """
+    newarr = arr[[row for row in range(len(arr)) if max([val for col,val in
+                enumerate(arr[row]) if col in columns]) > cutoff]]
+    del arr
+    return newarr
+
 def new_score_array(pd, scores, fs, extdata):
     """
     Pre-allocate an array sized based on the elution files and extdata.
@@ -132,18 +142,17 @@ def base_array(triple, data_names, data_len):
     return arr
 
 def stats(train_test):
-    nums =  [len([1 for row in arr if row['hit']==tf])
-             for arr in train_test for tf in [1,0]]
+    nums =  [sum(arr['hit']==tf) for arr in train_test for tf in [1,0]]
     return 'train %sP/%sN; test %sP/%sN' % tuple(nums)
 
-def load_training_complexes(species, consv_sp):
+def load_training_complexes(species, consv_sp=''):
     ppi = co.load_complexes_singleline(ut.proj_path('ppi_cxs'))
     clean = co.load_complexes_multiline(ut.proj_path('clean_cxs'))
     ppi,clean = [convert_complexes(cxs, species, consv_sp) for cxs in
             [ppi,clean]]
     return ppi,clean
 
-def convert_complexes(cxs, species, consv_sp):
+def convert_complexes(cxs, species, consv_sp=''):
     """
     Convert from corum uniprot to human default, then to other base species if
     specified.

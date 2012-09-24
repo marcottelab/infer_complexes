@@ -1,4 +1,5 @@
 import numpy as np
+import random
 import utils as ut
 from Struct import Struct
 import ml
@@ -8,21 +9,28 @@ import ppi
 import cyto
 
 
+
 def test(name, base_sp, nsp, fs, ttbase, clf=None, clf_feats=None, nfeats=0,
-        **kwargs):
+        norm=True, ppi_output=None, train_limit=None, **kwargs):
     (arr_train, arr_test), npos = ppi.learning_examples(base_sp, fs, ttbase,
-            nsp, **kwargs)
-    clf_feats = clf_feats if clf_feats else ml.linear()
+            nsp, **kwargs) if ppi_output is None else ppi_output
     if nfeats:
         print 'Selecting top %s of %s features' % (nfeats,
             len(arr_train.dtype.names)-3)
+        clf_feats = clf_feats if clf_feats is not None else ml.linear()
         feats = ml.feature_selection(arr_train, clf_feats)[0][:nfeats]
         arr_train, arr_test = [fe.keep_cols(arr,feats) 
                 for arr in arr_train, arr_test]
     else:
         feats = []
-    clf = clf if clf else ml.svm()
-    scaler = ml.fit_clf(arr_train, clf)
+    # Careful: clf is length 0 even when instantiated. Do not say 'if clf:'
+    clf = clf if clf is not None else ml.svm()
+    print "Classifier:", clf
+    if train_limit: 
+        print 'Sampling %s training examples' % train_limit
+        arr_train = fe.keep_rows(arr_train,
+                random.sample(range(len(arr_train)),train_limit))
+    scaler = ml.fit_clf(arr_train, clf, norm=norm)
     ppis = ml.classify(clf, arr_test, scaler=scaler)
     result = Struct(train=arr_train[['id1','id2','hit']], clf=clf,
             scaler=scaler, ppis=ppis, npos=npos, name=name, species=base_sp,
