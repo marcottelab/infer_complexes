@@ -12,12 +12,12 @@ from numpy import zeros,ndarray
 from pairdict import PairDict
 import features as fe
 
-def learning_examples(species, elut_fs, base_tt, nsp, scores=['poisson','wcc','apex'],
-                      extdata=['net_Hs19', 'ext_Dm_guru','ext_Hs_malo'], 
-                      splits=[0,.33,.66,1], neg_ratios=[2.5,230],
-                      ind_cycle=[0,-1], cutoff=0.25, 
-                      pos_splits=None, test_negs=None, gold_consv_sp='Dm', 
-                      do_filter=True, require_base=False): 
+def learning_examples(species, elut_fs, base_tt, nsp,
+        scores=['poisson','wcc','apex'], extdata=['net_Hs19',
+        'ext_Dm_guru','ext_Hs_malo'], splits=[0,.33,.66,1],
+        neg_ratios=[2.5,230], ind_cycle=[0,-1], cutoff=0.25, pos_splits=None,
+        test_negs=None, gold_consv_sp='Dm', do_filter=True,
+        require_base=False): 
     """
     - Species: 'Hs' or 'Ce'... The base of the predictions in terms of
       identifiers used and orthology pairings.
@@ -57,11 +57,13 @@ def pd_from_tt(train_test):
 
 def base_splits(species, elut_fs, splits, neg_ratios, ind_cycle,
                 test_negs, pos_splits, consv_sp):
-    ppi_cxs,clean_cxs = load_training_complexes(species, consv_sp)
+    ppi_cxs,clean_cxs,all_cxs = load_training_complexes(species,
+            consv_sp=consv_sp)
     elut_prots = el.all_prots(elut_fs, species) if test_negs=='all' else None
-    train,test = ex.base_examples(ppi_cxs, clean_cxs, elut_prots, splits,
-        nratio_train=neg_ratios[0], nratio_test=neg_ratios[1],
-        pos_splits=pos_splits, ind_cycle=ind_cycle)
+    train,test = ex.base_examples(ppi_cxs, clean_cxs, all_cxs, elut_prots,
+            splits=splits, nratio_train=neg_ratios[0],
+            nratio_test=neg_ratios[1], pos_splits=pos_splits,
+            ind_cycle=ind_cycle)
     return train,test
 
 def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
@@ -146,11 +148,12 @@ def stats(train_test):
     return 'train %sP/%sN; test %sP/%sN' % tuple(nums)
 
 def load_training_complexes(species, consv_sp=''):
-    ppi = co.load_complexes_singleline(ut.proj_path('ppi_cxs'))
-    clean = co.load_complexes_multiline(ut.proj_path('clean_cxs'))
-    ppi,clean = [convert_complexes(cxs, species, consv_sp) for cxs in
-            [ppi,clean]]
-    return ppi,clean
+    ppi = co.load_ppi_cxs()
+    clean = co.load_merged_cxs()
+    allcxs = co.load_ppi_cxs(minlen=2,maxlen=1000)
+    ppi,clean,allcxs = [convert_complexes(cxs, species, consv_sp) for cxs in
+            [ppi,clean,allcxs]]
+    return ppi,clean,allcxs
 
 def convert_complexes(cxs, species, consv_sp=''):
     """

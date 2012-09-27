@@ -7,9 +7,9 @@ import random
 from Struct import Struct
 from pairdict import PairDict
 
-def base_examples(ppi_cxs, clean_cxs, test_neg_set, splits=[0,0.33,0.66,1],
-                  nratio_train=4, nratio_test=40, pos_lengths=None,
-                  pos_splits=None, ind_cycle=[0,-1]):
+def base_examples(ppi_cxs, clean_cxs, all_cxs, test_neg_set,
+        splits=[0,0.33,0.66,1], nratio_train=4, nratio_test=40,
+        pos_lengths=None, pos_splits=None, ind_cycle=[0,-1]):
     """
     Builds the training/test examples struct ready for scoring and learning.
     Test_neg_set: full list of proteins found in our data to use for test set
@@ -19,20 +19,19 @@ def base_examples(ppi_cxs, clean_cxs, test_neg_set, splits=[0,0.33,0.66,1],
     if pos_splits is None:
         pos_splits,clean_splits = positives_from_corum(ppi_cxs, clean_cxs,
               splits, ind_cycle)
-    all_pos_lp = merge_lps(pos_splits)
     ptrain_lp,ptest_lp = pos_splits[:2]
-    train_lp = add_negs(ptrain_lp, all_pos_lp, None,
-                  nratio_train)
-    # slightly WRONG.  Should exclude train negatives too.
-    test_lp = add_negs(ptest_lp, all_pos_lp, test_neg_set, nratio_test)
-    return [PairDict([(p[0],p[1],1 if p[2]=='true' else 0) for p in lp.pairs])
-                  for lp in [train_lp, test_lp]]
+    all_pos_lp = _complexes_to_LPairset(all_cxs)
+    train_lp = add_negs(ptrain_lp, all_pos_lp, test_neg_set, nratio_train)
+    test_lp = add_negs(ptest_lp, merge_lps([all_pos_lp,train_lp]),
+            test_neg_set, nratio_test)
+    #return [PairDict([(p[0],p[1],1 if p[2]=='true' else 0) for p in lp.pairs]) for lp in [train_lp, test_lp]]
+    return train_lp,test_lp
 
 
 def lpairset_to_lol(lp):
     return list([list(tup) for tup in lp.pairs])
 
-def add_negs(pos_lp, all_pos_lp, from_set, ratio):
+def add_negs(pos_lp, exclude_lp, from_set, ratio):
     """
     Add negatives in the ratio-to-postive specified by neg_ratios to the
     provided pos_splits, which is a list of LPairset--labeled pair set, ie a
@@ -45,9 +44,9 @@ def add_negs(pos_lp, all_pos_lp, from_set, ratio):
     k = len(pos_lp.pairs)*ratio
     nitems = len(from_set)
     if nitems*(nitems-1)/2 < 2*k:
-        negs_lp = all_pairs(from_set, all_pos_lp, k)
+        negs_lp = all_pairs(from_set, exclude_lp, k)
     else:
-        negs_lp = kpairs(from_set, all_pos_lp, k)
+        negs_lp = kpairs(from_set, exclude_lp, k)
     full_lp = merge_lps([pos_lp, negs_lp])
     return full_lp
 
@@ -90,8 +89,6 @@ def positives_from_corum(ppicxs, cleancxs, splits, ind_cycle,
     Assigns Ppicxs based on being subset of cleancxs; puts the few that are not
         subsets into splits[split_for_unmatched].
     """
-    ppicxs = _remove_singles(ppicxs)
-    cleancxs = _remove_singles(cleancxs)
     cleancxs2ppi = _merged_parents(ppicxs, cleancxs)
     clean_int_sets = [LPairset(set([lpair(x,y,'true') for p in cleancxs2ppi[c]
         for x,y in _set_to_pairs(ppicxs[p])]), name=c) for c in cleancxs2ppi]
@@ -100,9 +97,7 @@ def positives_from_corum(ppicxs, cleancxs, splits, ind_cycle,
     allsplits_lps, allsplits_cxs = positives_from_lps_sorted(clean_int_sets,
         total_clean_pairs, splits, ind_cycle)
     # Append the ppicxs interactions
-    ppi_int_sets = [LPairset(set([lpair(x,y,'true') for x,y in
-        _set_to_pairs(ppicxs[p])]),name=p) for p in ppicxs]
-    ppi_ints = merge_lps(ppi_int_sets)
+    ppi_ints = _complexes_to_LPairset(ppicxs)
     # Take the difference before merging, otherwise most ints end up here.
     diff_ppis_lp = ppi_ints.difference(clean_ints)
     allsplits_lps[split_for_unmatched].merge(diff_ppis_lp)
@@ -114,21 +109,35 @@ def positives_from_corum(ppicxs, cleancxs, splits, ind_cycle,
     print 'split complex counts:', [len(x) for x in allsplits_cxs]
     return allsplits_lps, allsplits_cxs
 
-def positives_from_lps_sorted(lps, total_pairs, splits, ind_cycle=[0,1]):
-    # Non-random by design for repeatability
-    # Typically start with test, then training, then cycle
+def _complexes_to_LPairset(cxs):
+    lps_list = [LPairset(set([lpair(x,y,'true') 
+        for x,y in _set_to_pairs(cxs[c])]),name=c) 
+        for c in cxs]
+    return merge_lps(lps_list)
+
+def positives_from_lps_sorted(lps, total_pairs, splits, ind_cycle=None):
+    """
+    Random assignment to splits according to specified probabilities if
+    ind_cycle is None; if ind_cycle specified, rotates according to that.
+    """
     splits_lps = [LPairset(set([])) for s in splits[:-1]]
     splits_cxs = [[] for s in splits[:-1]]
     lps.sort(key=lambda lp: len(lp.pairs),reverse=True)
-    index = ind_cycle[0]
+    index = ind_cycle[0] if ind_cycle else sample_index(splits)
     for lp in lps:
         split_lp = splits_lps[index]
         split_lp.merge(lp)
         splits_cxs[index].append(lp.name)
-        index = (index + ind_cycle[1]) % len(splits_lps)
+        index = ((index + ind_cycle[1]) % len(splits_lps) if ind_cycle else
+                sample_index(splits))
     print "split positives count:", [len(slp.pairs) for slp in splits_lps]
     return splits_lps, splits_cxs
 
+def sample_index(splits):
+    r = random.random()
+    for i,s in enumerate(splits[1:]):
+        if r<s:
+            return i
 
 class LPairset(object):
     """
@@ -200,14 +209,24 @@ def dedupe_lps(lps):
     newlps = [LPairset(lp.pairs) for lp in lps]
     def dedupe_fairly(lp1,lp2):
         intersect01 = lp1.intersection(lp2)
+        print '--length intersect', len(intersect01.pairs)
         int_half0 = LPairset(set(random.sample(list(intersect01.pairs),
                                                int(len(intersect01.pairs)/2))))
         int_half1 = intersect01.difference(int_half0)
-        return lp1.difference(int_half0),lp2.difference(int_half1)
+        newlp1,newlp2 = lp1.difference(int_half0),lp2.difference(int_half1)
+        return newlp1, newlp2
+        #newlp1 =lp1.difference(intersect01) 
+        #return newlp1, lp2
     for i,j in itertools.combinations(range(len(newlps)),2):
-        new1,new2 = dedupe_fairly(lps[i],lps[j])
+        print 'i,j', i,j
+        print 'lengths', [len(lp.pairs) for lp in newlps]
+        print 'intersections:', [(x,y,len(newlps[x].intersection(newlps[y]).pairs)) for x,y in itertools.combinations(range(len(newlps)),2)]
+        new1,new2 = dedupe_fairly(newlps[i],newlps[j])
+        #new1,new2 = dedupe_fairly(lps[i],lps[j])
         newlps[i] = new1
         newlps[j] = new2
+        print 'lengths', [len(lp.pairs) for lp in newlps]
+        print 'intersections:', [(x,y,len(newlps[x].intersection(newlps[y]).pairs)) for x,y in itertools.combinations(range(len(newlps)),2)]
     # for i,_ in enumerate(lps):
     #     for j,_ in enumerate(newlps):
     #         if j>i:

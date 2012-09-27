@@ -3,9 +3,75 @@ import numpy as np
 import random
 import os
 import utils as ut
+import compare as cp
 
 def pairs(fname):
     return [list(e) for e in ut.load_tab_file(fname)]
+
+def load_corum(fname):
+    """
+    Returns a list of tuples: (name, set(uniprotIDs), species)
+    """
+    return [(l[1], set(l[4].split(',')), l[3]) 
+            for l in ut.load_list_of_lists(fname, sep=';')[1:]]
+
+def load_ppi_cxs(minlen=2, maxlen=50, sp_match='Human'):
+    """
+    Returns a list of sets of uniprot ids.
+    No de-duplication or anything else.
+    Expected that this list may have duplicates.
+    """
+    fname = ut.proj_path('corum_cxs')
+    return [(name,ps) for name,ps,s in load_corum(fname) 
+            if (not sp_match or s==sp_match) 
+            and len(ps)>=minlen and len(ps)<=maxlen]
+
+def load_merged_cxs(cutoff=0.5, func=cp.simpson, sep='|', **kwargs):
+    cxs = load_ppi_cxs(**kwargs)
+    return merge_atonce(cxs, cutoff, func, sep)
+    #if atonce: # deprecated since I didn't fix merge_iter for handling names
+    #else:
+        #return merge_iter(cxs, cutoff, func)
+
+def merge_atonce(psets, cutoff, func, sep):
+    """
+    Once difference seems to be that say a series of overlapping doubles can't
+    string together with this approach, whereas it can with the iter approach.
+    """
+    to_merge = list(psets)
+    merged = []
+    while len(to_merge)>1:
+        c1,c1ps = random.choice(to_merge)
+        to_merge.remove((c1,c1ps))
+        matches = [(c,ps) for c,ps in to_merge if func(ps,c1ps)>cutoff]
+        for m in matches: to_merge.remove(m)
+        newname = sep.join([c1]+ut.i0(matches))
+        newps = reduce(set.union, [c1ps]+ut.i1(matches))
+        merged.append((newname,newps))
+    merged.append(to_merge[0])
+    return merged
+
+# not fixed for handling names
+#def merge_iter(psets, cutoff, func):
+    #merged = list(psets)
+    #repeat = True
+    #while repeat: # iterate until no more merging can happen
+        #repeat = False
+        #to_merge = merged
+        #merged = []
+        #while len(to_merge)>1: # single loop through
+            #c1 = random.choice(to_merge)
+            #to_merge.remove(c1)
+            #c2 = cp.best_match_item(c1, to_merge, func)
+            #if func(c1,c2) > cutoff:
+                #merged.append(set.union(c1,c2))
+                #to_merge.remove(c2)
+                #repeat = True
+            #else:
+                #merged.append(c1)
+        #merged.append(to_merge[0]) # base case -- last item
+    #return merged
+
 
 def pairs_from_complexes(complexes):
     intdict = corum_ints_duped(complexes)
@@ -69,12 +135,13 @@ def divide_pairs(pairs, fractions):
 
 def convert_complexes(complexes, convert, only_to_prots=None):
     """
-    Convert a dict of complexes from one proteinid scheme to another.
+    Convert a list of complexes from one proteinid scheme to another.
     convert: dict of { fromid1: set([toid1, toid2, ...]), ...}
     only_to_prots: a _set_ of outids, such that we only convert to any in that set
     If only_to_prots is None, we use all the outids.
     For brevity in code I assumed wlog from uniprot 'u' to ensp 'e'.
     """
+    complexes = dict(complexes)
     assert type(only_to_prots) == type(set([])), 'Prots must be set for speed'
     convert_filtered = dict([(u,[e for e in convert[u] if (only_to_prots is
         None or e in only_to_prots)][0]) for u in convert if len([e for e in
