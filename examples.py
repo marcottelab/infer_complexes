@@ -24,8 +24,7 @@ def base_examples(ppi_cxs, clean_cxs, all_cxs, test_neg_set,
     train_lp = add_negs(ptrain_lp, all_pos_lp, test_neg_set, nratio_train)
     test_lp = add_negs(ptest_lp, merge_lps([all_pos_lp,train_lp]),
             test_neg_set, nratio_test)
-    #return [PairDict([(p[0],p[1],1 if p[2]=='true' else 0) for p in lp.pairs]) for lp in [train_lp, test_lp]]
-    return train_lp,test_lp
+    return [PairDict([(p[0],p[1],1 if p[2]=='true' else 0) for p in lp.pairs]) for lp in [train_lp, test_lp]]
 
 
 def lpairset_to_lol(lp):
@@ -209,28 +208,14 @@ def dedupe_lps(lps):
     newlps = [LPairset(lp.pairs) for lp in lps]
     def dedupe_fairly(lp1,lp2):
         intersect01 = lp1.intersection(lp2)
-        print '--length intersect', len(intersect01.pairs)
         int_half0 = LPairset(set(random.sample(list(intersect01.pairs),
                                                int(len(intersect01.pairs)/2))))
         int_half1 = intersect01.difference(int_half0)
         newlp1,newlp2 = lp1.difference(int_half0),lp2.difference(int_half1)
         return newlp1, newlp2
-        #newlp1 =lp1.difference(intersect01) 
-        #return newlp1, lp2
     for i,j in itertools.combinations(range(len(newlps)),2):
-        print 'i,j', i,j
-        print 'lengths', [len(lp.pairs) for lp in newlps]
-        print 'intersections:', [(x,y,len(newlps[x].intersection(newlps[y]).pairs)) for x,y in itertools.combinations(range(len(newlps)),2)]
-        new1,new2 = dedupe_fairly(newlps[i],newlps[j])
-        #new1,new2 = dedupe_fairly(lps[i],lps[j])
-        newlps[i] = new1
-        newlps[j] = new2
-        print 'lengths', [len(lp.pairs) for lp in newlps]
-        print 'intersections:', [(x,y,len(newlps[x].intersection(newlps[y]).pairs)) for x,y in itertools.combinations(range(len(newlps)),2)]
-    # for i,_ in enumerate(lps):
-    #     for j,_ in enumerate(newlps):
-    #         if j>i:
-    #             newlps[j] = LPairset(newlps[j].difference(lps[i]))
+        #new1,new2 = dedupe_fairly(lps[i],lps[j]) WRONG 9/27. Re-adds dupes.
+        newlps[i],newlps[j] = dedupe_fairly(newlps[i],newlps[j])
     return newlps
 
 def lpair(x,y,z):
