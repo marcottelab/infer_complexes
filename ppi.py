@@ -36,9 +36,11 @@ def learning_examples(species, elut_fs, base_tt, nsp,
       cutoff in the base species.  if False, in any species.
       """
     gold_consv_sp = gold_consv_sp if nsp>1 else '' #ignore for 1-sp case
+    print "\n\nGenerating learning examples."
     train,test = pd_from_tt(base_tt) if base_tt else \
                  base_splits(species, elut_fs, splits, neg_ratios,
                       ind_cycle, test_negs, pos_splits, gold_consv_sp)
+    check_overlaps(train, test)
     ntest_pos = len([v for k,v in test.d.items() if v[0]==1])
     # Note this is wrong if base_tt is supplied since that is already filtered.
     print 'total test positives:', ntest_pos
@@ -142,6 +144,13 @@ def base_array(triple, data_names, data_len):
         row = arr[i]
         row['id1'],row['id2'],row['hit'] = p1,p2,hit
     return arr
+
+def check_overlaps(pdtrain, pdtest):
+    overlaps = len([p for p,v in pdtrain.d.items() if pdtest.contains(p)])
+    if overlaps:
+        print '**Common pairs between train/test:', overlaps
+    else:
+        print "No common pairs between train/test."
 
 def stats(train_test):
     nums =  [sum(arr['hit']==tf) for arr in train_test for tf in [1,0]]

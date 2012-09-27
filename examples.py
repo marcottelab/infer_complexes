@@ -51,7 +51,8 @@ def add_negs(pos_lp, exclude_lp, from_set, ratio):
 
 def all_pairs(items, exclude_lp, k):
     negs = [lpair(p1,p2,'false') for p1,p2 in itertools.combinations(
-        items,2) if not exclude_lp.contains(lpair(p1, p2, 'true'))]
+        items,2) if not exclude_lp.contains(lpair(p1, p2, 'true')) and not
+        exclude_lp.contains(lpair(p1,p2,'false'))]
     return LPairset(set(maybe_sample(negs,k)))
 
 def kpairs(items, exclude_lp, k):
@@ -61,7 +62,8 @@ def kpairs(items, exclude_lp, k):
     while n<k:
         p1 = random.choice(litems)
         p2 = random.choice(litems)
-        if p1!=p2 and not exclude_lp.contains(lpair(p1,p2,'true')):
+        if (p1!=p2 and not exclude_lp.contains(lpair(p1,p2,'true')) and not
+                exclude_lp.contains(lpair(p1,p2,'false'))):
             if selected.add(lpair(p1,p2,'false')):
                 n = n+1
     return selected
