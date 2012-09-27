@@ -51,11 +51,13 @@ def loadlab(fname, loadfunc=loadpy, copy=True):
     remotef = remoted(fname)
     if os.path.isfile(remotef):
         if copy:
-            if not os.path.isfile(fname):
+            if (not os.path.isfile(fname) 
+                or confirm(prompt="Local file exists.  Overwrite? [y/n]: ")):
+                print "Copied locally."
                 shutil.copy(remotef, fname)
                 return loadfunc(fname)
             else:
-                print "Local file exists; not copied."
+                print "Not copied."
                 return loadfunc(remotef)
         else:
             return loadfunc(remotef)
@@ -443,3 +445,19 @@ def config():
     dconf = dict([(l.split()[0],str_to_bool(l.split()[1])) 
         for l in load_list(conf_path) if len(l)>0 and l[0]!='#'])
     return dconf
+
+##########################################
+# Misc helper functions
+##########################################
+
+def confirm(prompt="Continue? y/n"):
+    while True:
+        ans = raw_input(prompt)
+        if ans not in ['y','n']:
+            print "answers: y, n"
+            continue
+        if ans == 'y':
+            return True
+        if ans == 'n':
+            return False
+        
