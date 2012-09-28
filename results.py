@@ -11,7 +11,8 @@ import cyto
 
 
 def test(name, base_sp, nsp, fs, ttbase, clf=None, clf_feats=None, nfeats=0,
-        norm=True, ppi_output=None, train_limit=None, **kwargs):
+        norm=True, ppi_output=None, train_limit=None, save_data=False,
+        **kwargs):
     (arr_train, arr_test), npos = ppi.learning_examples(base_sp, fs, ttbase,
             nsp, **kwargs) if ppi_output is None else ppi_output
     if nfeats:
@@ -35,6 +36,9 @@ def test(name, base_sp, nsp, fs, ttbase, clf=None, clf_feats=None, nfeats=0,
     result = Struct(train=arr_train[['id1','id2','hit']], clf=clf,
             scaler=scaler, ppis=ppis, npos=npos, name=name, species=base_sp,
             ppi_params=str(clf), feats=feats)
+    if save_data:
+        result.train = arr_train
+        result.test = arr_test
     return result
 
 def cluster(result, fracppis, **kwargs):
