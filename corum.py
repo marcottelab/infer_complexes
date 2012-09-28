@@ -149,7 +149,7 @@ def convert_complexes(complexes, convert, only_to_prots=None):
     out_complexes = dict([(c,set([convert_filtered[u] for u in complexes[c] if
         u in convert_filtered])) for c in complexes if len([convert_filtered[u]
         for u in complexes[c] if u in convert_filtered])>1])
-    return out_complexes
+    return out_complexes.items()
 
 def write_pos_neg_pairs(complexes, complexes_exclude, fname_pos):
     """

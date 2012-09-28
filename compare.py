@@ -4,6 +4,40 @@ import utils as ut
 import pairdict as pd
 import corum as co
 
+
+cp_funcs = [
+    # count of partially recovered gold cxs, first measure of havig/hart
+    lambda gold,cxs: (count_overlaps(gold, cxs, limit=0.25,
+        func=bader_score)),
+    # clustering-wise sensitivity, Brohee 2006
+    lambda gold,cxs: avg_best(cxs, gold, sensitivity),
+    # clustering-wise ppv, Brohee 2006
+    lambda gold,cxs: ppv(gold, cxs),
+    # geometric accuracy, Brohee 2006, second havig/hart
+    lambda gold,cxs: geom_avg(avg_best(cxs, gold, sensitivity),
+        ppv(gold, cxs)),
+    # geometric separation, Brohee 2006
+    lambda gold, cxs: geom_avg(separation(gold, cxs), separation(cxs,
+        gold)),
+    lambda gold,cxs: (count_overlaps(gold, cxs, limit=0.5,
+        func=sensitivity)/len(gold)),
+    lambda gold,cxs: (count_overlaps(cxs, gold, limit=0.5,
+        func=sensitivity)/len(cxs)),
+    lambda gold,cxs: gold_corr(gold, cxs),
+    #lambda gold,cxs: avg_best(cxs, gold, sensitivity_adj)
+    ]
+
+def stats(gold,cxs_list, conv_to_sets=True, norm=True):
+    if conv_to_sets:
+        gold = [set(c) for c in gold]
+        cxs_list = [[set(c) for c in cxs] for cxs in cxs_list]
+    arr = np.zeros((len(cxs_list), len(cp_funcs)))
+    for i, cxs in enumerate(cxs_list):
+        arr[i,:] = [f(gold, cxs) for f in cp_funcs]
+    if norm:
+        arr = arr/np.max(arr,axis=0)
+    return arr
+
 def gold_corr(gold, cxs):
     """
     gold: List of complexes from the gold standard
@@ -17,6 +51,8 @@ def gold_corr(gold, cxs):
     gold_arr, cxs_arr = [complex_arr(c, gold_prots) for c in gold, cxs]
     return np.corrcoef(gold_arr.flat, cxs_arr.flat)[0,1]
 
+def geom_avg(a,b):
+    return np.math.sqrt(a*b)
 
 def complex_arr(cxs, prots):
     arr = np.zeros((len(prots),len(prots)))
@@ -30,22 +66,50 @@ def complex_arr(cxs, prots):
                     arr[p_inds[p], p_inds[partner]] = 1
     return arr
 
+def bader_score(a,b):
+    # Bader/Hogue 2003 from Havig/Hart 2012
+    intersect = len(set.intersection(a,b))
+    return intersect**2/(len(a)*len(b))
+
 def jaccard(a, b):
-    """
-    Jaccard overlap of sets a,b.
-    """
     return len(set.intersection(a,b))/len(set.union(a,b))
 
-def ppv(a,b):
-    """ 
-    I had called this asym_overlap.  Brohee 2006 calls it pos predictive value.
-    """
+def sensitivity(a,b):
+    # Brohee 2006 uses this as the criteria for 'sensitivity'. I had called it
+    # asym_overlap previously.
     return len(set.intersection(a,b))/len(a)
+
+def ppv(setsa, setsb):
+    # clustering-wise ppv from Brohee 2006
+    arr = arr_intersects(setsa, setsb)
+    # Redundant steps in how their algo is presented were elminated but kept
+    # here for clarity
+    #clust_ppvs = np.max(arr, axis=0) / np.sum(arr, axis=0)
+    #overall_ppv = (np.sum(arr, axis=0)*clust_ppvs) / np.sum(arr)
+    return np.sum(np.max(arr, axis=0))/np.sum(arr)
+
+def separation(setsa, setsb):
+    # Row-wise separation. Brohee 2006.
+    # Transpose arguments for col-wise separation.
+    arr = arr_intersects(setsa, setsb)
+    col_normed = np.nan_to_num(arr/np.sum(arr, axis=0))
+    row_normed = np.nan_to_num(np.array([arr[i,:]/np.sum(arr,axis=1)[i] 
+        for i in range(arr.shape[0])]))
+    comb = col_normed * row_normed
+    return np.mean(np.sum(comb, axis=1))
+
+
+def arr_intersects(setsa, setsb):
+    arr = np.zeros((len(setsa),len(setsb)))
+    for i,a in enumerate(setsa):
+        for j,b in enumerate(setsb):
+            arr[i,j] = len(set.intersection(a,b))
+    return arr
 
 def simpson(a,b):
     return len(set.intersection(a,b))/min([len(a),len(b)])
 
-def ppv_adj(a,b):
+def sensitivity_adj(a,b):
     """ 
     Tries to remove the issue that smaller complexes get biased towards high
     scores by subtracting the base case where just a single member overlaps.

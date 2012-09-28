@@ -16,6 +16,8 @@ def base_examples(ppi_cxs, clean_cxs, all_cxs, test_neg_set,
                   negatives generation. Use None to make negs the same way as
                   training, from the members of those complexes.
     """
+    # Still not quite right: bashes any same-named complexes.
+    ppi_cxs,clean_cxs,all_cxs = [dict(cs) for cs in ppi_cxs,clean_cxs,all_cxs]
     if pos_splits is None:
         pos_splits,clean_splits = positives_from_corum(ppi_cxs, clean_cxs,
               splits, ind_cycle)
