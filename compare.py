@@ -3,40 +3,105 @@ import numpy as np
 import utils as ut
 import pairdict as pd
 import corum as co
+import cv
 
 
 cp_funcs = [
-    # count of partially recovered gold cxs, first measure of havig/hart
-    lambda gold,cxs: (count_overlaps(gold, cxs, limit=0.25,
+    # 0 count of partially recovered gold cxs, first measure of havig/hart
+    ("bader", lambda gold,cxs: count_overlaps(gold, cxs, limit=0.25,
         func=bader_score)),
-    # clustering-wise sensitivity, Brohee 2006
-    lambda gold,cxs: avg_best(cxs, gold, sensitivity),
-    # clustering-wise ppv, Brohee 2006
-    lambda gold,cxs: ppv(gold, cxs),
-    # geometric accuracy, Brohee 2006, second havig/hart
-    lambda gold,cxs: geom_avg(avg_best(cxs, gold, sensitivity),
-        ppv(gold, cxs)),
-    # geometric separation, Brohee 2006
-    lambda gold, cxs: geom_avg(separation(gold, cxs), separation(cxs,
-        gold)),
-    lambda gold,cxs: (count_overlaps(gold, cxs, limit=0.5,
-        func=sensitivity)/len(gold)),
-    lambda gold,cxs: (count_overlaps(cxs, gold, limit=0.5,
-        func=sensitivity)/len(cxs)),
-    lambda gold,cxs: gold_corr(gold, cxs),
+    # 1 clustering-wise sensitivity, Brohee 2006
+    ("sensitivity", lambda gold,cxs: avg_best(cxs, gold,
+        sensitivity)),
+    # 2 clustering-wise ppv, Brohee 2006
+    ('ppv', lambda gold,cxs: ppv(gold, cxs)),
+    # 3 geometric accuracy, Brohee 2006, third havig/hart
+    ('accuracy', lambda gold,cxs: geom_avg(avg_best(cxs, gold,
+        sensitivity), ppv(gold, cxs))),
+    # 4 geometric separation, Brohee 2006
+    ('separation', lambda gold, cxs: geom_avg(separation(gold, cxs),
+        separation(cxs, gold))),
+    ('overlaps sens', lambda gold,cxs: (count_overlaps(gold, cxs, limit=0.5,
+        func=sensitivity)/len(gold))),
+    ('overlaps sens rev', lambda gold,cxs: (count_overlaps(cxs, gold, limit=0.5,
+        func=sensitivity)/len(cxs))),
+    ('corr', lambda gold,cxs: gold_corr(gold, cxs)),
     #lambda gold,cxs: avg_best(cxs, gold, sensitivity_adj)
+    # 8 Nepusz 2012, second and optimized metric for havig/hart
+    ('mmr',lambda gold,cxs: max_match_ratio(gold, cxs)),
     ]
 
-def stats(gold,cxs_list, conv_to_sets=True, norm=True):
+def stats(gold,cxs_list, conv_to_sets=True, func_inds=None):
     if conv_to_sets:
         gold = [set(c) for c in gold]
         cxs_list = [[set(c) for c in cxs] for cxs in cxs_list]
-    arr = np.zeros((len(cxs_list), len(cp_funcs)))
+    use_funcs = np.array(cp_funcs)[func_inds] if func_inds else cp_funcs
+    names = ut.i0(use_funcs)
+    print names
+    arr = np.zeros(len(cxs_list),dtype=','.join(['f8']*len(names)))
+    arr.dtype.names = names
     for i, cxs in enumerate(cxs_list):
-        arr[i,:] = [f(gold, cxs) for f in cp_funcs]
-    if norm:
-        arr = arr/np.max(arr,axis=0)
+        print 'complex %s of %s' %(i, len(cxs_list))
+        arr[i] = np.array([f(gold, cxs) for f in ut.i1(use_funcs)])
     return arr
+
+def result_gold(testresult, use_holdouts=False, use_unmerged=False,
+        consv_sp='Dm'):
+    splits = testresult.exs.splits
+    if use_unmerged: 
+        print "Converting to unmerged using conserved:", (consv_sp if consv_sp
+                else "None")
+        ppi_corum,_,_ = ppi.load_training_complexes('Hs',consv_sp)
+        splits = unmerged_splits_from_merged_splits(ut.i1(ppi_corum), splits)
+    gold = ut.i1(splits[2]) if use_holdouts else ut.i1(splits[1]+splits[2])
+    return gold
+
+def prstats(gold, pred_ints, ntest_pos, prec=0.5):
+    """
+    Pred_ints: list of pred_result.ppis, or clustering filtered predicted ppis.
+    """
+    gold_pd = pd.PairDict([(p0,p1,1) for p0,p1 in
+        co.pairs_from_complexes(dict([(i,g) for i,g in enumerate(gold)]))])
+    tested_ppis = [[(id1,id2,score,1 if gold_pd.contains((id1,id2)) else
+        0) for id1,id2,score,_ in ppis] for ppis in pred_ints]
+    stats = [cv.preccheck(c,pchecks=[prec],total_trues=ntest_pos)[0]
+            for c in tested_ppis]
+    return stats
+
+def unmerged_splits_from_merged_splits(unmerged, merged_splits):
+    """
+    Unmerged: list of sets.
+    Merged_splits: A list of sets for each split (often 3 splits).
+    """
+    usplits = [[] for ms in merged_splits]
+    for u in unmerged:
+        which_split = np.argmax([best_match(u, ms, sensitivity) 
+            for ms in merged_splits])
+        usplits[which_split].append(u)
+    return usplits
+
+def norm_columns(arr):
+    newarr = ut.arr_copy(arr)
+    for n in newarr.dtype.names:
+        newarr[n] = newarr[n]/np.max(newarr[n])
+    return newarr
+
+def max_match_ratio(gold, cxs):
+    """
+    Nepusz 2012, deciding score used for c1 param choice in havig/hart.
+    """
+    arr = arr_intersects(gold, cxs, func=bader_score)
+    inds = zip(*np.where(arr>0))
+    ind_scores = [(ind,arr[ind[0],ind[1]]) for ind in inds]
+    ind_scores.sort(key=lambda x:x[1], reverse=True)
+    x_used, y_used = set([]),set([])
+    scores = []
+    for (x,y),score in ind_scores:
+        if x not in x_used and y not in y_used:
+            x_used.add(x); y_used.add(y)
+            scores.append(score)
+    return sum(scores)/len(gold)
+
 
 def gold_corr(gold, cxs):
     """
@@ -99,11 +164,11 @@ def separation(setsa, setsb):
     return np.mean(np.sum(comb, axis=1))
 
 
-def arr_intersects(setsa, setsb):
+def arr_intersects(setsa, setsb, func=lambda a,b:len(set.intersection(a,b))):
     arr = np.zeros((len(setsa),len(setsb)))
     for i,a in enumerate(setsa):
         for j,b in enumerate(setsb):
-            arr[i,j] = len(set.intersection(a,b))
+            arr[i,j] = func(a,b)
     return arr
 
 def simpson(a,b):
@@ -121,6 +186,9 @@ def best_match(a, setsb, func):
 
 def best_match_item(a, setsb, func):
     return max(setsb, key=lambda b: func(a,b))
+
+def best_match_index(a, setsb, func):
+    return np.argmax([func(a, complexb) for complexb in setsb])
 
 def avg_best(setsa, setsb, func):
     return np.mean([best_match(a, setsb, func) for a in setsa])
@@ -163,5 +231,3 @@ def pds_overlap(pds):
     """
     return len(reduce(pd.pd_intersect_avals, pds).d)
 
-
-        
