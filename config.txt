@@ -11,8 +11,10 @@ ppi_cxs     data/corum/pre_1209/corum_overlaps_forppi.tab
 clean_cxs   data/corum/pre_1209/corum_clean_nooverlaps_supptable3.tab
 corum_cxs     data/corum/CORUM_allComplexes20120925.csv
 
+# misco
 fastadir  data/sequences/canon
 save_compact_corrs  True
+gene_desc   data/convert/Hs_ensg_name_desc_uni_entrez.tab
 
 # Ext files
 net_Hs19    Hs_net/Hs_net_19.tab
@@ -22,6 +24,7 @@ ext_Hs_malo    Hs_entrez_malovannaya_ints.tab
 ext_Dm_guru    Dm_fbgn_guruharsha_ints.tab
 net_Ce_ce5  Ce_net/Ce_net_ce5.tab
 net_Ce_multi15  Ce_net/Ce_net_multi15.tab
+net_Ce_multi17  Ce_net/Ce_net_multi17.tab
 
 # fasta identifier type defaults
 Ce_default  wbgn

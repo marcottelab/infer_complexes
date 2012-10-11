@@ -4,6 +4,8 @@ import random
 import os
 import utils as ut
 import compare as cp
+import ppi
+import seqs
 
 def pairs(fname):
     return [list(e) for e in ut.load_tab_file(fname)]
@@ -186,3 +188,16 @@ def write_pos_neg_pairs(complexes, complexes_exclude, fname_pos):
             ut.pre_ext(fname_pos, '_exclude'), ut.pre_ext(fname_pos, '_negs'),
             ut.pre_ext(fname_pos, '_negs_exclude')]):
         ut.write_tab_file(l,f)
+
+class CLookup(object):
+
+    def __init__(self, cxs=None, consv_sp=''):
+        gtrans = seqs.GTrans()
+        if cxs is None:
+            cxs,_,_ = ut.i1(ppi.load_training_complexes('Hs',consv_sp))
+        self.cxs = [set([gtrans.id2name[p] for p in c]) for c in
+                cxs]
+
+    def findcs(self,gname):
+        return [p for p in self.cxs if gname in p]
+

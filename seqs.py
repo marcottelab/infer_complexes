@@ -141,3 +141,14 @@ def elut_p2g(fname, p2g, suffix='_fix'):
             else:
                 yield items
     ut.write_tab_file(process(lines), fname+suffix)
+
+class GTrans(object):
+
+    def __init__(self):
+        lines = ut.load_list_of_lists(ut.proj_path('gene_desc'))[1:]
+        self.gnames = [(l[1].lower(), l[2]) for l in lines]
+        self.name2id = dict([(l[1].lower(),l[0]) for l in lines])
+        self.id2name = ut.dict_inverse(self.name2id)
+
+    def gfind(self, name):
+        return [g for g in self.gnames if g[0].find(name)>-1]
