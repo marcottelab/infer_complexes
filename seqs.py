@@ -148,7 +148,13 @@ class GTrans(object):
         lines = ut.load_list_of_lists(ut.proj_path('gene_desc'))[1:]
         self.gnames = [(l[1].lower(), l[2]) for l in lines]
         self.name2id = dict([(l[1].lower(),l[0]) for l in lines])
-        self.id2name = ut.dict_inverse(self.name2id)
+        self.id2name = dict([(l[0], l[1].lower()) for l in lines])
 
     def gfind(self, name):
+        name = name.lower()
         return [g for g in self.gnames if g[0].find(name)>-1]
+
+    def find(self, key):
+        key=key.lower()
+        return [g for g in self.gnames if g[0].find(key)>-1 or
+                g[1].find(key)>-1]

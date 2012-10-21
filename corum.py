@@ -194,10 +194,12 @@ class CLookup(object):
     def __init__(self, cxs=None, consv_sp=''):
         gtrans = seqs.GTrans()
         if cxs is None:
-            cxs,_,_ = ut.i1(ppi.load_training_complexes('Hs',consv_sp))
-        self.cxs = [set([gtrans.id2name[p] for p in c]) for c in
-                cxs]
+            cxs,_,_ = ppi.load_training_complexes('Hs',consv_sp)
+        allps = reduce(set.union, [set(c[1]) for c in cxs])
+        notfound = len([p for p in allps if p not in gtrans.id2name])
+        if notfound > 0: print '%s gene names not found' % notfound
+        self.cxs = [(c[0], set([gtrans.id2name.get(p,'noname') for p in
+            c[1]])) for c in cxs]
 
     def findcs(self,gname):
-        return [p for p in self.cxs if gname in p]
-
+        return [p for p in self.cxs if gname.lower() in p[1]]
