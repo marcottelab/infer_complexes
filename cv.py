@@ -99,13 +99,11 @@ def load_weka_filtered_tpairs(fname, min_score=None):
         tested_pairs = [t for t in tested_pairs if float(t[2])>=min_score]
     return tested_pairs
     
-
-def preccheck_wekafiltered(fname, pchecks, total_trues):
-    tpairs = load_weka_filtered_tpairs(fname)
-    recall,precisions = pr(tpairs)
+def preccheck(tested, pchecks=[0.9], total_trues=None):
+    recall,precisions = pr(tested)
     recalled = [calc_recall(precisions, p, total_trues) for p in pchecks]
     return recalled
-    
+
 if __name__ == '__main__':
     nargs = len(sys.argv)
     if nargs < 2:
