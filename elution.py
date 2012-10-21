@@ -71,12 +71,18 @@ def targ2base(sp_base, sp_target):
 def file_sp(filename):
     return ut.shortname(filename)[:2]
 
-def all_prots(elut_fs, sp_base=None):
+def all_prots(elut_fs, sp_base=None, min_count=0):
     print 'Loading all proteins from files'
     allprots = set([])
     for f in elut_fs:
         t2b = targ2base(sp_base, file_sp(f))
-        newprots = set(load_elution(f).prots) 
+        elut = load_elution(f)
+        if min_count:
+            newprots = \
+            set(np.array(elut.prots)[np.where(np.max(elut.mat,axis=1) >=
+                min_count)[0]][0])
+        else:
+            newprots = set(elut.prots) 
         if t2b:
             newprots = set((b for t in newprots for b in t2b.get(t,[])))
         allprots = set.union(allprots, newprots)
