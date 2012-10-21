@@ -6,7 +6,7 @@ import ppi
 import corum as co
 import itertools as it
 
-def cyto_prep(ppis, arrtrain, fname, f_geneatts, cxs=None, species='Hs', 
+def cyto_prep(ppis, arrtrain, fname, f_geneatts, cxs=[], species='Hs', 
         negmult=50, pd_spcounts=None):
     header=['id1', 'id2', 'score', 'corum']
     ppis = ppis_gold_standard(ppis, arrtrain, species)
@@ -16,9 +16,8 @@ def cyto_prep(ppis, arrtrain, fname, f_geneatts, cxs=None, species='Hs',
     if cxs:
         ppis = ppis_as_cxs(ppis, cxs)
         header.append('complexid')
+        export_idconvert(ppis, cx_labels(cxs, f_geneatts), fname)
     export_ints(ppis, fname, negmult, header)
-    export_idconvert(ppis, cx_labels(cxs, f_geneatts), fname)
-
 
 def export_ints(tested, fname, negmult, header):
     ut.write_tab_file([header] + [[t[0], t[1], ut.rescale(float(t[2]),negmult)]
@@ -93,9 +92,10 @@ def best_match(names, i):
 def ppis_gold_standard(ppis, arrtrain, species):
     pdppis = PairDict([p[:3] for p in ppis])
     print len(pdppis.d), "predicted interactions"
-    ppi_cxs,_ = ppi.load_training_complexes(species, '') #conv doesn't matter
+    _,_,all_cxs = ppi.load_training_complexes(species, '') #conv doesn't matter
+    d_all_cxs = dict([(i,set(c)) for i,c in enumerate(ut.i1(all_cxs))]) 
     pdcorum = PairDict([(i[0],i[1],'gold') for i in
-                        co.pairs_from_complexes(ppi_cxs)])
+                        co.pairs_from_complexes(d_all_cxs)])
     print len(pdcorum.d), "total gold standard"
     pdcomb = pd.pd_union_disjoint_vals(pdppis, pdcorum)
     pdtrainpos = PairDict([(t[0],t[1]) for t in arrtrain if t[2]==1])
