@@ -10,19 +10,23 @@ import elution as el
 import orth
 
 
-def score_array_multi(arr, sp_base, elut_fs, scores, cutoff, verbose=False):
+def score_array_multi(arr, sp_base, elut_fs, scores, cutoff, verbose=False,
+        remove_multi_base=False):
     current_sp = ''
+    if remove_multi_base: 
+        print ("Filtering orths: only single base gene in orthogroups.")
     for e,f in [(el.load_elution(f),f) for f in elut_fs]:
         sp_target = ut.shortname(f)[:2]
         if sp_target != current_sp: # Just for status output
             print "Starting first %s file: %s" % (sp_target, ut.shortname(f))
             current_sp = sp_target
-        baseid2inds = orth_indices(sp_base, sp_target, e.prots)
+        baseid2inds = orth_indices(sp_base, sp_target, e.prots,
+                remove_multi_base)
         for score in scores:
             if verbose: print score, f
             score_array(arr, e, f, score, cutoff, baseid2inds)
 
-def orth_indices(sp_base, sp_target, prot_list):
+def orth_indices(sp_base, sp_target, prot_list, remove_multi_base):
     """
     Using appropriate orthology, take a list of target species gene ids
     (corresponding to rows in the target species score matrix), and
@@ -36,9 +40,25 @@ def orth_indices(sp_base, sp_target, prot_list):
         return targ2inds
     else:
         base2targ = orth.odict(sp_base, sp_target)
+        if remove_multi_base:
+            base2targ = remove_multi_keys(base2targ)
         base2inds = ut.compose_dict_sets(base2targ, targ2inds)
         base2inds = dict([(k,v) for k,v in base2inds.items() if len(v)>0])
         return base2inds
+
+def remove_multi_keys(d, max_keys=1):
+    """
+    Given a dict of key: set(vs), eliminate from the dict any keys that map to
+    the same set of vs.
+    """
+    newd = d.copy()
+    dinv = ut.dict_inverse_sets(newd)
+    for k,vs in newd.items():
+        for v in vs:
+            if len(dinv[v]) > max_keys:
+                del newd[k]
+                break
+    return newd
 
 def score_array(arr, elut, fname, score, cutoff, id2inds):
     """

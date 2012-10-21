@@ -16,7 +16,7 @@ COLORS = ['#4571A8', 'black', '#A8423F', '#89A64E', '#6E548D', '#3D96AE',
 def plot_result(result, ppis=None, **kwargs):
     ppis = ppis if ppis else result.ppis
     kwargs['label'] = kwargs.get('label','') +' '+ result.name
-    pr_plot(ppis, result.npos, **kwargs)
+    pr_plot(ppis, result.ntest_pos, **kwargs)
 
 def boot_resample(extr_exte):
     return [Struct(names=ex.names,examples=ut.sample_wr(ex.examples, len(ex.examples))) for ex in extr_exte]

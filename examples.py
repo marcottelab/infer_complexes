@@ -6,17 +6,22 @@ import utils as ut
 import random
 from Struct import Struct
 from pairdict import PairDict
+import compare as cp
 
 def base_examples(ppi_cxs, clean_cxs, all_cxs, test_neg_set,
         splits=[0,0.33,0.66,1], nratio_train=4, nratio_test=40,
-        pos_lengths=None, pos_splits=None, ind_cycle=[0,-1]):
+        pos_lengths=None, pos_splits=None, clean_splits=None,
+        ind_cycle=None):
     """
     Builds the training/test examples struct ready for scoring and learning.
     Test_neg_set: full list of proteins found in our data to use for test set
                   negatives generation. Use None to make negs the same way as
                   training, from the members of those complexes.
+    ind_cycle: [0,-1] to start with train, then holdout, then test.  None for
+    random sampling according to splits.
     """
     # Still not quite right: bashes any same-named complexes.
+    # But 20121005 none of these exist currently.
     ppi_cxs,clean_cxs,all_cxs = [dict(cs) for cs in ppi_cxs,clean_cxs,all_cxs]
     if pos_splits is None:
         pos_splits,clean_splits = positives_from_corum(ppi_cxs, clean_cxs,
@@ -26,7 +31,8 @@ def base_examples(ppi_cxs, clean_cxs, all_cxs, test_neg_set,
     train_lp = add_negs(ptrain_lp, all_pos_lp, test_neg_set, nratio_train)
     test_lp = add_negs(ptest_lp, merge_lps([all_pos_lp,train_lp]),
             test_neg_set, nratio_test)
-    return [PairDict([(p[0],p[1],1 if p[2]=='true' else 0) for p in lp.pairs]) for lp in [train_lp, test_lp]]
+    return [PairDict([(p[0],p[1],1 if p[2]=='true' else 0) for p in lp.pairs])
+            for lp in [train_lp, test_lp]], clean_splits
 
 
 def lpairset_to_lol(lp):
@@ -79,7 +85,7 @@ def maybe_sample(pop,k,verbose=True):
         return pop
 
 def positives_from_corum(ppicxs, cleancxs, splits, ind_cycle,
-                         split_for_unmatched=1,):
+                         split_for_unmatched=None):
     """
     Create training, [cross-val,] and test sets, and excluded set as the final
          one, with splits happening according to the supplied list of splits
@@ -92,24 +98,30 @@ def positives_from_corum(ppicxs, cleancxs, splits, ind_cycle,
     Assigns Ppicxs based on being subset of cleancxs; puts the few that are not
         subsets into splits[split_for_unmatched].
     """
+    print "Total cleancxs:", len(cleancxs)
+    if split_for_unmatched is None: 
+        split_for_unmatched = random.choice(range(len(splits)-1))
     cleancxs2ppi = _merged_parents(ppicxs, cleancxs)
     clean_int_sets = [LPairset(set([lpair(x,y,'true') for p in cleancxs2ppi[c]
-        for x,y in _set_to_pairs(ppicxs[p])]), name=c) for c in cleancxs2ppi]
+        for x,y in _set_to_pairs(ppicxs[p])]), name=(c, cleancxs[c]))
+        for c in cleancxs2ppi]
     clean_ints = merge_lps(clean_int_sets)
     total_clean_pairs = len(clean_ints.pairs) # slow probably
     allsplits_lps, allsplits_cxs = positives_from_lps_sorted(clean_int_sets,
         total_clean_pairs, splits, ind_cycle)
-    # Append the ppicxs interactions
+    # Append the ppicxs interactions if any were left out.
     ppi_ints = _complexes_to_LPairset(ppicxs)
-    # Take the difference before merging, otherwise most ints end up here.
     diff_ppis_lp = ppi_ints.difference(clean_ints)
-    allsplits_lps[split_for_unmatched].merge(diff_ppis_lp)
-    allsplits_cxs[split_for_unmatched].append(str(len(diff_ppis_lp.pairs)) +
-                                              ' ppi_cxs')
+    if len(diff_ppis_lp.pairs)>0:
+        assert False, "Ppi assignment problem: unmatched ppi cxs"
+        #allsplits_lps[split_for_unmatched].merge(diff_ppis_lp)
+        #allsplits_cxs[split_for_unmatched].append(str(len(diff_ppis_lp.pairs)) +
+                                              #' ppi_cxs')
     allsplits_lps = dedupe_lps(allsplits_lps)
     print 'total clean ints:',total_clean_pairs
     print 'split interaction counts:', [len(x.pairs) for x in allsplits_lps]
     print 'split complex counts:', [len(x) for x in allsplits_cxs]
+    print 'total assigned clean cxs:', sum([len(x) for x in allsplits_cxs])
     return allsplits_lps, allsplits_cxs
 
 def _complexes_to_LPairset(cxs):
@@ -241,15 +253,14 @@ def _merged_parents(unmerged, merged):
     For now just return the first matching merged complex, based on subsets.
     Returns dict of merged_name:unmerged_name
     """
-    def _complex_parents(u, unmerged, merged):
-        return [k for k in merged.keys() if
-            set.issubset(unmerged[u],merged[k])]
-    m2u = []
-    for u in unmerged:
-        parents = _complex_parents(u,unmerged,merged)
-        if len(parents)>0:
-            m2u.append((parents[0], u))
-    return ut.dict_sets_from_tuples(m2u)
+    print "len merged", len(merged)
+    m2u = {}
+    mcxs_names,mcxs_sets = zip(*merged.items())
+    for uname,u in unmerged.items():
+        mind = cp.best_match_index(u, mcxs_sets, cp.sensitivity)
+        m2u.setdefault(mcxs_names[mind], set([])).add(uname)
+    print "len m2u", len(m2u)
+    return m2u
 
 def _count_ints(nprots):
     def n_choose_r(n,r):
