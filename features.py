@@ -1,14 +1,6 @@
 from __future__ import division
 import os
 import sys
-if not '/home/blakeb/.local/lib/python2.7/scikit_learn-0.11-py2.7-linux-x86_64.egg' in sys.path:
-    if os.path.exists('/home/blakeb/.local/lib/python2.7/scikit_learn-0.11-py2.7-linux-x86_64.egg'):
-        sys.path.append('/home/blakeb/.local/lib/python2.7/scikit_learn-0.11-py2.7-linux-x86_64.egg')
-import sklearn as sk
-from sklearn.svm import SVC
-from sklearn.datasets import make_classification
-from sklearn.ensemble import ExtraTreesClassifier
-from sklearn.ensemble import RandomForestClassifier
 import utils as ut
 import numpy as np
 import multiprocessing
@@ -128,6 +120,54 @@ def filter_require_sp(arr, set_species, cutoff=0.25, count_ext=True):
     # previously said newarr=arr[cols], del arr, return newarr.  new bug?
     return arr[passing_inds]
 
+def maxes_fracs(arr):
+    sps = species_list(arr.dtype.names[3:])
+    fracs = set(['_'.join(n.split('_')[:-1]) for n in arr.dtype.names 
+        if n[:2] in sps])
+    fracsets = [[n for n in arr.dtype.names 
+        if '_'.join(n.split('_')[:-1]) == frac] for frac in fracs]
+    maxes = np.zeros((len(arr), len(fracsets)))
+    for col in range(maxes.shape[1]):
+        arrcols = arr[fracsets[col]]
+        maxes[:,col] = [max(arrcols[i]) 
+                for i in range(maxes.shape[0])]
+    return maxes
+
+def passing_scores(arr, thresh, counts=range(1,11), hits=None):
+    hits = arr['hit'] if hits is None else hits
+    npassing= [len([m for m in arr[i] if m>thresh]) for i in range(len(arr))]
+    num_neg_pos = [len([i for i in hits if i==pn]) for pn in 0,1]
+    proportions_neg_pos = [[len([i for i in range(len(arr)) if
+        npassing[i]>=count and hits[i]==pn])/num_neg_pos[pn] for pn
+        in 0,1] for count in counts]
+    for i,(neg,pos) in zip(counts, proportions_neg_pos):
+        print "%s: %0.2f p; %0.2f n; ratio %0.2f" % (i,pos,neg,pos/neg)
+    return proportions_neg_pos
+
+def max_fracs_passing(arr, thresh):
+    maxes = maxes_fracs(arr)
+    npassing= [len([m for m in maxes[i] if m>thresh]) 
+            for i in range(len(maxes))]
+    return npassing
+
+def add_passing_features(arr, threshes):
+    feat_names = ['passing%s' % t for t in threshes]
+    newarr = ut.arr_add_feats(arr, feat_names)
+    for t,name in zip(threshes, feat_names):
+        newarr[name] = max_fracs_passing(arr, t)
+    return newarr
+
+def add_passing_feats_exs(exs, threshes):
+    newexs = ut.struct_copy(exs)
+    newexs.train, newexs.test = [add_passing_features(t,threshes) for t in
+            newexs.train, newexs.test]
+    return newexs
+
+def species_list(features):
+    sps = set([n[:2] for n in features 
+                if n[:2] not in set(NET_SPS) and n[:2] != 'ex'])
+    return sps
+
 def filter_nsp(arr, nsp=2, cutoff=0.25, count_ext=True, do_counts=True):
     """
     Filter to only leave interactions for which evidence exists in nsp species.
@@ -136,8 +176,7 @@ def filter_nsp(arr, nsp=2, cutoff=0.25, count_ext=True, do_counts=True):
     species counts.
     """
     features = arr.dtype.names[3:]
-    sps = set([n[:2] for n in features 
-                if n[:2] not in set(NET_SPS) and n[:2] != 'ex'])
+    sps = species_list(features)
     print 'Filtering >=%s of these species >=%s:' % (nsp, cutoff), sps
     spcols = [[f for f in features 
                 if f[:2]==s or (count_ext==True and f[:2]=='ex' and f[4:6]==s)]
