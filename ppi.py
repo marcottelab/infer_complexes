@@ -11,13 +11,15 @@ import score
 from numpy import zeros,ndarray
 from pairdict import PairDict
 import features as fe
+import os
+
+extfs = ['ext_Dm_guru','ext_Hs_malo']
 
 def learning_examples(species, elut_fs, base_exs, nsp,
-        scores=['poisson','wcc','apex'], extdata=['net_Hs_nosc12',
-        'ext_Dm_guru','ext_Hs_malo'], splits=[0,.33,.66,1],
-        neg_ratios=[2.5,230], ind_cycle=None, cutoff=0.25, pos_splits=None,
-        test_negs=None, gold_consv_sp='Dm', do_filter=True,
-        require_base=False, single_base_orth=True): 
+        scores=['poisson','wcc','apex'], extdata=['net_Hs_nosc12']+extfs,
+        splits=[0,.33,.66,1], neg_ratios=[2.5,230], ind_cycle=None,
+        cutoff=0.25, pos_splits=None, test_negs=None, gold_consv_sp='Dm',
+        do_filter=True, require_base=False, single_base_orth=True):
     """
     - Species: 'Hs' or 'Ce'... The base of the predictions in terms of
       identifiers used and orthology pairings.
@@ -36,6 +38,7 @@ def learning_examples(species, elut_fs, base_exs, nsp,
       cutoff in the base species.  if False, in any species.
       """
     gold_consv_sp = gold_consv_sp if nsp>1 else '' #ignore for 1-sp case
+    check_nspecies(elut_fs, nsp)
     if base_exs:
         pdtrain,pdtest = pd_from_tt([base_exs.train, base_exs.test])
         splits = base_exs.splits
@@ -60,6 +63,11 @@ def learning_examples(species, elut_fs, base_exs, nsp,
     return Struct(train=train, test=test, ntest_pos=ntest_pos,
             splits=splits)
 
+def check_nspecies(fnames, nsp):
+    nspec_fracs = len(set([ut.shortname(f)[:2] for f in fnames]))
+    assert nspec_fracs > nsp, ("** Can't use %s species; only %s species" %
+            (nsp,nspec_fracs))
+
 def pd_from_tt(train_test):
     return [PairDict([[p[0],p[1],p[2]] for p in t]) for t in train_test]
 
@@ -77,11 +85,12 @@ def base_splits(species, elut_fs, splits, neg_ratios, ind_cycle,
 def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
         extdata=['net_Hs_nosc12', 'ext_Dm_guru','ext_Hs_malo'], nsp=1,
         cutoff=0.25, base_arr=None, do_filter_scores=False, do_filter_sp=True,
-        save_fname=None, require_base=False, single_base_orth=False):
+        save_fname=None, require_base=False, single_base_orth=True):
     """
     Same more or less as learning_examples above, but produces all predictions
     in the elution files.
     """
+    check_dir(save_fname)
     if not base_arr:
         pd_all = el.all_filtered_pairs(elut_fs, scores, cutoff, species)
         print len(pd_all.d), 'total interactions passing cutoff'
@@ -92,14 +101,23 @@ def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
         arr = base_arr
     scored_arr = score_and_filter(arr, scores, elut_fs, cutoff, species,
                 extdata, do_filter_scores, require_base, single_base_orth)
-    if save_fname: np.save(save_fname+'1sp.npy', scored_arr)
+    if save_fname and check_dir(save_fname): 
+        np.save(save_fname+'1sp.npy', scored_arr)
     if nsp > 1 and do_filter_sp:
         scored_arr_nsp = fe.filter_nsp_nocounts(scored_arr, nsp=nsp,
                 cutoff=cutoff)
-        if save_fname: np.save(save_fname+str(nsp)+'sp.npy', scored_arr_nsp)
+        if save_fname and check_dir(save_fname): 
+            np.save(save_fname+str(nsp)+'sp.npy', scored_arr_nsp)
         return scored_arr_nsp
     else:
         return scored_arr
+
+def check_dir(fname):
+    if os.path.exists(os.path.dirname(fname)):
+        return True
+    else:
+        print "** Directory does not exist"
+        return False
 
 def score_and_filter(arr, scores, elut_fs, cutoff, species, extdata,
         do_filter, require_base, single_base_orth):

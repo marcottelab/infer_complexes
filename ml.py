@@ -22,9 +22,24 @@ def fit_and_test(scored, clf, norm=True):
     scored: [arr_train, arr_test]
     """
     arr_train, arr_test = scored
+    if not exist_pos_neg(arr_train):
+        return []
     scaler = fit_clf(arr_train, clf, norm=norm)
     tested = classify(clf, arr_test, scaler)
     return tested
+
+def exist_pos_neg(arr):
+    hits = arr['hit']
+    found_true = False
+    found_false = False
+    for h in hits:
+        if h:
+            found_true = True
+        else:
+            found_false = True
+        if found_true and found_false:
+            return True
+    return False
 
 def fit_clf(arr, clfbase, norm=True):
     if norm:
@@ -40,6 +55,9 @@ def fit_clf(arr, clfbase, norm=True):
     return scaler
 
 def classify(clf, arr, scaler=None, do_sort=True):
+    """
+    If the clf was trained without at least a pos and a neg, this will fail.
+    """
     X = arr_feats(arr)
     if scaler: 
         print "Scaling features before prediction."
