@@ -10,6 +10,9 @@ import string
 import warnings
 import numpy as np
 import shutil
+import subprocess
+from scipy.misc import comb
+from Struct import Struct
 
 
 
@@ -53,14 +56,21 @@ def loadlab(fname, loadfunc=loadpy, copy=True):
         if copy:
             if (not os.path.isfile(fname) 
                 or confirm(prompt="Local file exists.  Overwrite? [y/n]: ")):
-                print "Copied locally."
-                shutil.copy(remotef, fname)
+                if os.path.isfile(remotef):
+                    shutil.copy(remotef, fname)
+                    print "Copied locally."
                 return loadfunc(fname)
             else:
                 print "Not copied."
                 return loadfunc(remotef)
         else:
             return loadfunc(remotef)
+    elif confirm(prompt="Remote mount not found. Use scp? [y/n]: "):
+        source = os.path.join("Dropbox",exp_dirs(),fname)
+        subprocess.call("scp lovelace:%s ." % source,
+                shell=True)
+        print "Copied locally."
+        return loadfunc(fname)
     else:
         print "Not found:", remotef
 
@@ -71,9 +81,12 @@ def exp_dirs():
     return '/'.join(os.path.abspath('.').split('/')[-3:])
 
 def bigd(fname=''):
-    basepath = os.path.expanduser('~/bigdata/')
-    return os.path.join(basepath, exp_dirs(), fname)
-
+    bigbase = '/work/' if os.uname()[1]=='libra' else os.path.expanduser('~')
+    bigpath = os.path.join(bigbase,'bigdata', exp_dirs())
+    if not os.path.exists(bigpath):
+        print "Dir did not previously exist; ran mkdir" , bigpath
+        os.mkdir(bigpath)
+    return os.path.join(bigpath,fname)
 
 ########################################################################
 ## COLLECTIONS and math functions
@@ -86,6 +99,14 @@ def all_same(f, bag):
     for x in bag[1:]:
         if f(x) != v: return False
     return True
+
+def arr_add_feats(arr, names):
+    olddtype = arr.dtype.descr[-1][1]
+    newdescr = arr.dtype.descr + [(n,olddtype) for n in names]
+    newarr = np.empty(arr.shape, dtype=newdescr)
+    for n in arr.dtype.names:
+        newarr[n] = arr[n]
+    return newarr
 
 def arr_copy(arr):
     newarr = np.empty(arr.shape, dtype=arr.dtype.descr)
@@ -222,6 +243,11 @@ def sample_wr(pop, k):
     n = len(pop)
     _random, _int = random.random, int
     return [pop[_int(_random() * n)] for i in itertools.repeat(None,k)]
+
+def struct_copy(s):
+    newstruct = Struct()
+    newstruct.__dict__ = s.__dict__.copy()
+    return newstruct
 
 def zip_exact(*seqs):
     # Like zip, but generates an error if the seqs are not all the same
