@@ -4,6 +4,8 @@ import utils as ut
 import pairdict as pd
 import corum as co
 import cv
+import operator
+from Struct import Struct
 
 
 cp_funcs = [
@@ -45,15 +47,29 @@ def stats(gold,cxs_list, conv_to_sets=True, func_inds=None):
         arr[i] = np.array([f(gold, cxs) for f in ut.i1(use_funcs)])
     return arr
 
-def result_gold(testresult, use_holdouts=False, use_unmerged=False,
+def result_stats(sp, exs, clusts, nsp, func_inds=[2,8], split_inds=[2]):
+    clstats = stats(result_gold(exs, sp, split_inds=split_inds,
+        consv_sp=('Dm' if nsp==2 else '')), [c[1][0] for c in clusts],
+        func_inds=func_inds)
+    return Struct(clusts=clusts, stats=clstats)
+
+def select_best(clstruct, scorenames, rfunc=operator.add, use_norm=True):
+    clusts, stats = clstruct.clusts, clstruct.stats
+    if use_norm: stats = norm_columns(stats)
+    inds = np.argsort(reduce(rfunc, [stats[n] for n in scorenames]))[::-1]
+    for i in inds[:10]: 
+        print i, len(clusts[i][1][0]), len(clusts[i][1][1]), clusts[i][0]
+    return clusts[inds[0]][1][0], clusts[inds[0]][1][1], inds[0]
+
+def result_gold(resultexs, species, split_inds, make_unmerged=False,
         consv_sp='Dm'):
-    splits = testresult.exs.splits
-    if use_unmerged: 
+    splits = resultexs.splits
+    if make_unmerged: 
         print "Converting to unmerged using conserved:", (consv_sp if consv_sp
                 else "None")
-        ppi_corum,_,_ = ppi.load_training_complexes('Hs',consv_sp)
+        ppi_corum,_,_ = ppi.load_training_complexes(species,consv_sp)
         splits = unmerged_splits_from_merged_splits(ut.i1(ppi_corum), splits)
-    gold = ut.i1(splits[2]) if use_holdouts else ut.i1(splits[1]+splits[2])
+    gold = ut.i1(reduce(operator.add, [splits[i] for i in split_inds]))
     return gold
 
 def prstats(gold, pred_ints, ntest_pos, prec=0.5):
@@ -231,3 +247,5 @@ def pds_overlap(pds):
     """
     return len(reduce(pd.pd_intersect_avals, pds).d)
 
+def cxs_self_match_frac(cxs, limit=.6, func=bader_score):
+    return len(overlaps(cxs,cxs,limit,func=func,skip_self=True))/len(cxs)

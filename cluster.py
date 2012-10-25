@@ -5,13 +5,26 @@ import os
 import corum as co
 import utils as ut
 import pairdict
+import operator
 
 mcl_command = '%(mclpath)s %(fin)s -I %(I)s -o %(fout)s --abc'
 c1_command = 'java -jar %(c1path)s -s %(min_size)s -d %(min_density)s --haircut %(haircut)s --penalty %(penalty)s --max-overlap %(max_overlap)s %(fluff)s %(fin)s > %(fout)s '
-def filter_clust(tested, negmult=50, command=mcl_command, do_dedupe=True,
+
+def multi_clust(tested, fracs=[0.03,.05,.07], d_lgm=[.03,.05,.07],
+        m_lgm=[40,60,100], d_smm=[.2,.3,.4,.45,.5], m_smm=[5,10,20,40],
+        **kwargs):
+    clusts = reduce(operator.add,
+            [[('density=%s,frac=%s,negmult=%s'%(d,f,m),
+                filter_clust(tested[:int(f*len(tested))], negmult=m,
+                    min_density=d))
+                for d in ds for f in fs for m in ms]
+                for ds,fs,ms in (d_lgm,fracs,m_lgm),(d_smm,fracs,m_smm)])
+    return clusts
+
+def filter_clust(tested, negmult=50, command=c1_command, do_dedupe=True,
         **kwargs):
     cxs = cluster(tested, negmult, command, **kwargs)
-    if do_dedupe: cxs = dedupe(cxs)
+    if do_dedupe: cxs = remove_dupes(cxs)
     return cxs, _filter_ints(tested, cxs)
     
 def _filter_ints(inlist, cxs):
