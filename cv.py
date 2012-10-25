@@ -26,7 +26,7 @@ def rank_scores(scores, sample_frac=.1):
     ranked_scores.sort(key = lambda x: x[2], reverse = True)
     return ranked_scores
 
-def roc(tested_pairs):
+def roc(tested_pairs, total_pos_neg=None):
     # tested pairs: [ (row, col, score, hit(0/1)), ...]
     x = 0
     y = 0
@@ -47,6 +47,9 @@ def roc(tested_pairs):
     # don't forget to add the last point
     xs.append(x)
     ys.append(y)
+    if total_pos_neg:
+        xs.append(total_pos_neg[0])
+        ys.append(total_pos_neg[1])
     return xs,ys
 
 def pr(tested_pairs):
@@ -81,6 +84,7 @@ def calc_recall(precisions, gt_value, recall_rate_of_total=None):
     return recalled
     
 def auroc(xs,ys):
+    if len(xs)==0: return 0
     auroc = 0
     xprev = 0
     yprev = 0
