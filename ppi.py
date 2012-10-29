@@ -16,10 +16,11 @@ import os
 extfs = ['ext_Dm_guru','ext_Hs_malo']
 
 def learning_examples(species, elut_fs, base_exs, nsp,
-        scores=['poisson','wcc','apex'], extdata=['net_Hs_nosc12']+extfs,
+        scores=['poisson','wcc','apex'], extdata=['net_Hs19']+extfs,
         splits=[0,.33,.66,1], neg_ratios=[2.5,230], ind_cycle=None,
         cutoff=0.25, pos_splits=None, test_negs=None, gold_consv_sp='Dm',
-        do_filter=True, require_base=False, single_base_orth=True):
+        do_filter=True, require_base=False, single_base_orth=False,
+        filter_multi_orths=0.25):
     """
     - Species: 'Hs' or 'Ce'... The base of the predictions in terms of
       identifiers used and orthology pairings.
@@ -54,7 +55,8 @@ def learning_examples(species, elut_fs, base_exs, nsp,
     train,test = [new_score_array(pdict, scores, elut_fs, extdata) 
             for pdict in pdtrain,pdtest]
     train,test = [score_and_filter(arr, scores, elut_fs, cutoff, species,
-                      extdata, do_filter, require_base, single_base_orth) for
+                      extdata, do_filter, require_base, single_base_orth,
+                      filter_multi_orths) for
                       arr in train,test]
     if nsp > 1 and do_filter:
         train,test = [fe.filter_nsp_nocounts(arr, nsp=nsp, cutoff=cutoff) 
@@ -65,7 +67,7 @@ def learning_examples(species, elut_fs, base_exs, nsp,
 
 def check_nspecies(fnames, nsp):
     nspec_fracs = len(set([ut.shortname(f)[:2] for f in fnames]))
-    assert nspec_fracs > nsp, ("** Can't use %s species; only %s species" %
+    assert nspec_fracs >= nsp, ("** Can't use %s species; only %s species" %
             (nsp,nspec_fracs))
 
 def pd_from_tt(train_test):
@@ -83,9 +85,10 @@ def base_splits(species, elut_fs, splits, neg_ratios, ind_cycle,
     return train,test
 
 def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
-        extdata=['net_Hs_nosc12', 'ext_Dm_guru','ext_Hs_malo'], nsp=1,
+        extdata=['net_Hs19']+extfs, nsp=1,
         cutoff=0.25, base_arr=None, do_filter_scores=False, do_filter_sp=True,
-        save_fname=None, require_base=False, single_base_orth=True):
+        save_fname=None, require_base=False, single_base_orth=False,
+        filter_multi_orths=0.25):
     """
     Same more or less as learning_examples above, but produces all predictions
     in the elution files.
@@ -100,27 +103,18 @@ def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
     else:
         arr = base_arr
     scored_arr = score_and_filter(arr, scores, elut_fs, cutoff, species,
-                extdata, do_filter_scores, require_base, single_base_orth)
-    if save_fname and check_dir(save_fname): 
-        np.save(save_fname+'1sp.npy', scored_arr)
+                extdata, do_filter_scores, require_base, single_base_orth,
+                filter_multi_orths)
+    if save_fname: np.save(save_fname+'1sp.npy', scored_arr)
     if nsp > 1 and do_filter_sp:
-        scored_arr_nsp = fe.filter_nsp_nocounts(scored_arr, nsp=nsp,
-                cutoff=cutoff)
-        if save_fname and check_dir(save_fname): 
-            np.save(save_fname+str(nsp)+'sp.npy', scored_arr_nsp)
-        return scored_arr_nsp
-    else:
-        return scored_arr
-
-def check_dir(fname):
-    if os.path.exists(os.path.dirname(fname)):
-        return True
-    else:
-        print "** Directory does not exist"
-        return False
+        scored_arr, spcounts = fe.filter_nsp(scored_arr, nsp=nsp,cutoff=cutoff)
+        if save_fname: 
+            np.save(save_fname+str(nsp)+'sp.npy', scored_arr)
+            ut.savepy(spcounts, save_fname+'_pdspcounts%s.pyd'%cutoff)
+    return scored_arr
 
 def score_and_filter(arr, scores, elut_fs, cutoff, species, extdata,
-        do_filter, require_base, single_base_orth):
+        do_filter, require_base, single_base_orth, filter_multi_orths):
     print '\nScoring %s elutions with %s base, scores: %s.' % (len(elut_fs),
             species, ','.join(scores))
     score.score_array_multi(arr, species, elut_fs, scores, cutoff,
@@ -130,12 +124,15 @@ def score_and_filter(arr, scores, elut_fs, cutoff, species, extdata,
         require_species = set([species]) if require_base else None
         arr = fe.filter_require_sp(arr, require_species, cutoff=cutoff,
                 count_ext=False)
+    if filter_multi_orths:
+        arr = fe.filter_multi_orths(arr, species, filter_multi_orths)
     if extdata:
         print '\nScoring with external data:', ','.join(extdata)
         for d in extdata: fnet.score_arr_ext(arr, species, d)
     if cutoff == -1 and do_filter: # filter this if we haven't before.
         arr = remove_empties(arr)
     return arr 
+
 
 def filter_arr(arr, columns, cutoff):
     """

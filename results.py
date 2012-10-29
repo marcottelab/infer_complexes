@@ -54,7 +54,7 @@ def feature_selection(arr, nfeats, clf=None):
 
 
 def predict(name, sp, arr_source, train_struct, nsp, clf_scaler_feats=None,
-        clf_base=None, clf_feats=None, norm=True, nsp_cutoff=0.25, nfeats=40,
+        clf_base=None, clf_feats=None, norm=True, nfeats=40,
         combine_train_test=True):
     """
     Train_struct: can be straight from ppi or res.test.  Just must have .train,
@@ -76,36 +76,35 @@ def predict(name, sp, arr_source, train_struct, nsp, clf_scaler_feats=None,
         clf = clf_base if clf_base is not None else ml.svm()
         scaler = ml.fit_clf(arr_train, clf, norm=norm)
     print "Classifier:", clf
-    arr_filt,pd_spcounts = fe.filter_nsp(arr_source, nsp=nsp,cutoff=nsp_cutoff) 
-    lbefore, lafter = len(arr_source),len(arr_filt)
-    if lbefore != lafter:
-        print "Species filtering reduced length: %s to %s" %(lbefore, lafter)
-    arr_filt = fe.keep_cols(arr_filt, feats)
-    ppis = ml.classify(clf, arr_filt, scaler=scaler)
-    return Struct(ppis=ppis,name=name, species=sp, pd_spcounts=pd_spcounts,
-            ppi_params=str(clf), feats=feats, nsp=nsp, train=arr_train)
+    arr_source = fe.keep_cols(arr_source, feats)
+    ppis = ml.classify(clf, arr_source, scaler=scaler)
+    return Struct(ppis=ppis,name=name, species=sp, ppi_params=str(clf),
+            feats=feats, nsp=nsp, train=arr_train)
 
 def predict_clust(name, sp, scored, exs, nsp, savef=None, pres=None, 
-        **kwargs):
+        pd_spcounts=None, **kwargs):
     savef = savef if savef else ut.bigd(name)+'.pyd'
-    assert not os.path.exists(savef), "Destination filename exists"
     if pres is None:
+        pres_fname = ut.pre_ext(savef, '_pres')
+        assert not os.path.exists(pres_fname), "Destination filename exists"
         pres = predict(name, sp, scored, exs, nsp, **kwargs)
-        ut.savepy(pres, ut.pre_ext(savef, '_pres'))
+        ut.savepy(pres, pres_fname) 
     clusts = cl.multi_clust(pres.ppis)
     clstruct = cp.result_stats(sp, exs, clusts, nsp)
     ut.savepy(clstruct, ut.pre_ext(savef, '_clstruct'))
     pres.cxs, pres.cxppis, bestind = cp.select_best(clstruct, ['ppv','mmr'])
     cyto_export(pres, pres.train, name_ext='_clust%s_%scxs' % (bestind,
-        len(pres.cxs)), geneatts=ut.proj_path('gene_desc_'+sp))
+        len(pres.cxs)), geneatts=ut.proj_path('gene_desc_'+sp),
+        pd_spcounts=pd_spcounts)
     return pres, clstruct
 
 def combine_train(atrain, atest):
     #ltrain, ltest = [[r for r in arr if r[2]==1] for arr in atrain,atest]
     inds_test_trues = np.where(atest['hit']==1)[0]
     inds_test_falses = np.where(atest['hit']==0)[0]
-    inds_sub_falses = random.sample(inds_test_falses, len(inds_test_trues))
-    inds_all = np.concatenate((inds_test_trues, inds_sub_falses))
+    if len(inds_test_trues) < len(inds_test_falses): 
+        inds_test_falses = random.sample(inds_test_falses, len(inds_test_trues)) 
+    inds_all = np.concatenate((inds_test_trues, inds_test_falses))
     inds_all.sort()
     comb = np.concatenate((atrain, atest[inds_all]))
     return comb
@@ -133,13 +132,14 @@ def cluster(result, fracppis, **kwargs):
     return result
 
 def cyto_export(result, arrtrain, ppis=None, cxs='default', geneatts=
-        'Hs_ensg_name_desc_uni_entrez.tab', species=None, name_ext=''):
+        'Hs_ensg_name_desc_uni_entrez.tab', species=None, pd_spcounts=None, 
+        name_ext=''):
     fname = 'cy_'+result.name+name_ext+'.tab'
     species = species if species else result.species
     ppis = ppis if ppis else result.cxppis
     cxs = cxs if cxs!='default' else result.cxs
     cyto.cyto_prep(ppis, arrtrain, fname, geneatts, cxs, species=species,
-            pd_spcounts=result.pd_spcounts)
+            pd_spcounts=pd_spcounts)
 
 def replace_eluts(arr, scores, name='eluts'):
     species = set(ut.config()['elut_species'].split('_'))

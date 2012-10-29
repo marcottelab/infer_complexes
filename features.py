@@ -6,6 +6,7 @@ import numpy as np
 import multiprocessing
 import operator
 import pairdict as pd
+import orth
 
 NCORES = multiprocessing.cpu_count()
 NET_SPS = 'HS CE DM SC'.split()
@@ -117,20 +118,52 @@ def filter_require_sp(arr, set_species, cutoff=0.25, count_ext=True):
         cols = list(arr.dtype.names[3:])
     sp_max = [max(r) for r in arr[cols]]
     passing_inds = [i for i,m in enumerate(sp_max) if m > cutoff]
-    # previously said newarr=arr[cols], del arr, return newarr.  new bug?
     return arr[passing_inds]
+
+def filter_multi_orths(arr_in, basesp, cutoff):
+    """
+    For every interaction without base basespecies evidence, remove other basespecies
+    evidence for that interaction when the base basespecies side of the orthogroup
+    is greater than 1.
+    """
+    print "Filtering: require rows w/o %s > %s to have single orths" % (basesp,
+            cutoff)
+    arr = ut.arr_copy(arr_in)
+    basesp_cols = [n for n in arr.dtype.names[3:] if n[:2]==basesp]
+    maxes = arr_collist_maxes(arr, [basesp_cols])
+    othersps = species_list(arr.dtype.names[3:])
+    othersps.remove(basesp)
+    spcols = [(sp, [n for n in arr.dtype.names[3:] if n[:2]==sp])
+            for sp in othersps]
+    ogs_all = orth.all_ogroup_sizes(basesp, othersps)
+    cleared = 0
+    for i in range(len(arr)):
+        if maxes[i] < cutoff:
+            row = arr[i]
+            id1,id2 = row['id1'],row['id2']
+            for sp, cols in spcols:
+                ogsize_sp = ogs_all[sp]
+                if (id1 in ogsize_sp and ogsize_sp[id1]>1) or (id2 in ogsize_sp
+                        and ogsize_sp[id2]>1):
+                    for col in cols: arr[i][col] = 0
+                    cleared += 1
+    print "%s species-sections of rows cleared" % cleared
+    return arr
 
 def maxes_fracs(arr):
     sps = species_list(arr.dtype.names[3:])
     fracs = set(['_'.join(n.split('_')[:-1]) for n in arr.dtype.names 
         if n[:2] in sps])
-    fracsets = [[n for n in arr.dtype.names 
+    fraclists = [[n for n in arr.dtype.names 
         if '_'.join(n.split('_')[:-1]) == frac] for frac in fracs]
-    maxes = np.zeros((len(arr), len(fracsets)))
+    return arr_collist_maxes(arr, fraclists)
+
+def arr_collist_maxes(arr, colsets):
+    maxes = np.zeros((len(arr), len(colsets)))
     for col in range(maxes.shape[1]):
-        arrcols = arr[fracsets[col]]
-        maxes[:,col] = [max(arrcols[i]) 
-                for i in range(maxes.shape[0])]
+        arrcols = arr[colsets[col]]
+        maxfunc = max if len(colsets[col])>1 else lambda x: x
+        maxes[:,col] = [maxfunc(arrcols[i]) for i in range(maxes.shape[0])]
     return maxes
 
 def passing_scores(arr, thresh, counts=range(1,11), hits=None):
@@ -181,13 +214,12 @@ def filter_nsp(arr, nsp=2, cutoff=0.25, count_ext=True, do_counts=True):
     spcols = [[f for f in features 
                 if f[:2]==s or (count_ext==True and f[:2]=='ex' and f[4:6]==s)]
                 for s in sps]
-    # Note that maxes are transposed relative to what might be expected.
-    maxes = [[max(i) for i in arr[scs]] for scs in spcols]
+    maxes = arr_collist_maxes(arr, spcols)
     exceed_inds = [i for i in range(len(arr))
-                   if len([i for m in maxes if m[i] > cutoff]) >= nsp]
+                   if len([1 for m in maxes[i] if m > cutoff]) >= nsp]
     arrfilt = arr[exceed_inds]
     if do_counts:
-        orig_sp_counts = [len([1 for m in maxes if m[i] > cutoff]) for i in
+        orig_sp_counts = [len([1 for m in maxes[i] if m > cutoff]) for i in
                 range(len(arr))]
         sp_counts_filt = [c for c in orig_sp_counts if c >=nsp]
         pd_spcounts = pd.PairDict([[arrfilt[i][0],arrfilt[i][1],

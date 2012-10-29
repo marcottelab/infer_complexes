@@ -54,6 +54,32 @@ def convert_dict(fromtype, totype):
         if conv1 and conv2:
             return ut.compose_dict_sets(conv1,conv2)
 
+def all_odicts(sp, sps):
+    d_odicts = {}
+    for other in sps:
+        if sp!=other:
+            d_odicts[other] = odict(sp,other)
+    return d_odicts
+
+def all_ogroup_sizes(fromsp, tosps):
+    odicts = all_odicts(fromsp, tosps)
+    ogsizes = {}
+    for othersp, od in odicts.items():
+        ogsizes[othersp] = ogroup_size_dict(od)
+    return ogsizes
+
+def ogroup_size_dict(odict):
+    """
+    Takes a normal odict of fromid: set(toids) and returns a dict of fromid:
+    size of that side of the orthogroup.
+    """
+    ogsize = {}
+    odinv = ut.dict_inverse_sets(odict)
+    for fromid in odict:
+        # Can just use the first one since orthogroups are cohesive
+        ogsize[fromid] = len(odinv[list(odict[fromid])[0]])
+    return ogsize
+
 def custom_conversion(fromtype, totype):
     """
     Check for a custom file in data/convert
