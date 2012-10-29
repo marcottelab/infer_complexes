@@ -14,12 +14,13 @@ def all_ev(gnames, arr_ev, scores):
             if s[0] in ids and s[1] in ids])
         return ([tuple([gt.id2name[i] for i in r[0],r[1]] +
             [pairs[(r[0],r[1])]] + list(r)[3:]) for r in arr_ev if (r[0],r[1])
-            in pairs])
+            in pairs]), ['total_score']+list(arr_ev.dtype.names[3:])
     else: 
-        return [tuple([gt.id2name[i] for i in r[0],r[1]]+list(r)[3:]) for r in arr_ev if r[0] in ids and r[1] in ids]
+        return [tuple([gt.id2name[i] for i in r[0],r[1]]+list(r)[3:]) for r in
+                arr_ev if r[0] in ids and r[1] in ids], arr_ev.dtype.names[3:]
 
 def ev_output(gnames, arr_ev, scores=None):
-    ev_lot = all_ev(gnames, arr_ev, scores)
-    labels = ['gene1','gene2','total_score'] + list(arr_ev.dtype.names[3:])
+    ev_lot, titles = all_ev(gnames, arr_ev, scores)
+    labels = ['gene1','gene2'] + titles
     return zip(labels, *ev_lot)
 

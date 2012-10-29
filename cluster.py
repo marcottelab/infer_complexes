@@ -6,18 +6,21 @@ import corum as co
 import utils as ut
 import pairdict
 import operator
+import random
 
 mcl_command = '%(mclpath)s %(fin)s -I %(I)s -o %(fout)s --abc'
 c1_command = 'java -jar %(c1path)s -s %(min_size)s -d %(min_density)s --haircut %(haircut)s --penalty %(penalty)s --max-overlap %(max_overlap)s %(fluff)s %(fin)s > %(fout)s '
 
-def multi_clust(tested, fracs=[0.03,.05,.07], d_lgm=[.03,.05,.07],
-        m_lgm=[40,60,100], d_smm=[.2,.3,.4,.45,.5], m_smm=[5,10,20,40],
+def multi_clust(tested, fracs=[.06,.08,.1,.12,.14,.16],
+        d_lgm=[.004,.006,.01,.015, 02,.025,.035,.05,.07],
+        m_lgm=[85,105,125], d_smm=[], m_smm=[], runid=random.randrange(0,100),
         **kwargs):
+    print "random id for these runs:", runid
     clusts = reduce(operator.add,
             [[('density=%s,frac=%s,negmult=%s'%(d,f,m),
                 filter_clust(tested[:int(f*len(tested))], negmult=m,
-                    min_density=d))
-                for d in ds for f in fs for m in ms]
+                    min_density=d, runid=runid, **kwargs))
+                for f in fs for d in ds for m in ms]
                 for ds,fs,ms in (d_lgm,fracs,m_lgm),(d_smm,fracs,m_smm)])
     return clusts
 
@@ -39,7 +42,7 @@ clust_defaults = {
     'min_density': 0.2,
     'haircut': 0.0,
     'penalty': 2.0,
-    'max_overlap': 0.6,
+    'max_overlap': 0.85,
     'fluff': '--no-fluff',
     'c1path': os.path.expanduser('~/Dropbox/complex/tools')+'/cluster_one.jar',
     'mclpath': os.path.expanduser('~/local/bin')+'/mcl',
@@ -60,10 +63,14 @@ def n_thresh(tested, score):
     
 def cluster(tested, negmult, command, **kwargs):
     kwargs = set_defaults(kwargs, clust_defaults)
-    export_cxs(tested, kwargs['fin'], negmult)
+    if 'runid' in kwargs: # keep temp files separate
+        runid = str(kwargs['runid']) 
+        kwargs['fin'] = ut.pre_ext(kwargs['fin'], runid)
+        kwargs['fout'] = ut.pre_ext(kwargs['fout'], runid)
+    export_cxs(tested, kwargs['fin'],negmult)
+    command = command % kwargs
     print command
-    shell_call(command % kwargs)
-    ut.printnow('finished clustering')
+    shell_call(command)
     cxs = [set(c) for c in ut.load_list_of_lists(kwargs['fout'])]
     return cxs
 

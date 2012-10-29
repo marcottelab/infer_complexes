@@ -53,12 +53,13 @@ def result_stats(sp, exs, clusts, nsp, func_inds=[2,8], split_inds=[2]):
         func_inds=func_inds)
     return Struct(clusts=clusts, stats=clstats)
 
+
 def select_best(clstruct, scorenames, rfunc=operator.add, use_norm=True):
     clusts, stats = clstruct.clusts, clstruct.stats
     if use_norm: stats = norm_columns(stats)
     inds = np.argsort(reduce(rfunc, [stats[n] for n in scorenames]))[::-1]
     for i in inds[:10]: 
-        print i, len(clusts[i][1][0]), len(clusts[i][1][1]), clusts[i][0]
+        print i, ["%0.2f " % s for s in clstruct.stats[i]], len(clusts[i][1][0]), len(clusts[i][1][1]), clusts[i][0]
     return clusts[inds[0]][1][0], clusts[inds[0]][1][1], inds[0]
 
 def result_gold(resultexs, species, split_inds, make_unmerged=False,
@@ -249,3 +250,4 @@ def pds_overlap(pds):
 
 def cxs_self_match_frac(cxs, limit=.6, func=bader_score):
     return len(overlaps(cxs,cxs,limit,func=func,skip_self=True))/len(cxs)
+

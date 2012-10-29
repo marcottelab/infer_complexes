@@ -142,10 +142,11 @@ def elut_p2g(fname, p2g, suffix='_fix'):
                 yield items
     ut.write_tab_file(process(lines), fname+suffix)
 
+
 class GTrans(object):
 
-    def __init__(self):
-        lines = ut.load_list_of_lists(ut.proj_path('gene_desc'))[1:]
+    def __init__(self, sp='Hs'):
+        lines = ut.load_list_of_lists(ut.proj_path('gene_desc_'+sp))[1:]
         self.gnames = [(l[1].lower(), l[2]) for l in lines]
         self.name2id = dict([(l[1].lower(),l[0]) for l in lines])
         self.id2name = dict([(l[0], l[1].lower()) for l in lines])

@@ -41,7 +41,7 @@ def all_filtered_pairs(fnames, score_keys, cutoff=0.25, sp_base=None,
                        verbose=True):
     allpairs = PairDict([])
     for skey,f in itertools.product(score_keys,fnames):
-        if verbose: print skey, cutoff, f
+        if verbose: print skey, cutoff, ut.shortname(f)
         elut = load_elution(f)
         pairs = score.pairs_exceeding(elut, skey, thresh=cutoff)
         singles = score.prots_singles(elut)
