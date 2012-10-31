@@ -6,6 +6,7 @@ import corum as co
 import cv
 import operator
 from Struct import Struct
+import itertools as it
 
 
 cp_funcs = [
@@ -47,8 +48,8 @@ def stats(gold,cxs_list, conv_to_sets=True, func_inds=None):
         arr[i] = np.array([f(gold, cxs) for f in ut.i1(use_funcs)])
     return arr
 
-def result_stats(sp, exs, clusts, nsp, func_inds=[2,8], split_inds=[2]):
-    clstats = stats(result_gold(exs, sp, split_inds=split_inds,
+def result_stats(sp, splits, clusts, nsp, func_inds=[2,8], split_inds=[2]):
+    clstats = stats(result_gold(splits, sp, split_inds=split_inds,
         consv_sp=('Dm' if nsp==2 else '')), [c[1][0] for c in clusts],
         func_inds=func_inds)
     return Struct(clusts=clusts, stats=clstats)
@@ -59,12 +60,11 @@ def select_best(clstruct, scorenames, rfunc=operator.add, use_norm=True):
     if use_norm: stats = norm_columns(stats)
     inds = np.argsort(reduce(rfunc, [stats[n] for n in scorenames]))[::-1]
     for i in inds[:10]: 
-        print i, ["%0.2f " % s for s in clstruct.stats[i]], len(clusts[i][1][0]), len(clusts[i][1][1]), clusts[i][0]
+        print i, ["%0.4f " % s for s in clstruct.stats[i]], len(clusts[i][1][0]), len(clusts[i][1][1]), clusts[i][0]
     return clusts[inds[0]][1][0], clusts[inds[0]][1][1], inds[0]
 
-def result_gold(resultexs, species, split_inds, make_unmerged=False,
+def result_gold(splits, species, split_inds, make_unmerged=False,
         consv_sp='Dm'):
-    splits = resultexs.splits
     if make_unmerged: 
         print "Converting to unmerged using conserved:", (consv_sp if consv_sp
                 else "None")
@@ -247,6 +247,14 @@ def pds_overlap(pds):
     pds: list of pairdicts
     """
     return len(reduce(pd.pd_intersect_avals, pds).d)
+
+def pds_alloverlaps(named_pds):
+    """
+    input: [(name, pairdict), ...]
+    """
+    for num in range(2,len(named_pds)+1):
+        for n_pd in it.combinations(named_pds, num):
+            print ut.i0(n_pd), pds_overlap(ut.i1(n_pd))
 
 def cxs_self_match_frac(cxs, limit=.6, func=bader_score):
     return len(overlaps(cxs,cxs,limit,func=func,skip_self=True))/len(cxs)

@@ -52,7 +52,6 @@ def feature_selection(arr, nfeats, clf=None):
         feats = list(arr.dtype.names[3:])
     return feats
 
-
 def predict(name, sp, arr_source, train_struct, nsp, clf_scaler_feats=None,
         clf_base=None, clf_feats=None, norm=True, nfeats=40,
         combine_train_test=True):
@@ -90,9 +89,10 @@ def predict_clust(name, sp, scored, exs, nsp, savef=None, pres=None,
         pres = predict(name, sp, scored, exs, nsp, **kwargs)
         ut.savepy(pres, pres_fname) 
     clusts = cl.multi_clust(pres.ppis)
-    clstruct = cp.result_stats(sp, exs, clusts, nsp)
+    clstruct = cp.result_stats(sp, exs.splits, clusts, nsp)
     ut.savepy(clstruct, ut.pre_ext(savef, '_clstruct'))
     pres.cxs, pres.cxppis, bestind = cp.select_best(clstruct, ['ppv','mmr'])
+    pres.splits = exs.splits
     cyto_export(pres, pres.train, name_ext='_clust%s_%scxs' % (bestind,
         len(pres.cxs)), geneatts=ut.proj_path('gene_desc_'+sp),
         pd_spcounts=pd_spcounts)

@@ -8,6 +8,7 @@ import cv
 from Struct import Struct
 import utils as ut
 import ppi
+import pairdict as pd
 COLORS = ['#4571A8', 'black', '#A8423F', '#89A64E', '#6E548D', '#3D96AE',
            '#DB843D', '#91C4D5', '#CE8E8D', '#B6CA93', '#8EA5CB', 'yellow',
            'gray', 'blue']
@@ -122,3 +123,12 @@ def presentation_mode(on=True):
     usemode = presmode if on else normmode
     mpl.rcParams.update(usemode)
     
+def ppis_scatter(ppis1, ppis2):
+    pd1,pd2 = [pd.PairDict([p[:3] for p in ppis]) for ppis in ppis1,ppis2]
+    pdcomb = pd.pd_union_disjoint_vals(pd1,pd2,adefaults=[0],bdefaults=[0])
+    v1s,v2s = zip(*ut.i1(pdcomb.d.items()))
+    return v1s,v2s
+
+    #for p1,v1 in pd1.d.items():
+        #p2 = pd2.find(p1)
+        #v1.append(pd2.d[p2][0] if p2 else 0)
