@@ -87,13 +87,15 @@ def predict_clust(name, sp, scored, exs, nsp, savef=None, pres=None,
         pres_fname = ut.pre_ext(savef, '_pres')
         assert not os.path.exists(pres_fname), "Destination filename exists"
         pres = predict(name, sp, scored, exs, nsp, **kwargs)
+        pres.splits = exs.splits
         ut.savepy(pres, pres_fname) 
     clusts = cl.multi_clust(pres.ppis)
     clstruct = cp.result_stats(sp, exs.splits, clusts, nsp)
     ut.savepy(clstruct, ut.pre_ext(savef, '_clstruct'))
-    pres.cxs, pres.cxppis, bestind = cp.select_best(clstruct, ['ppv','mmr'])
-    pres.splits = exs.splits
-    cyto_export(pres, pres.train, name_ext='_clust%s_%scxs' % (bestind,
+    pres.cxs, pres.cxppis, pres.ind = cp.select_best(clstruct, ['ppv','mmr'])
+    ut.savepy([pres.cxs,pres.cxppis],
+    ut.pre_ext(savef,'_cxs_cxppis_clust%s_%scxs' % (pres.ind, len(pres.cxs))))
+    cyto_export(pres, pres.train, name_ext='_clust%s_%scxs' % (pres.ind,
         len(pres.cxs)), geneatts=ut.proj_path('gene_desc_'+sp),
         pd_spcounts=pd_spcounts)
     return pres, clstruct

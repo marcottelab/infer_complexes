@@ -159,3 +159,11 @@ class GTrans(object):
         key=key.lower()
         return [g for g in self.gnames if g[0].find(key)>-1 or
                 g[1].find(key)>-1]
+
+def ids2names(ids, **kwargs):
+    gt = GTrans(**kwargs)
+    return [gt.id2name[i] for i in ids]
+
+def names2ids(names, **kwargs):
+    gt = GTrans(**kwargs)
+    return [gt.name2id[n] for n in names]

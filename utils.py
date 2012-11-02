@@ -244,6 +244,17 @@ def sample_wr(pop, k):
     _random, _int = random.random, int
     return [pop[_int(_random() * n)] for i in itertools.repeat(None,k)]
 
+def sqrt_shape(k):
+    """
+    Get a proper-sized (m,n) for m rows, n columns for k items
+    """
+    srt = np.sqrt(k)
+    ans1 = (np.floor(srt), np.ceil(srt))
+    if ans1[0]*ans1[1] >= k:
+        return ans1
+    else:
+        return (np.ceil(srt),np.ceil(srt))
+
 def struct_copy(s):
     newstruct = Struct()
     newstruct.__dict__ = s.__dict__.copy()

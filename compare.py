@@ -108,7 +108,7 @@ def max_match_ratio(gold, cxs):
     Nepusz 2012, deciding score used for c1 param choice in havig/hart.
     """
     arr = arr_intersects(gold, cxs, func=bader_score)
-    inds = zip(*np.where(arr>0))
+    inds = zip(*np.where(arr>0)) # pairs of complexes that are matching at all.
     ind_scores = [(ind,arr[ind[0],ind[1]]) for ind in inds]
     ind_scores.sort(key=lambda x:x[1], reverse=True)
     x_used, y_used = set([]),set([])
