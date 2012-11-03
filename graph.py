@@ -14,3 +14,7 @@ def cliqueness(cx,pdppis):
     return len([1 for p1,p2 in it.combinations(cx,2) if
         pdppis.contains((p1,p2))]) / poss_ints(len(cx)) 
 
+def filter_cxs(cxs, cxppis, qness=.7, min_size=0):
+    pdppis = pd.PairDict(cxppis)
+    return [c for c in cxs if cliqueness(c,pdppis)>qness and len(c)>=min_size]
+
