@@ -21,6 +21,15 @@ def odict(from_sp, to_sp):
                                                         'table.'+key)),
                              swap_order=swap_order)
 
+def odict_1to1(from_sp, to_sp):
+    """
+    Filtered flat odict with only 1to1 orthologs.
+    """
+    od = odict(from_sp, to_sp)
+    od_rev = odict(to_sp, from_sp)
+    return dict([(k,list(v)[0]) for k,v in od.items() if len(v)==1 and
+        len(od_rev[list(v)[0]])==1])
+
 def convert_dict_single(fromtype, totype):
     """
     totype: must be Sp (eg 'Hs') or Sp_seqdb
