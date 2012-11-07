@@ -5,7 +5,7 @@ import numpy as np
 import elution as el
 import score as sc
 
-def all_ev(gnames, arr_ev, scores):
+def all_ev(gnames, arr_ev, scores, req_gnames=set([])):
     """
     Given a list of gene names, return the rows of evidence for any pairs.
     Filter only to those pairs present in scores (weighted predicted
@@ -16,27 +16,30 @@ def all_ev(gnames, arr_ev, scores):
     if scores:
         pairs = dict([((s[0],s[1]),s[2]) for s in scores 
             if s[0] in ids and s[1] in ids])
-        return ([tuple([gt.id2name[i] for i in r[0],r[1]] +
+        allevs = ([tuple([gt.id2name[i] for i in r[0],r[1]] +
             [pairs[(r[0],r[1])]] + list(r)[3:]) for r in arr_ev if (r[0],r[1])
             in pairs]), ['total_score']+list(arr_ev.dtype.names[3:])
     else: 
-        return ([tuple([gt.id2name[i] for i in r[0],r[1]]+list(r)[3:]) for r in
+        allevs = ([tuple([gt.id2name[i] for i in r[0],r[1]]+list(r)[3:]) for r in
                 arr_ev if r[0] in ids and r[1] in ids],
                 list(arr_ev.dtype.names[3:]))
+    if req_gnames:
+        allevs = [a for a in allevs if a[0]==req_gnames or a[1]==req_gnames]
+    return allevs
 
 def ev_output(gnames, arr_ev, scores=None):
     ev_lot, titles = all_ev(gnames, arr_ev, scores)
     labels = ['gene1','gene2'] + titles
     return zip(labels, *ev_lot)
 
-def disp_ev(gnames, arr_ev, scores=None, dispn=10):
+def disp_ev(gnames, arr_ev, scores=None, cutoff=.25, dispn=10):
     evs = ev_output(gnames, arr_ev, scores=scores)
     headers = evs[:2]
     data = evs[2:]
-    data.sort(key=lambda(x):len([v for v in x[1:] if v>.5]), reverse=True)
+    data.sort(key=lambda(x):len([v for v in x[1:] if v>cutoff]), reverse=True)
     output = headers+data
     for r in output[:dispn]: print r
-    return output
+    return evs
 
 def elutions_containing_prots(fs, sp, query_prots, min_count,
         remove_multi_base):

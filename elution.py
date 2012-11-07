@@ -253,4 +253,3 @@ def subset_elution(elution, prot_set):
     newel.prots = newprots
     print len(newel.prots), 'prots from', elution.filename, 'in set'
     return newel
-
