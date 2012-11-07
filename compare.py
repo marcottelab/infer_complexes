@@ -240,7 +240,7 @@ def ints_overlap(pairs_iterables):
     """ 
     Provide a list: [pairsa, pairsb(, pairsc)]
     """
-    return pds_overlap(pairs_iterables)
+    return pds_overlap([pd.PairDict(ppis) for ppis in pairs_iterables])
 
 def pds_overlap(pds):
     """
@@ -255,6 +255,23 @@ def pds_alloverlaps(named_pds):
     for num in range(2,len(named_pds)+1):
         for n_pd in it.combinations(named_pds, num):
             print ut.i0(n_pd), pds_overlap(ut.i1(n_pd))
+
+def triple_venn(three_ppis, names=['a','b','c']):
+    ppis_names = zip(three_ppis, names)
+    print zip(names, [len(p) for p in three_ppis])
+    trip = ints_overlap(three_ppis)
+    print names, trip
+    intersects = []
+    for (a,namea),(b,nameb) in it.combinations(ppis_names,2):
+        intersect = ints_overlap([a,b])
+        print namea, nameb, "--", intersect
+        print namea, nameb, "-only-", intersect - trip
+
+
+
+
+
+
 
 def cxs_self_match_frac(cxs, limit=.6, func=bader_score):
     return len(overlaps(cxs,cxs,limit,func=func,skip_self=True))/len(cxs)
