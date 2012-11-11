@@ -24,13 +24,13 @@ def prot_counts(fs, min_count=2):
                 pcounts[p] += psum
     return pcounts
 
-def prot_conservation(fs,sp1,sp2, gridsize=30, **kwargs):
+def prot_conservation(fs,sp1,sp2, gridsize=30, od11=None, **kwargs):
     """
     Currently only uses 1 to 1 orthologs, so odict should be a simple flat dict
     of genesa:genesb.
     """
     fs1,fs2 = [[f for f in fs if ut.shortname(f)[:2]==sp] for sp in sp1,sp2]
-    odict = orth.odict_1to1(sp1,sp2)
+    odict = orth.odict_1to1(sp1,sp2) if od11 == None else od11
     pcounts = [prot_counts(fs) for fs in fs1,fs2]
     pc1,pc2 = zip(*[(pcounts[0][p], pcounts[1][odict[p]]) 
         for p in pcounts[0] if p in odict])
@@ -40,15 +40,20 @@ def prot_conservation(fs,sp1,sp2, gridsize=30, **kwargs):
     ylabel('%s log2 unique spectral counts' %sp2)
     title('%s-%s: R^2 = %0.2f, %s 1-1 ortholog pairs with %s data' % (sp1,sp2,
         scipy.stats.pearsonr(pc1,pc2)[0]**2, len(pc1), sp1))
-    return pc1,pc2
 
 def plot_conservations(fs,sp,othersps,**kwargs):
     for i,osp in enumerate(othersps):
         subplot(2,np.ceil(len(othersps)/2),i+1)
         prot_conservation(fs, sp, osp, **kwargs)
 
-def hist_prot_counts(fs, **kwargs):
-    pcounts = ut.i1(prot_counts(fs).items())
-    hist(np.log2(pcounts), **kwargs)
+def hist_prot_counts(fs, in_prots_sets=[None],**kwargs):
+    """
+    Usually set linewidth=3, histtype='step', range=(0,18), bins=36
+    """
+    pcounts = prot_counts(fs).items()
+    for prots in in_prots_sets:
+        if prots:
+            pcounts = [(p,c) for p,c in pcounts if p in prots]
+        hist(np.log2(ut.i1(pcounts)), **kwargs)
 
 

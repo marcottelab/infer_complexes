@@ -179,6 +179,9 @@ def i1(seq):
 def inds(seq,ind):
     return map(lambda x: x[ind], seq)
 
+def inset(items, set):
+    return [i for i in items if i in set]
+
 def idpr(x): #useful sometimes for printing nested in expressions
     print x
     return x
@@ -400,6 +403,12 @@ def list_inv_to_dict(lst):
     d = {}
     for index,item in enumerate(lst):
         d[item]=index
+    return d
+
+def dict_set_defaults(d, defaultd):
+    for k,v in defaultd.items():
+        if k not in d:
+            d[k] = v
     return d
 
 def dict_sets_from_tuples(lot):

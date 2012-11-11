@@ -62,7 +62,7 @@ def n_thresh(tested, score):
             return i
     
 def cluster(tested, negmult, command, **kwargs):
-    kwargs = set_defaults(kwargs, clust_defaults)
+    kwargs = ut.dict_set_defaults(kwargs, clust_defaults)
     if 'runid' in kwargs: # keep temp files separate
         runid = str(kwargs['runid']) 
         kwargs['fin'] = ut.pre_ext(kwargs['fin'], runid)
@@ -74,16 +74,10 @@ def cluster(tested, negmult, command, **kwargs):
     cxs = [set(c) for c in ut.load_list_of_lists(kwargs['fout'])]
     return cxs
 
-def set_defaults(d, defaultd):
-    for k,v in defaultd.items():
-        if k not in d:
-            d[k] = v
-    return d
-    
 def export_cxs(tested, fname, negmult):
     ut.write_tab_file([(t[0], t[1], ut.rescale(float(t[2]),negmult)) for t in
         tested], fname)
-    
+
 def shell_call(command):
     # http://www.doughellmann.com/PyMOTW/subprocess/
     # use Popen when you want lots of control over the process and output

@@ -33,4 +33,11 @@ def avg_weight(G, clique):
     return np.mean([G[p1][p2]['weight'] 
         for p1,p2 in it.combinations(clique,2)])
 
+def genes2phens(p2entrez_file, e2z=None):
+    ensg2z = e2z if e2z else ut.load_dict_sets(ut.proj_path('convert', 'Hs2Hs_entrez.tab'))
+    def dict_sets_rem_prefix(d, sep):
+        d = dict([(k,set([vi.split(sep)[1] for vi in v])) for k,v in d.items()])
+        return d
+    p2z = dict_sets_rem_prefix(ut.load_dict_sets(p2entrez_file), ":")
+    return ut.compose_dict_sets(ensg2z, ut.dict_inverse_sets(p2z))
 

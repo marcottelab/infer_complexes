@@ -7,8 +7,10 @@ import itertools
 import cv
 from Struct import Struct
 import utils as ut
-import ppi
 import pairdict as pd
+#import hcluster
+
+
 COLORS = ['#4571A8', 'black', '#A8423F', '#89A64E', '#6E548D', '#3D96AE',
            '#DB843D', '#91C4D5', '#CE8E8D', '#B6CA93', '#8EA5CB', 'yellow',
            'gray', 'blue']
@@ -33,6 +35,16 @@ def rolling_scores(tested, show=1000, window=50, **kwargs):
     xlabel('starting index in scored examples')
     ylabel('fraction true in index:index+%s'%window)
     legend(['fraction true','score'])
+
+def bar_plot(names, yvals, slanted_names=False, **kwargs):
+    fig = figure()
+    ax = fig.add_subplot(111)
+    ax.bar(range(len(names)), yvals, align='center', **kwargs)
+    ax.set_xticks(range(len(names)))
+    ax.set_xticklabels(names)
+    if slanted_names: fig.autofmt_xdate()
+    show()
+    return ax
     
 # def cluster(corr):
 #     # corr: a matrix of similarity scores, such as a covariance matrix
@@ -132,3 +144,23 @@ def ppis_scatter(ppis1, ppis2):
     #for p1,v1 in pd1.d.items():
         #p2 = pd2.find(p1)
         #v1.append(pd2.d[p2][0] if p2 else 0)
+
+#def cluster_elut(mat):
+    #ymat = hcluster.pdist(mat)
+    #zmat = hcluster.linkage(ymat)
+    #figure()
+    #order = hcluster.dendrogram(zmat)['leaves']
+    #figure() 
+    #imshow(mat[order,:])
+
+def profiles_cxs(e, cxs, **kwargs):
+    # blue/yellow/red map: 'jet'
+    defaults = {'interpolation': 'nearest', 'cmap':'hot', 'vmin':1}
+    kwargs = ut.dict_set_defaults(kwargs, defaults)
+    arr = np.array(e.mat)
+    dinds = ut.list_inv_to_dict(e.prots)
+    useps = [p for c in cxs for p in c]
+    useinds = [dinds[p] for p in useps if p in dinds]
+    vals = np.clip(np.log2(arr[useinds,:]),0,100)
+    imshow(vals, **kwargs)
+    return vals

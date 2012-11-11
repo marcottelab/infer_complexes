@@ -3,7 +3,6 @@ import numpy as np
 import random
 import os
 import utils as ut
-import compare as cp
 import ppi
 import seqs
 
@@ -28,7 +27,10 @@ def load_ppi_cxs(minlen=2, maxlen=50, sp_match='Human'):
             if (not sp_match or s==sp_match) 
             and len(ps)>=minlen and len(ps)<=maxlen]
 
-def load_merged_cxs(cutoff=0.5, func=cp.simpson, sep='|', **kwargs):
+def load_merged_cxs(cutoff=0.5, func=None, sep='|', **kwargs):
+    if func==None:
+        import compare as cp
+        func = cp.simpson
     cxs = load_ppi_cxs(**kwargs)
     return merge_atonce(cxs, cutoff, func, sep)
     #if atonce: # deprecated since I didn't fix merge_iter for handling names
