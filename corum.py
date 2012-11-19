@@ -16,6 +16,16 @@ def load_corum(fname):
     return [(l[1], set(l[4].split(',')), l[3]) 
             for l in ut.load_list_of_lists(fname, sep=';')[1:]]
 
+def load_havug_ppis():
+    hints = ut.load_list_of_lists('../../docs/SupplementaryTableS2.tab')
+    u2e = ut.dict_inverse_sets(ut.load_dict_sets('../../data/convert/Hs2Hs_uni.tab'))
+    hints = [[list(u2e.get(p,['NoTranslation']))[0] for p in c[:2]]+[c[2]] for c in hints]
+    hcxsu = ut.load_list_of_type('havig_complexes.tab',set)
+    hcxs = ut.i1(co.convert_complexes(dict([(i,c) for i,c in enumerate(hcxsu)]), u2e, seqs.load_prots_from_fasta('../../data/sequences/canon/Hs.fasta')))
+    hints = cl._filter_ints(hints, hcxs)
+    return hints
+
+
 def load_ppi_cxs(minlen=2, maxlen=50, sp_match='Human'):
     """
     Returns a list of sets of uniprot ids.

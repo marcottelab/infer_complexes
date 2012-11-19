@@ -267,12 +267,29 @@ def triple_venn(three_ppis, names=['a','b','c']):
         print namea, nameb, "--", intersect
         print namea, nameb, "-only-", intersect - trip
 
-
-
-
-
-
-
 def cxs_self_match_frac(cxs, limit=.6, func=bader_score):
     return len(overlaps(cxs,cxs,limit,func=func,skip_self=True))/len(cxs)
 
+def ints_overlap_orth(aints, bints, b2a):
+    """
+    Make a list of orthogroup pair sets, instead of just pairs of genes, then
+    query those for a given pair of genes in species A.
+    """
+    def matchpairset(pair,losetpairs):
+        for p in losetpairs:
+            if ((pair[0] in p[0] and pair[1] in p[1]) or 
+                    (pair[1] in p[0] and pair[0] in p[1])):
+                return True
+    bints_spa = [(b2a[g[0]],b2a[g[1]]) for g in bints 
+            if g[0] in b2a and g[1] in b2a]
+    return len([pair for pair in aints if (matchpairset(pair,bints_spa))])
+
+def consv_pairs(ints, odict):
+    return [p for p in ints if p[0] in odict and p[1] in odict]
+
+def ints_overlap_consv(intlists, odict):
+    """
+    Get the overlap just of the interactions for which each member of the pair
+    has an ortholog in the given odict.
+    """
+    return ints_overlap([consv_pairs(ints,odict) for ints in intlists])
