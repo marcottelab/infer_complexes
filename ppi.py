@@ -86,14 +86,13 @@ def base_splits(species, elut_fs, splits, neg_ratios, ind_cycle,
 
 def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
         extdata=['net_Hs19']+extfs, nsp=1,
-        cutoff=0.25, base_arr=None, do_filter_scores=False, do_filter_sp=True,
+        cutoff=0.25, base_arr=None, do_filter_scores=True, do_filter_sp=True,
         save_fname=None, require_base=False, single_base_orth=False,
         filter_multi_orths=0.25):
     """
     Same more or less as learning_examples above, but produces all predictions
     in the elution files.
     """
-    check_dir(save_fname)
     if not base_arr:
         pd_all = el.all_filtered_pairs(elut_fs, scores, cutoff, species)
         print len(pd_all.d), 'total interactions passing cutoff'
@@ -124,7 +123,7 @@ def score_and_filter(arr, scores, elut_fs, cutoff, species, extdata,
         require_species = set([species]) if require_base else None
         arr = fe.filter_require_sp(arr, require_species, cutoff=cutoff,
                 count_ext=False)
-    if filter_multi_orths:
+    if filter_multi_orths and not require_base: # otherwise redundant
         arr = fe.filter_multi_orths(arr, species, filter_multi_orths)
     if extdata:
         print '\nScoring with external data:', ','.join(extdata)

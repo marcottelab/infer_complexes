@@ -130,6 +130,7 @@ def filter_multi_orths(arr_in, basesp, cutoff):
             cutoff)
     arr = ut.arr_copy(arr_in)
     basesp_cols = [n for n in arr.dtype.names[3:] if n[:2]==basesp]
+    assert len(basesp_cols)>0, 'No base species data.'
     maxes = arr_collist_maxes(arr, [basesp_cols])
     othersps = species_list(arr.dtype.names[3:])
     othersps.remove(basesp)
@@ -159,8 +160,14 @@ def maxes_fracs(arr):
     return arr_collist_maxes(arr, fraclists)
 
 def arr_collist_maxes(arr, colsets):
+    """
+    Colsets is a list of lists of columns.  For each list of columns within
+    colsets, we return a column in the new array that's the max of those.
+    """
     maxes = np.zeros((len(arr), len(colsets)))
     for col in range(maxes.shape[1]):
+        # Otherwise throws cryptic error if there's only one column
+        assert min([len(cols)>1 for cols in colsets]) == True, "Single columns don't work."
         arrcols = arr[colsets[col]]
         maxfunc = max if len(colsets[col])>1 else lambda x: x
         maxes[:,col] = [maxfunc(arrcols[i]) for i in range(maxes.shape[0])]
