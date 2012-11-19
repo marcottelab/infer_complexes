@@ -65,32 +65,103 @@ def plot_profiles(prots, fs, sp='Hs', plot_sums=True, shape=None, min_count=2,
     usefs = elutions_containing_prots(fs, sp, seqs.names2ids(prots), min_count,
             remove_multi_base)
     shape = shape if shape else ut.sqrt_shape(len(usefs)+1)
+    fig = pl.figure()
     for i,f in enumerate(usefs):
         e = el.load_elution(f)
         sp_target = ut.shortname(f)[:2]
         baseid2inds = sc.orth_indices(sp, sp_target, e.prots, remove_multi_base)
         pl.subplot(shape[0],shape[1],i+1)
         pl.title(ut.shortname(f))
-        protsmax = 0
-        for i,(pid,pname) in enumerate([(gt.name2id[p],p) for p in prots]):
-            if pid in baseid2inds:
-                for rowid in baseid2inds[pid]:
-                    row = e.mat[rowid]
-                    if np.max(row) >= min_count:
-                        rowmax = np.max(row)
-                        protsmax = rowmax if rowmax > protsmax else protsmax
-                        pl.plot(range(row.shape[1]),row[0,:].T, label=pname,
-                                color=pl.COLORS[i],linewidth=1)
-        # plot total spectral counts normalized to match biggest peak
-        sums = np.sum(e.mat,axis=0)
-        fmax = np.max(sums)
-        pl.plot(range(sums.shape[1]), sums[0,:].T*protsmax/fmax, color='k',
-                linestyle=':')
+        pids = [gt.name2id[p] for p in prots]
+        protsmax = max([np.max(e.mat[r]) for p in pids if p in baseid2inds for
+            r in baseid2inds[p]])
+        plot_prots(e, pids, baseid2inds, protsmax)
+        if plot_sums:
+            # plot total spectral counts normalized to match biggest peak
+            sums = np.sum(e.mat,axis=0)
+            fmax = np.max(sums)
+            pl.plot(range(sums.shape[1]),
+                    np.log2(sums[0,:]).T*np.log2(protsmax)*len(pids)/np.log2(fmax), 
+                    color='k', linestyle='-', linewidth=.5)
     # make legend with all prots
     pl.subplot(shape[0],shape[1],0)
     for p in prots: pl.plot(0,label=p)
     pl.legend()
 
+def plot_prots(elut, pids, baseid2inds, maxcount):
+    import plotting as pl
+    for i,pid in enumerate(pids):
+        if pid in baseid2inds:
+            for rowid in baseid2inds[pid]:
+                row = elut.mat[rowid]
+                bottom = np.log2(maxcount)*i
+                pl.bar(range(row.shape[1]),
+                        np.clip(np.log2(row[0,:].T+.1),0,1000),
+                        color=pl.COLORS[i], align='center',width=1,linewidth=0,
+                        bottom=bottom)
+                pl.xlim(0,row.shape[1])
+
+#def plot_profiles(prots, fs, sp='Hs', plot_sums=True, shape=None, min_count=2,
+        #remove_multi_base=False):
+    #"""
+    #shape: (m,n) = m rows, n columns
+    #"""
+    #import plotting as pl
+    #gt = seqs.GTrans()
+    #usefs = elutions_containing_prots(fs, sp, seqs.names2ids(prots), min_count,
+            #remove_multi_base)
+    #shape = shape if shape else ut.sqrt_shape(len(usefs)+1)
+    #fig = pl.figure()
+    #for i,f in enumerate(usefs):
+        #e = el.load_elution(f)
+        #sp_target = ut.shortname(f)[:2]
+        #baseid2inds = sc.orth_indices(sp, sp_target, e.prots, remove_multi_base)
+        #ax = fig.add_subplot(shape[0],shape[1],i+1)
+        #pl.title(ut.shortname(f))
+        ##protsmax = 0
+        #for i,(pid,pname) in enumerate([(gt.name2id[p],p) for p in prots]):
+            #if pid in baseid2inds:
+                #plot_prot_separately(baseid2inds[pid], e, fig, ax, len(prots)+1, i) 
+                ##plot_inds_separately(baseid2inds[pid], e, ax)
+        ## plot total spectral counts normalized to match biggest peak
+        #sums = np.sum(e.mat,axis=0)
+        #fmax = np.max(sums)
+        ##pl.plot(range(sums.shape[1]), sums[0,:].T*protsmax/fmax, color='k',
+                ##linestyle=':')
+        #newax = fig.add_axes(hor_slice_position(ax.get_position(),
+            #len(prots)+1, len(prots)))
+        #newax.plot(range(sums.shape[1]), sums[0,:].T, color='k', linestyle=':')
+    ## make legend with all prots
+    #pl.subplot(shape[0],shape[1],0)
+    #for p in prots: pl.plot(0,label=p)
+    #pl.legend()
+
+def plot_inds_together(inds, elut):
+    for rowid in baseid2inds[pid]:
+        row = elut.mat[rowid]
+        if np.max(row) >= min_count:
+            rowmax = np.max(row)
+            protsmax = rowmax if rowmax > protsmax else protsmax
+            pl.plot(range(row.shape[1]),row[0,:].T, label=pname,
+                    color=pl.COLORS[i],linewidth=1)
+
+def plot_prot_separately(inds, elut, fig, ax, nprots, index):
+    import plotting as pl
+    newax = fig.add_axes(hor_slice_position(ax.get_position(), nprots, index))
+    for ind in inds:
+        row = elut.mat[ind]
+        newax.plot(range(row.shape[1]),row[0,:].T, color=pl.COLORS[index],
+                linewidth=2)
+    xlim(0,row.shape[1])
+
+def hor_slice_position(bbox, nslices, index):
+    """
+    new rect position: left, bottom, width, height
+    """
+    newheight = bbox.height / nslices
+    newymin = bbox.ymin + index * newheight
+    newbox = (bbox.xmin, newymin, bbox.width, newheight)
+    return newbox
 
 def plot_sums(fs, shape=None):
     import plotting as pl
