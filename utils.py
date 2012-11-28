@@ -132,6 +132,9 @@ def count_collect(items, length):
     return ut.fsort(ut.fsort(d.items(), key=lambda x: x[0]),
                     key=lambda x: len(x[0]), reverse=True)
 
+def ctype(items, newtype):
+    return [newtype(i) for i in items]
+
 def every(pred, bag):
     # Like the Common Lisp EVERY
     for x in bag:
@@ -469,6 +472,10 @@ def retype_array(arr, newtypes, newnames=None):
     newarr.dtype.names = tuple(newnames) if newnames else arr.dtype.names
     newarr[:] = arr[:]
     return newarr
+
+def arr_norm(arr, axis=0):
+    mat = np.asmatrix(arr)
+    return np.asarray(np.nan_to_num(mat / np.sum(mat, axis)))
 
 ##########################################
 # Configuration Filenames/Paths/Etc

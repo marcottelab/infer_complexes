@@ -111,11 +111,12 @@ def combine_train(atrain, atest):
     comb = np.concatenate((atrain, atest[inds_all]))
     return comb
 
-def multi_base_tests(sp, nsp, ntests=5, **kwargs):
+def multi_base_tests(sp, nsp, fs, ntests=5, **kwargs):
     reslist = []
     for i in range(ntests): 
-        exs = ppi.learning_examples(sp,[],None,nsp,do_filter=False,extdata=[]); 
-        restest = test('%s %ssp, %s of %s' %(sp,nsp,i,ntests),sp,nsp,fs,exs); 
+        exs = ppi.learning_examples(sp,[],None,nsp,do_filter=False,extdata=[])
+        restest = test('%s %ssp, %s of %s' %(sp,nsp,i,ntests),sp,nsp,fs,exs,
+                **kwargs)
         reslist.append((exs,restest))
     return reslist
 

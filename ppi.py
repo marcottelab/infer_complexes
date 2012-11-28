@@ -39,7 +39,7 @@ def learning_examples(species, elut_fs, base_exs, nsp,
       cutoff in the base species.  if False, in any species.
       """
     gold_consv_sp = gold_consv_sp if nsp>1 else '' #ignore for 1-sp case
-    check_nspecies(elut_fs, nsp)
+    if nsp > 1 and do_filter: check_nspecies(elut_fs, nsp)
     if base_exs:
         pdtrain,pdtest = pd_from_tt([base_exs.train, base_exs.test])
         splits = base_exs.splits
@@ -118,13 +118,14 @@ def score_and_filter(arr, scores, elut_fs, cutoff, species, extdata,
             species, ','.join(scores))
     score.score_array_multi(arr, species, elut_fs, scores, cutoff,
             remove_multi_base=single_base_orth)
-    if cutoff != -1 and do_filter:
-        print 'Filtering, require_base =', require_base
-        require_species = set([species]) if require_base else None
-        arr = fe.filter_require_sp(arr, require_species, cutoff=cutoff,
-                count_ext=False)
-    if filter_multi_orths and not require_base: # otherwise redundant
-        arr = fe.filter_multi_orths(arr, species, filter_multi_orths)
+    if do_filter:
+        if cutoff != -1 and do_filter:
+            print 'Filtering, require_base =', require_base
+            require_species = set([species]) if require_base else None
+            arr = fe.filter_require_sp(arr, require_species, cutoff=cutoff,
+                    count_ext=False)
+        if filter_multi_orths and not require_base: # otherwise redundant
+            arr = fe.filter_multi_orths(arr, species, filter_multi_orths)
     if extdata:
         print '\nScoring with external data:', ','.join(extdata)
         for d in extdata: fnet.score_arr_ext(arr, species, d)

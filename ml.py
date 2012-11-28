@@ -46,13 +46,17 @@ def fit_clf(arr, clfbase, norm=True):
         arr = fe.retype_arr(arr) # change f2 to f4 to prevent overflow
     X,y = arr_feats(arr), arr['hit']
     scaler = None
-    if norm:
-        print "Fitting and scaling training features."
-        scaler = sk.preprocessing.Scaler().fit(X)
-        X = scaler.transform(X)
+    if norm: 
+        X, scaler = normalize(X)
     print "Training classifier: %s examples, %s features" % (len(X), len(X[0]))
-    clfbase.fit(X,y)
+    clfbase.fit(X,y) # skip this if just normalizing
     return scaler
+
+def normalize(X):
+    print "Fitting and scaling training features."
+    scaler = sk.preprocessing.Scaler().fit(X)
+    X = scaler.transform(X)
+    return X, scaler
 
 def classify(clf, arr, scaler=None, do_sort=True):
     """
