@@ -16,6 +16,8 @@ fastadir  data/sequences/canon
 save_compact_corrs  True
 gene_desc_Hs   data/convert/Hs_ensg_name_desc_uni_entrez.tab
 gene_desc_Ce   data/convert/Ce_seqname_genename_desc_uni_hasid.txt
+gene_desc_Dm    data/convert/Dm_fbgn_name_desc_uni_entrez.txt
+gene_desc_Sp    data/convert/Sp_spuid_name_desc.txt
 
 # Ext files
 net_Hs19    Hs_net/Hs_net_19.tab

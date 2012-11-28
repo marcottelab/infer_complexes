@@ -29,7 +29,8 @@ def export_idconvert(ppis, dict_cxlabels, fname):
     for p in ppis:
         for i in 0,1:
             combid = p[i]
-            cxid,pid = combid.split('_')
+            cxid = combid.split('_')[0]
+            pid = '_'.join(combid.split('_')[1:]) #in case '_' in id, eg for Sp
             if cxid not in cxs_labeled:
                 cxlabel = dict_cxlabels[cxid]
                 cxs_labeled.add(cxid)
