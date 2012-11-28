@@ -14,26 +14,28 @@ def all_ev(gnames, arr_ev, scores, req_gnames=set([])):
     gt = seqs.GTrans()
     ids = set([gt.name2id[n] for n in gnames])
     if scores:
+        # don't have to check flip(s[0],s[1]) since scores derived from arr_ev
         pairs = dict([((s[0],s[1]),s[2]) for s in scores 
             if s[0] in ids and s[1] in ids])
-        allevs = ([tuple([gt.id2name[i] for i in r[0],r[1]] +
+        allevs, titles = ([tuple([gt.id2name[i] for i in r[0],r[1]] +
             [pairs[(r[0],r[1])]] + list(r)[3:]) for r in arr_ev if (r[0],r[1])
             in pairs]), ['total_score']+list(arr_ev.dtype.names[3:])
     else: 
-        allevs = ([tuple([gt.id2name[i] for i in r[0],r[1]]+list(r)[3:]) for r in
-                arr_ev if r[0] in ids and r[1] in ids],
-                list(arr_ev.dtype.names[3:]))
+        allevs, titles = ([tuple([gt.id2name[i] for i in
+            r[0],r[1]]+list(r)[3:]) for r in arr_ev if r[0] in ids and r[1] in
+            ids], list(arr_ev.dtype.names[3:]))
     if req_gnames:
-        allevs = [a for a in allevs if a[0]==req_gnames or a[1]==req_gnames]
-    return allevs
+        allevs = [a for a in allevs if a[0] in req_gnames or
+            a[1] in req_gnames]
+    return allevs, titles
 
-def ev_output(gnames, arr_ev, scores=None):
-    ev_lot, titles = all_ev(gnames, arr_ev, scores)
+def ev_output(gnames, arr_ev, scores=None, **kwargs):
+    ev_lot, titles = all_ev(gnames, arr_ev, scores, **kwargs)
     labels = ['gene1','gene2'] + titles
     return zip(labels, *ev_lot)
 
-def disp_ev(gnames, arr_ev, scores=None, cutoff=.25, dispn=10):
-    evs = ev_output(gnames, arr_ev, scores=scores)
+def disp_ev(gnames, arr_ev, scores=None, cutoff=.25, dispn=10, **kwargs):
+    evs = ev_output(gnames, arr_ev, scores=scores, **kwargs)
     headers = evs[:2]
     data = evs[2:]
     data.sort(key=lambda(x):len([v for v in x[1:] if v>cutoff]), reverse=True)
