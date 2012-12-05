@@ -408,6 +408,12 @@ def list_inv_to_dict(lst):
         d[item]=index
     return d
 
+def list_trans(items, d):
+    return [d[i] for i in items]
+
+def lol_trans(lol, d):
+    return [[d[i] for i in items] for items in lol]
+
 def dict_set_defaults(d, defaultd):
     for k,v in defaultd.items():
         if k not in d:
