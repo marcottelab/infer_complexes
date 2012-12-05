@@ -5,6 +5,8 @@ import numpy as np
 import elution as el
 import score as sc
 
+YSCALE = np.log2(100)
+
 def all_ev(gnames, arr_ev, scores, req_gnames=set([])):
     """
     Given a list of gene names, return the rows of evidence for any pairs.
@@ -43,44 +45,119 @@ def disp_ev(gnames, arr_ev, scores=None, cutoff=.25, dispn=10, **kwargs):
     for r in output[:dispn]: print r
     return evs
 
-def elutions_containing_prots(fs, sp, query_prots, min_count,
-        remove_multi_base):
-    usefs = []
-    for f in fs:
-        e = el.load_elution(f)
-        sp_target = ut.shortname(f)[:2]
-        baseid2inds = sc.orth_indices(sp, sp_target, e.prots, remove_multi_base)
-        f_inds = set(np.array(np.where(np.max(e.mat,axis=1) >= min_count)[0])[0])
-        if len([p for p in query_prots if p in baseid2inds]) > 0:
+def elutions_containing_prots(eluts, sp, query_prots, min_count):
+    use_eluts = []
+    for e in eluts:
+        sp_target = ut.shortname(e.filename)[:2]
+        f_inds = set(np.array(np.where(np.max(e.normarr,axis=1) >= min_count)[0])[0])
+        if len([p for p in query_prots if p in e.baseid2inds]) > 0:
             if max([ind in f_inds for p in query_prots 
-                if p in baseid2inds for ind in baseid2inds[p]])==True:
-                usefs.append(f)
-    return usefs
+                if p in e.baseid2inds for ind in e.baseid2inds[p]])==True:
+                use_eluts.append(e)
+    return use_eluts
 
-def plot_profiles(prots, fs, sp='Hs', plot_sums=True, shape=None, min_count=2,
-        remove_multi_base=False):
+#def merge_eluts_with_prots(unnorm_eluts, sp, prots, min_count):
+    #use_eluts = elutions_containing_prots(unnorm_eluts, sp, prots, min_count)
+    #total_fracs = sum([len(e.fractions) for e in use_eluts])
+    #arr_profiles = np.zeros((len(prots), total_fracs))
+    #start_col = 0
+    #for e in use_eluts:
+        #nfracs = len(e.fractions)
+        #arr_profiles[:,start_col:start_col+nfracs]
+        #start_col += nfracs
+
+
+
+
+
+def plot_bigprofiles(prots, unnorm_eluts, sp='Hs', min_count=2,
+        remove_multi_base=False, gtrans=None, eluts_per_plot=10):
+    """
+    unnorm_eluts: [el.NormElut(f, sp=sp, norm_cols=False, norm_rows=False) for f in fs]
+    """
+    import plotting as pl
+    gt = seqs.GTrans() if gtrans is None else gtrans
+    pids = [gt.name2id[p] for p in prots]
+    use_eluts = elutions_containing_prots(unnorm_eluts, sp, pids, min_count)
+    nplots = np.floor_divide(len(use_eluts),eluts_per_plot)
+    maxfracs = 0
+    for iplot in range(nplots):
+        pl.subplot(nplots, 1, iplot+1)
+        plot_eluts = use_eluts[iplot*eluts_per_plot: (iplot+1)*eluts_per_plot]
+        startcols = [0]
+        for i,e in enumerate(plot_eluts):
+            freqarr = el.normalize_fracs(e.normarr, norm_rows=False)
+            sp_target = ut.shortname(e.filename)[:2]
+            protsmax = max([np.max(freqarr[r]) for p in pids if p in
+                e.baseid2inds for r in e.baseid2inds[p]])
+            plot_big_single(freqarr, pids, e.baseid2inds, protsmax,
+                    startcols[-1])
+            startcols.append(startcols[-1]+freqarr.shape[1])
+        label_ys(prots)
+        label_xs(startcols, [ut.shortname(e.filename) for e in plot_eluts])
+        pl.grid(False)
+        maxfracs = maxfracs if maxfracs > startcols[-1] else startcols[-1]
+    for iplot in range(nplots):
+        pl.subplot(nplots, 1, iplot+1)
+        pl.xlim(0,maxfracs)
+    pl.subplots_adjust(hspace=.8)
+
+def label_xs(lefts, labels):
+    import plotting as pl
+    for left in lefts:
+        pl.axvline(x=left, linewidth=.5, color='gray')
+    ax = pl.gca()
+    ax.axes.set_xticks([x+2 for x in lefts])
+    ax.axes.set_xticklabels(labels)
+    labels = ax.get_xticklabels() 
+    for label in labels: 
+        label.set_rotation(30) 
+
+def label_ys(labels):
+    import plotting as pl
+    ax = pl.gca()
+    bottoms = [YSCALE*i for i in range(len(labels))]
+    for b in bottoms: pl.axhline(y=b, linewidth=.5, color='gray')
+    ax.axes.set_yticks([b+YSCALE/2 for b in bottoms])
+    ax.axes.set_yticklabels(labels)
+
+def plot_big_single(arr, pids, baseid2inds, maxcount, startcol):
+    import plotting as pl
+    for i,pid in enumerate(pids):
+        if pid in baseid2inds:
+            for rowid in baseid2inds[pid]:
+                row = arr[rowid]
+                bottom = YSCALE*i
+                plot_vals = np.clip(np.log2([x*100/maxcount for x in
+                    row]),0,100)
+                pl.bar([x+startcol for x in range(len(row))], plot_vals,
+                        color=pl.COLORS[i], align='center',width=1,linewidth=0,
+                        bottom=bottom)
+
+def plot_profiles(prots, eluts, sp='Hs', plot_sums=True, shape=None,
+        min_count=2):
     """
     shape: (m,n) = m rows, n columns
+    eluts: [el.NormElut(f, sp, norm_rows=False, norm_cols=False) for f in
+    fs]
     """
     import plotting as pl
     gt = seqs.GTrans()
-    usefs = elutions_containing_prots(fs, sp, seqs.names2ids(prots), min_count,
-            remove_multi_base)
-    shape = shape if shape else ut.sqrt_shape(len(usefs)+1)
+    use_eluts = elutions_containing_prots(eluts, sp, seqs.names2ids(prots),
+            min_count)
+    shape = shape if shape else ut.sqrt_shape(len(use_eluts)+1)
     fig = pl.figure()
-    for i,f in enumerate(usefs):
-        e = el.load_elution(f)
-        sp_target = ut.shortname(f)[:2]
-        baseid2inds = sc.orth_indices(sp, sp_target, e.prots, remove_multi_base)
+    for i,e in enumerate(use_eluts):
+        sp_target = ut.shortname(e.filename)[:2]
         pl.subplot(shape[0],shape[1],i+1)
-        pl.title(ut.shortname(f))
+        pl.title(ut.shortname(e.filename))
         pids = [gt.name2id[p] for p in prots]
-        protsmax = max([np.max(e.mat[r]) for p in pids if p in baseid2inds for
-            r in baseid2inds[p]])
-        plot_prots(e, pids, baseid2inds, protsmax)
+        protsmax = max([np.max(e.normarr[r]) for p in pids if p in e.baseid2inds for
+            r in e.baseid2inds[p]])
+        plot_prots(e, pids, e.baseid2inds, protsmax)
         if plot_sums:
             # plot total spectral counts normalized to match biggest peak
-            sums = np.sum(e.mat,axis=0)
+            sums = np.sum(e.normarr,axis=0)
             fmax = np.max(sums)
             pl.plot(range(sums.shape[1]),
                     np.log2(sums[0,:]).T*np.log2(protsmax)*len(pids)/np.log2(fmax), 
@@ -95,13 +172,14 @@ def plot_prots(elut, pids, baseid2inds, maxcount):
     for i,pid in enumerate(pids):
         if pid in baseid2inds:
             for rowid in baseid2inds[pid]:
-                row = elut.mat[rowid]
+                row = elut.normarr[rowid]
                 bottom = np.log2(maxcount)*i
                 pl.bar(range(row.shape[1]),
                         np.clip(np.log2(row[0,:].T+.1),0,1000),
                         color=pl.COLORS[i], align='center',width=1,linewidth=0,
                         bottom=bottom)
-                pl.xlim(0,row.shape[1])
+    pl.xlim(0,row.shape[1])
+    pl.ylim(-.1, np.log2(maxcount)*len(pids))
 
 #def plot_profiles(prots, fs, sp='Hs', plot_sums=True, shape=None, min_count=2,
         #remove_multi_base=False):
