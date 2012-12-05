@@ -7,7 +7,7 @@ import random
 import orth
 import pairdict
 from pairdict import PairDict
-import score
+import score as sc
 from Struct import Struct
 import utils as ut
 
@@ -37,14 +37,36 @@ def load_elution(fname, getname=True):
     if getname: elut.name = os.path.basename(fname).split('.')[0]
     return elut
 
+class NormElut(Struct):
+
+    def __init__(self, filename, sp_base='Hs', norm_rows=False, norm_cols=False):
+        e = load_elution(filename)
+        self.prots = e.prots
+        self.filename = e.filename
+        self.normarr = normalize_fracs(e.mat, norm_rows=norm_rows,
+                norm_cols=norm_cols)
+        self.pinv = ut.list_inv_to_dict(e.prots)
+        sp_target = ut.shortname(e.filename)[:2]
+        self.baseid2inds = sc.orth_indices(sp_base, sp_target, e.prots, False)
+
+
+def normalize_fracs(arr, norm_rows=True, norm_cols=True):
+    if norm_cols:
+        # Normalize columns first--seems correct for overall elution profile if
+        # you're calculating correlation-type scores
+        arr = ut.arr_norm(arr, 0)
+    if norm_rows:
+        arr = ut.arr_norm(arr, 1)
+    return arr
+
 def all_filtered_pairs(fnames, score_keys, cutoff=0.25, sp_base=None,
                        verbose=True):
     allpairs = PairDict([])
     for skey,f in itertools.product(score_keys,fnames):
         if verbose: print skey, cutoff, ut.shortname(f)
         elut = load_elution(f)
-        pairs = score.pairs_exceeding(elut, skey, thresh=cutoff)
-        singles = score.prots_singles(elut)
+        pairs = sc.pairs_exceeding(elut, skey, thresh=cutoff)
+        singles = sc.prots_singles(elut)
         #newpairs = PairDict(((p1,p2) for p1,p2 in pairs))
         newpairs = PairDict(((p1,p2) for p1,p2 in pairs
             if p1 not in singles and p2 not in singles))
