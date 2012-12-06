@@ -2,6 +2,7 @@ from __future__ import division
 import cPickle
 import sys
 import os
+import errno
 import re
 import random
 import operator
@@ -520,3 +521,12 @@ def confirm(prompt="Continue? y/n"):
         if ans == 'n':
             return False
         
+def temp_placeholder(path):
+    try:
+        os.makedirs(path)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:
+            raise
+        else:
+            return False
+    return True

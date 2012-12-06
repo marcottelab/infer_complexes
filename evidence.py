@@ -1,4 +1,5 @@
 from __future__ import division
+import os
 import utils as ut
 import seqs
 import numpy as np
@@ -56,30 +57,40 @@ def elutions_containing_prots(eluts, sp, query_prots, min_count):
                 use_eluts.append(e)
     return use_eluts
 
-#def merge_eluts_with_prots(unnorm_eluts, sp, prots, min_count):
-    #use_eluts = elutions_containing_prots(unnorm_eluts, sp, prots, min_count)
-    #total_fracs = sum([len(e.fractions) for e in use_eluts])
-    #arr_profiles = np.zeros((len(prots), total_fracs))
-    #start_col = 0
-    #for e in use_eluts:
-        #nfracs = len(e.fractions)
-        #arr_profiles[:,start_col:start_col+nfracs]
-        #start_col += nfracs
+def save_many_bigprofiles(ind_cxs, unnorm_eluts, fpath, **kwargs):
+    for count,(i,cx) in enumerate(ind_cxs):
+        fname = os.path.join(fpath, '%s.png' %i)
+        tempdir = os.path.join(fpath, '%s.tmp' %i)
+        if not os.path.exists(fname):
+            if ut.temp_placeholder(tempdir):
+                print count, fname
+                save_bigprofiles(None, cx, unnorm_eluts, fname)
+                os.rmdir(tempdir)
 
 
+def save_bigprofiles(prots, protids, unnorm_eluts, fname, **kwargs):
+    import plotting as pl
+    nplots = plot_bigprofiles(prots, protids, unnorm_eluts, **kwargs)
+    fig = pl.gcf()
+    nprots = len(prots) if prots else len(protids)
+    fig.set_size_inches(20, 4+(nplots/4)*nprots)
+    pl.savefig(fname, bbox_inches='tight', dpi=200)
+    pl.clf()
 
-
-
-def plot_bigprofiles(prots, unnorm_eluts, sp='Hs', min_count=2,
+def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=2,
         remove_multi_base=False, gtrans=None, eluts_per_plot=10):
     """
+    supply EITHER prots OR protids, set other to None
     unnorm_eluts: [el.NormElut(f, sp=sp, norm_cols=False, norm_rows=False) for f in fs]
     """
     import plotting as pl
     gt = seqs.GTrans() if gtrans is None else gtrans
-    pids = [gt.name2id[p] for p in prots]
+    if prots is not None:
+        pids = [gt.name2id[p] for p in prots]
+    else:
+        prots = [gt.id2name[pid] for pid in pids]
     use_eluts = elutions_containing_prots(unnorm_eluts, sp, pids, min_count)
-    nplots = np.floor_divide(len(use_eluts),eluts_per_plot)
+    nplots = int(np.ceil(len(use_eluts) / eluts_per_plot))
     maxfracs = 0
     for iplot in range(nplots):
         pl.subplot(nplots, 1, iplot+1)
@@ -100,7 +111,8 @@ def plot_bigprofiles(prots, unnorm_eluts, sp='Hs', min_count=2,
     for iplot in range(nplots):
         pl.subplot(nplots, 1, iplot+1)
         pl.xlim(0,maxfracs)
-    pl.subplots_adjust(hspace=.8)
+    pl.subplots_adjust(hspace=5/len(prots))
+    return nplots
 
 def label_xs(lefts, labels):
     import plotting as pl
@@ -131,8 +143,9 @@ def plot_big_single(arr, pids, baseid2inds, maxcount, startcol):
                 plot_vals = np.clip(np.log2([x*100/maxcount for x in
                     row]),0,100)
                 pl.bar([x+startcol for x in range(len(row))], plot_vals,
-                        color=pl.COLORS[i], align='center',width=1,linewidth=0,
-                        bottom=bottom)
+                        color=pl.COLORS[i%len(pl.COLORS)],
+                        align='center',width=1,linewidth=0, bottom=bottom,
+                        antialiased=False)
 
 def plot_profiles(prots, eluts, sp='Hs', plot_sums=True, shape=None,
         min_count=2):
