@@ -5,6 +5,7 @@ import seqs
 import numpy as np
 import elution as el
 import score as sc
+import hcluster
 
 YSCALE = np.log2(100)
 
@@ -64,7 +65,7 @@ def save_many_bigprofiles(ind_cxs, unnorm_eluts, fpath, **kwargs):
         if not os.path.exists(fname):
             if ut.temp_placeholder(tempdir):
                 print count, fname
-                save_bigprofiles(None, cx, unnorm_eluts, fname)
+                save_bigprofiles(None, cx, unnorm_eluts, fname, **kwargs)
                 os.rmdir(tempdir)
 
 
@@ -77,8 +78,51 @@ def save_bigprofiles(prots, protids, unnorm_eluts, fname, **kwargs):
     pl.savefig(fname, bbox_inches='tight', dpi=200)
     pl.clf()
 
+def single_array(gids, unnorm_eluts, sp='Hs', min_count=2,
+        remove_multi_base=False, gtrans=None, norm_rows=False):
+    """
+    unnorm_eluts: [el.NormElut(f, sp=sp, norm_cols=False, norm_rows=False) for f in fs]
+    """
+    import plotting as pl
+    gt = seqs.GTrans() if gtrans is None else gtrans
+    use_eluts = elutions_containing_prots(unnorm_eluts, sp, gids, min_count)
+    ncols = sum([e.normarr.shape[1] for e in use_eluts])
+    bigarr = np.zeros((len(gids), ncols))
+    startcol = 0
+    for e in use_eluts:
+        freqarr = el.normalize_fracs(e.normarr, norm_rows=norm_rows)
+        temparr = np.zeros((len(gids), freqarr.shape[1]))
+        for i, gid in enumerate(gids):
+            if gid in e.baseid2inds:
+                inds = list(e.baseid2inds[gid])
+                rows = freqarr[inds,:]
+                row = np.max(rows, axis=0)
+                temparr[i,:] = row
+        frac_max = np.max(temparr)
+        temparr = np.clip(np.log2(temparr*100 / frac_max), 0, 10)
+        bigarr[:, startcol:startcol+freqarr.shape[1]] = temparr
+        startcol += freqarr.shape[1]
+    return bigarr
+
+def cluster_ids(gids, unnorm_eluts, gt=None, dist='cityblock', do_plot=True,
+        norm_rows=True, **kwargs):
+    import plotting as pl
+    arr = single_array(gids, unnorm_eluts, norm_rows=norm_rows)
+    ymat = hcluster.pdist(arr, dist)
+    zmat = hcluster.linkage(ymat)
+    if do_plot: pl.figure()
+    order = hcluster.dendrogram(zmat, no_plot=bool(1-do_plot), 
+            **kwargs)['leaves']
+    if do_plot: 
+        ax = pl.gca()
+        ax.axes.set_xticklabels([gt.id2name[gids[ind]] for ind in order])
+        pl.figure() 
+        pl.imshow(arr[order,:])
+    return list(np.array(gids)[order])
+
 def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=2,
-        remove_multi_base=False, gtrans=None, eluts_per_plot=10):
+        remove_multi_base=False, gtrans=None, eluts_per_plot=10,
+        do_cluster=False, **kwargs):
     """
     supply EITHER prots OR protids, set other to None
     unnorm_eluts: [el.NormElut(f, sp=sp, norm_cols=False, norm_rows=False) for f in fs]
@@ -87,8 +131,11 @@ def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=2,
     gt = seqs.GTrans() if gtrans is None else gtrans
     if prots is not None:
         pids = [gt.name2id[p] for p in prots]
-    else:
-        prots = [gt.id2name[pid] for pid in pids]
+    if do_cluster:
+        print "clustering"
+        pids = cluster_ids(pids, unnorm_eluts, gt=gtrans, do_plot=False, 
+                **kwargs)
+    prots = [gt.id2name[pid] for pid in pids] #re-order to match
     use_eluts = elutions_containing_prots(unnorm_eluts, sp, pids, min_count)
     nplots = int(np.ceil(len(use_eluts) / eluts_per_plot))
     maxfracs = 0

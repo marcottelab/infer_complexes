@@ -8,7 +8,7 @@ import cv
 from Struct import Struct
 import utils as ut
 import pairdict as pd
-#import hcluster
+import hcluster
 
 
 COLORS = ['#4571A8', 'black', '#A8423F', '#89A64E', '#6E548D', '#3D96AE',
@@ -145,13 +145,13 @@ def ppis_scatter(ppis1, ppis2):
         #p2 = pd2.find(p1)
         #v1.append(pd2.d[p2][0] if p2 else 0)
 
-#def cluster_elut(mat):
-    #ymat = hcluster.pdist(mat)
-    #zmat = hcluster.linkage(ymat)
-    #figure()
-    #order = hcluster.dendrogram(zmat)['leaves']
-    #figure() 
-    #imshow(mat[order,:])
+def cluster_elut(mat):
+    ymat = hcluster.pdist(mat)
+    zmat = hcluster.linkage(ymat)
+    figure()
+    order = hcluster.dendrogram(zmat)['leaves']
+    clf() 
+    imshow(mat[order,:])
 
 def profiles_cxs(e, cxs, **kwargs):
     # blue/yellow/red map: 'jet'
