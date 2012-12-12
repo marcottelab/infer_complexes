@@ -481,6 +481,9 @@ def retype_array(arr, newtypes, newnames=None):
     return newarr
 
 def arr_norm(arr, axis=0):
+    """
+    axis=0: normalize each column; 1: normalize each row
+    """
     mat = np.asmatrix(arr)
     return np.asarray(np.nan_to_num(mat / np.sum(mat, axis)))
 

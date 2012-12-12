@@ -108,7 +108,7 @@ def cluster_ids(gids, unnorm_eluts, gt=None, dist='cityblock', do_plot=True,
         norm_rows=True, **kwargs):
     import plotting as pl
     arr = single_array(gids, unnorm_eluts, norm_rows=norm_rows)
-    ymat = hcluster.pdist(arr, dist)
+    ymat = hcluster.pdist(arr, metric=dist)
     zmat = hcluster.linkage(ymat)
     if do_plot: pl.figure()
     order = hcluster.dendrogram(zmat, no_plot=bool(1-do_plot), 

@@ -1,6 +1,7 @@
 import sys
 import itertools
 import numpy as np
+from scipy import spatial
 import os
 from scipy import sparse
 from collections import defaultdict
@@ -71,6 +72,13 @@ def score_array(arr, elut, fname, score, cutoff, id2inds):
     """
     if score == 'apex':
         score_mat = ApexScores(elut)
+    elif score == 'cosine_old':
+        score_mat = CosineLazyScores(elut)
+    elif score == 'cosine':
+        score_mat = CosineLazyNew(elut)
+    elif score == 'euclidean':
+        score_mat = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
+                metric=score)
     else:
         fscore = fname + (
                   '.corr_poisson' if score=='poisson' else
@@ -135,6 +143,35 @@ def traver_corr(mat, repeat=200, norm='columns', verbose=True):
                                         range(repeat))) / repeat)
     return avg_result
 
+def pdist_score(mat, metric='euclidean', norm_rows=True,
+        norm_cols=True):
+    norm_mat = el.normalize_fracs(mat, norm_rows, norm_cols)
+    dists = spatial.distance.pdist(norm_mat, metric=metric)
+    dist_mat = spatial.distance.squareform(dists)
+    score_mat = 1 - np.nan_to_num(dist_mat)
+    return score_mat
+
+def poisson_repeat(mat, repeat=200, **kwargs):
+    # As described in supplementary information in paper.
+    # Randomly draw from poisson(C=A+1/M) for each cell
+    # where A = the observed count and M is the total fractions
+    # normalize each column to sum to 1
+    # then correlate, and average together for repeat tries.
+    def poisson_dist(mat, iteration_display, metric='cosine', norm_rows=True,
+            norm_cols=True, verbose=True):
+        if verbose: print iteration_display, metric
+        M = mat.shape[1]
+        C = mat + 1/M
+        poisson_mat = np.matrix(np.zeros(C.shape))
+        for i in range(C.shape[0]):
+            for j in range(M):
+                poisson_mat[i,j] = np.random.poisson(C[i,j])
+        score_mat = pdist_score(mat, metric=metric,
+                norm_rows=norm_rows, norm_cols=norm_cols)
+        return score_mat
+    avg_result = (reduce(operator.add, (poisson_dist(mat, i, **kwargs) for i in
+                                        range(repeat))) / repeat)
+    return avg_result
 
 class ApexScores(object):
 
@@ -163,6 +200,23 @@ def precalc_scores(scoref, dtype='f2'):
             print 'saving compact', compactf
             ut.savepy(ascores, compactf)
         return ascores
+
+
+class CosineLazyNew(object):
+
+    def __init__(self,elution):
+        self.norm_mat = np.mat(el.normalize_fracs(elution.mat))
+        
+    def __getitem__(self, index):
+        # Dot product of normed rows
+        return coscore(self.norm_mat, index[0], index[1])
+
+def coscore(mat, i, j):
+    #return 1 - dotrows(mat,i,j)/(dotrows(mat,i,i)**.5 * dotrows(mat,j,j)**.5)
+    return dotrows(mat,i,j)/(dotrows(mat,i,i)**.5 * dotrows(mat,j,j)**.5)
+
+def dotrows(mat, i, j):
+    return np.asarray(mat[i,:]*mat[j,:].T)[0][0]
 
 
 class CosineLazyScores(object):
@@ -215,12 +269,15 @@ if __name__ == '__main__':
     if method == 'poisson':
         corr = traver_corr(elut.mat, repeat=methodarg) if methodarg else \
             traver_corr(elut.mat)
-    elif method == 'dotproduct':
-        corr = elut.mat * elut.mat.T
-    elif method == 'corrcoef':
-        corr = np.corrcoef(elut.mat)
-    elif method == 'cov':
-        corr = np.cov(elut.mat)
+    elif method in ['cosine','euclidean']:
+        corr = poisson_repeat(elut.mat, metric=method, repeat=methodarg) \
+            if methodarg else poisson_repeat(elut.mat, metric=method)
+    #elif method == 'dotproduct':
+        #corr = elut.mat * elut.mat.T
+    #elif method == 'corrcoef':
+        #corr = np.corrcoef(elut.mat)
+    #elif method == 'cov':
+        #corr = np.cov(elut.mat)
     fileout = fname+'.corr_'+method
     np.savetxt(fileout, corr, delimiter='\t')
 
