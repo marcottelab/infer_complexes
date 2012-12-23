@@ -36,5 +36,6 @@ Dm_default  fbgn
 Hs_default  ensg
 Mm_default  ensmusg
 Sp_default  spbase
+Sc_default  id
 
 elut_species Ce_Dm_Hs_Mm_Sp

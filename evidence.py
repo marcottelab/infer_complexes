@@ -122,7 +122,7 @@ def cluster_ids(gids, unnorm_eluts, gt=None, dist='cityblock', do_plot=True,
 
 def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=2,
         remove_multi_base=False, gtrans=None, eluts_per_plot=10,
-        do_cluster=False, **kwargs):
+        do_cluster=False, label_trans=None, **kwargs):
     """
     supply EITHER prots OR protids, set other to None
     unnorm_eluts: [el.NormElut(f, sp=sp, norm_cols=False, norm_rows=False) for f in fs]
@@ -136,6 +136,10 @@ def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=2,
         pids = cluster_ids(pids, unnorm_eluts, gt=gtrans, do_plot=False, 
                 **kwargs)
     prots = [gt.id2name[pid] for pid in pids] #re-order to match
+    if label_trans: 
+        # Translate displayed names from base ids according to provided dict
+        prots = [list(label_trans[pid])[0] if pid in label_trans else
+            gtrans.id2name[pid] for pid in pids]
     use_eluts = elutions_containing_prots(unnorm_eluts, sp, pids, min_count)
     nplots = int(np.ceil(len(use_eluts) / eluts_per_plot))
     maxfracs = 0

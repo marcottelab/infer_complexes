@@ -1,7 +1,7 @@
 import utils as ut
 import os
 
-keys = "Hs-Ce Hs-Dd Hs-Dm Hs-Mm Hs-Sp Hs_uni-Ce_uni Ce-Dm Ce-Mm Ce-Sp Sp-Dm Sp-Mm Mm-Dm".split()
+keys = "Hs-Ce Hs-Dd Hs-Dm Hs-Mm Hs-Sp Hs-Sc Hs_uni-Ce_uni Ce-Dm Ce-Mm Ce-Sp Sp-Dm Sp-Mm Mm-Dm".split()
 
 def odict(from_sp, to_sp):
     """
