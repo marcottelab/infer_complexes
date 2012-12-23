@@ -83,6 +83,7 @@ def score_array(arr, elut, fname, score, cutoff, id2inds):
         fscore = fname + (
                   '.corr_poisson' if score=='poisson' else
                   '.T.wcc_width1' if score=='wcc' else
+                  '.corr_euclidean' if score=='euc_poisson' else
                   0 ) # no score: exception since string and int don't add
         score_mat = precalc_scores(fscore)
     score_name = name_score(fname,score)
