@@ -20,6 +20,7 @@ data/
 tools/
 docs/
 exp/
+.idea/
 
 # OS files
 *.DS_Store*

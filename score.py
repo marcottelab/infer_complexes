@@ -115,6 +115,8 @@ def scorekey_elution(score_key, elution):
         score_mat = precalc_scores(elution.filename+'.corr_poisson')
     elif score_key == 'wcc':
         score_mat = precalc_scores(elution.filename+'.T.wcc_width1')
+    elif score_key == 'euc_poisson':
+        score_mat = precalc_scores(elution.filename+'.corr_euclidean')
     else:
         assert False, "key not supported:" + score_key
     return score_mat
