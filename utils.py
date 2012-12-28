@@ -446,6 +446,17 @@ def dict_quick_merge(d1,d2):
     """
     return dict([(k,v) for k,v in d1.items()]+[(k,v) for k,v in d2.items()])
 
+def dict_merge_values(d1, d2, default=0):
+    """
+    Return a new dict of {key: (value1, value2); ...}
+    """
+    d = {}
+    for k,v in d1.items():
+        d[k] = (v, default)
+    for k,v in d2.items():
+        d[k] = (d.get(k, (default,default))[0], v)
+    return d
+
 def dict_select(d, keys):
     """
     Return a dict only with keys in the list of keys.

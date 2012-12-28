@@ -1,8 +1,12 @@
 from __future__ import division
-import sys
 import itertools as it
 import numpy as np
+import subprocess
+from os.path import abspath
+import os
+import sys
 import utils as ut
+import seqs
 
 PROTON = 1.00727646677
 WATER = 18.01048 # mass of a water due to no peptide bonds on the end
@@ -31,13 +35,19 @@ AAS = dict(
     V = 99.06841
     )
 
-def msgfbest2sequest_line(r):
+DECOY = 'rv_'
+SEQ_DECOY = 'rm_'
+
+def msgfbest2sequest_line(r, prots2genes):
     fname_ind_scan_charge = r[0]
     charge = float(r[1])
     msgf_mass = float(r[2])
     msgf_diff = float(r[3])
     peptide = r[4]
-    protein = r[5].replace('rv_','rm_')
+    protein = r[5]
+    protid = protein[3:] if protein.startswith(DECOY) else protein
+    geneid = prots2genes[protid]
+    seq_protein = SEQ_DECOY + geneid if protein.startswith(DECOY) else geneid
     seq_mass = msgf2seq_mass(msgf_mass, charge)
     seq_diff = calculate_mass(peptide) - seq_mass
     seq_diff_temp = seq_diff
@@ -54,31 +64,10 @@ def msgfbest2sequest_line(r):
             seq_mass,
             '({0:+.05f})'.format(seq_diff),
             5,5,5,1,"12/345",1234.5,0, # placeholders
-            protein,
+            seq_protein,
             'Z.%s.Z' % peptide
             ]])
     return line_out
-
-#def msgf2sequest_line(r):
-    #filename = r[0].replace('.mzXML','')
-    #specind, scan = r[1:3]
-    #msgf_mass = float(r[4])
-    #charge = int(r[6])
-    #peptide = r[7].split('.')[1]
-    #protein = r[8].replace('rv_','rm_')
-    #seq_mass = msgf2seq_mass(msgf_mass, charge)
-    #seq_diff = calculate_mass(peptide) - seq_mass
-    #line_out = ' '.join([str(i) for i in 
-            #[
-            #1, # placeholder
-            #'.'.join([filename, specind, scan, str(charge)]),
-            #seq_mass,
-            #'({0:+.05f})'.format(seq_diff),
-            #5,5,5,1,"12/345",1234.5,0, # placeholders
-            #protein,
-            #'Z.%s.Z' % peptide
-            #]])
-    #return line_out
 
 def msgf2seq_mass(m, z):
     # msgfdb uses observed m/z, sequest uses an estimate of the molecular mass
@@ -89,12 +78,34 @@ def calculate_mass(peptide):
     return sum([AAS[aa] for aa in peptide]) + WATER
 
     
-if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        sys.exit("usage: python script_msgf2seq.py filename") 
-    filename = sys.argv[1]
+def msgf2seq_file(filename, fasta_file, seq_header):
+    # Get the sample filename from the first item of the third line
+    usedir = os.path.split(filename)[0] 
     fout = next(it.islice(ut.load_tab_file(filename),2,3))[0].split('.')[0]
-    fout += '.mzXML_dta.txt'
+    fout = os.path.join(usedir, fout + '.mzXML_dta.txt')
     in_gen = ut.load_tab_file(filename)
     in_gen.next(); in_gen.next() # skip 2 lines
-    ut.write_tab_file((msgfbest2sequest_line(r) for r in in_gen), fout)
+    p2g = seqs.prots2genes(fasta_file)
+    temp_fout = fout + '_tmp'
+    ut.write_tab_file((msgfbest2sequest_line(r,p2g) for r in in_gen),
+            temp_fout)
+    subprocess.call('cat %s %s > %s' % (abspath(seq_header),
+        abspath(temp_fout), abspath(fout)), shell=True)
+    os.remove(temp_fout)
+    return fout
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        sys.exit("usage: python script_msgf2seq.py fasta_file seq_header filename(s)") 
+    fasta_file = sys.argv[1]
+    seq_header = sys.argv[2]
+    filenames = sys.argv[3:]
+    for f in filenames:
+        fout = msgf2seq_file(f, fasta_file, seq_header)
+        # move to appropriate folder
+        currdir, fout_name = os.path.split(fout)
+        new_dirname = fout_name.split('.')[0] + '.mzXML_dta'
+        dest = os.path.join(currdir,new_dirname,fout_name)
+        #print 'moving:', fout, dest
+        os.rename(fout, dest)
+
