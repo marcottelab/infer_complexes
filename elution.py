@@ -213,11 +213,13 @@ def combine_elutions(e1, e2, combine_corr_func=None):
     # Proteins (rows) are merged.
     allprots = list(set.union(set(e1.prots), set(e2.prots)))
     nprots = len(allprots)
-    allfracs = e1.mat.shape[1] + e2.mat.shape[1]
+    nfracs1 = e1.mat.shape[1]
+    allfracs = nfracs1 + e2.mat.shape[1]
     mat = np.matrix(np.zeros((nprots,allfracs)))
     mat[0:len(e1.prots),0:e1.mat.shape[1]] = e1.mat[:,:]
-    for row2 in range(len(e2.prots)):
-        mat[allprots.index(e2.prots[row2]), e1.mat.shape[1]:] = e2.mat[row2,:]
+    for elut,(start,stop) in [(e1,(0,nfracs1)),(e2,(nfracs1,None))]:
+        for row in range(len(elut.prots)):
+            mat[allprots.index(elut.prots[row]), start:stop] = elut.mat[row,:]
     elut = Struct(mat=mat, prots=allprots, fractions=e1.fractions+e2.fractions,
                   filename=e1.filename+e2.filename+str(combine_corr_func))
     if combine_corr_func:
@@ -275,3 +277,4 @@ def subset_elution(elution, prot_set):
     newel.prots = newprots
     print len(newel.prots), 'prots from', elution.filename, 'in set'
     return newel
+
