@@ -72,39 +72,6 @@ def merge_by_species(arr, matches, func, remove=False):
             ut.config()['elut_species'].split('_')]
     return merge_recurse(arr, patterns, func)
 
-
-#def filter_names_arr(arr, columns, cutoff, nofilter=set(NET_SPS)):
-    #"""
-    #columns: either a list of column numbers or a space-sep string of
-    #2-letter matches for column names.
-    #Filters the given array, returning the full rows (not just those named
-    #columns) for which at least one item passes the given cutoff.
-    #Those beginning with items in nofilter are not used in qualifying
-    #threshold-passing rows.
-    #"""
-    #columns = columns if columns else feature_inds(arr)
-    #feat_names = ([arr.dtype.names[i] for i in columns]
-                  #if isinstance(columns, list)
-                  #else match_cols(arr,columns))
-    #feat_nums = ([i for i,name in enumerate(arr.dtype.names)
-                  #if name in feat_names])
-    #if feat_nums == feature_inds(arr):
-        #print 'no filtering'
-        #newarr = arr
-    #else:
-        ## DON'T filter by network score columns: these don't qualify the row.
-        #names_filt = [n for n in feat_names if not n[:2] in (nofilter)]
-        #all_possible = [n for n in arr.dtype.names if not n[:2] in nofilter]
-        #if set(names_filt) == set(all_possible):
-            #print 'no filtering'
-            #newarr = arr
-        #else:
-            #print 'filtering', names_filt
-            #nums_filt = ([i for i,name in enumerate(arr.dtype.names)
-                      #if name in names_filt])
-            #newarr = filter_arr(arr, nums_filt, cutoff)
-    #return newarr, feat_names
-
 def filter_require_sp(arr, set_species, cutoff=0.25, count_ext=True):
     """
     Set_species: if None, just requires any column in the array to pass the

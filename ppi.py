@@ -39,6 +39,7 @@ def learning_examples(species, elut_fs, base_exs, nsp,
       cutoff in the base species.  if False, in any species.
       """
     gold_consv_sp = gold_consv_sp if nsp>1 else '' #ignore for 1-sp case
+    filter_multi_orths = filter_multi_orths if nsp>1 else False #ignore if 1sp
     if nsp > 1 and do_filter: check_nspecies(elut_fs, nsp)
     if base_exs:
         pdtrain,pdtest = pd_from_tt([base_exs.train, base_exs.test])

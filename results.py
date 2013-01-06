@@ -16,7 +16,7 @@ def test(name, base_sp, nsp, fs, ttbase, clf=None, clf_feats=None, nfeats=40,
         **kwargs):
     """
     Making base train/test: give ttbase as None, pass do_filter=False, fs=[],
-    extdata=[]
+    extdata=[], nfeats=None
     """
     exs = ppi.learning_examples(base_sp, fs, ttbase,
             nsp, **kwargs) if ppi_output is None else ppi_output
@@ -32,7 +32,7 @@ def test(name, base_sp, nsp, fs, ttbase, clf=None, clf_feats=None, nfeats=40,
     scaler = ml.fit_clf(arr_train, clf, norm=norm)
     if ml.exist_pos_neg(arr_train):
         ppis = ml.classify(clf, arr_test, scaler=scaler)
-    else: 
+    else:
         ppis = []
     result = Struct(train=arr_train[['id1','id2','hit']], clf=clf,
             scaler=scaler, ppis=ppis, ntest_pos=exs.ntest_pos, name=name,
