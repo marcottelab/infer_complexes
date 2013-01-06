@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+import scipy
 import pylab
 from pylab import *
 import random
@@ -135,15 +136,19 @@ def presentation_mode(on=True):
     usemode = presmode if on else normmode
     mpl.rcParams.update(usemode)
     
-def ppis_scatter(ppis1, ppis2):
-    pd1,pd2 = [pd.PairDict([p[:3] for p in ppis]) for ppis in ppis1,ppis2]
-    pdcomb = pd.pd_union_disjoint_vals(pd1,pd2,adefaults=[0],bdefaults=[0])
-    v1s,v2s = zip(*ut.i1(pdcomb.d.items()))
+def ppis_scatter(ppis1, ppis2, useinds=range(3)):
+    """
+    useinds: set to [0,1,3,2] to take ppi.learning_examples output into (score,
+    t/f) tuples; [0,1,3] to exclude the class.
+    """
+    pd1,pd2 = [pd.PairDict([[p[i] for i in useinds] for p in ppis]) 
+            for ppis in ppis1,ppis2]
+    nvals = len(useinds)-2
+    pdcomb = pd.pd_union_disjoint_vals(pd1, pd2, adefaults=[0]*nvals,
+            bdefaults=[0]*nvals)
+    vals = zip(*ut.i1(pdcomb.d.items()))
+    v1s,v2s = zip(*vals[:nvals]), zip(*vals[nvals:])
     return v1s,v2s
-
-    #for p1,v1 in pd1.d.items():
-        #p2 = pd2.find(p1)
-        #v1.append(pd2.d[p2][0] if p2 else 0)
 
 def cluster_elut(mat):
     ymat = hcluster.pdist(mat)
@@ -164,3 +169,51 @@ def profiles_cxs(e, cxs, **kwargs):
     vals = np.clip(np.log2(arr[useinds,:]),0,100)
     imshow(vals, **kwargs)
     return vals
+
+def scatter_blake(a, b, which='points', classes=[0,1], colors=['k','r'],
+        **kwargs):
+    defaults = {'s': 4, 'lw':0}
+    kwargs = ut.dict_set_defaults(kwargs, defaults)
+    if len(a[0]) == 2:
+        # second value is presumed to be class--should be 0 or 1, which will be
+        # mapped to the colormap cmap.
+        # Also need to clean a and b to just be values rather than values and
+        # classes.
+        print 'using classes'
+        assert ut.i1(a) == ut.i1(b), "Classes not the same between a and b"
+        usecolors = [colors[0] if x==classes[0] else colors[1] for x in
+                ut.i1(a)]
+        a,b = ut.i0(a), ut.i0(b)
+    else:
+        c = 'k'
+    if which=='pointcloud':
+        scatter(a, b, c=usecolors, **kwargs)
+        scatter(a, b, s=50, alpha=0.08, c=usecolors, lw=0)
+    elif which=='points':
+        scatter(a, b, c=usecolors, **kwargs)
+    title('R-squared: %0.3f' % ut.r_squared(a,b))
+
+def hexbin_blake(a, b, **kwargs):
+    defaults = {'cmap': 'binary', 'bins':'log'}
+    kwargs = ut.dict_set_defaults(kwargs, defaults)
+    hexbin(a, b, gridsize=np.floor(sqrt(len(a))/2), **kwargs)
+
+def multi_scatter(comps,scatter_func=scatter_blake, preprocess=None,
+        names=None, **kwargs):
+    total = len(comps)
+    for i in range(total):
+        for j in range(i+1,total):
+            n = (total-1)*i+j
+            print i,j,n
+            subplot(total-1, total-1, n)
+            ys,xs = comps[i],comps[j]
+            # this syntax is mis-interpreted, and both new values go into xs
+            #xs,ys = preprocess(xs,ys) if preprocess else xs,ys
+            if preprocess:
+                xs,ys = preprocess(xs,ys) 
+            scatter_func(xs,ys, **kwargs)
+            if names and j==i+1:
+                ylabel(names[i])
+                xlabel(names[j])
+
+
