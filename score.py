@@ -84,6 +84,7 @@ def score_array(arr, elut, fname, score, cutoff, id2inds):
                   '.corr_poisson' if score=='poisson' else
                   '.T.wcc_width1' if score=='wcc' else
                   '.corr_euclidean' if score=='euc_poisson' else
+                  '.standard' if score=='standard' else # eg elution/testms1
                   0 ) # no score: exception since string and int don't add
         score_mat = precalc_scores(fscore)
     score_name = name_score(fname,score)
@@ -264,7 +265,7 @@ def pairs_exceeding(elut, skey, thresh):
 if __name__ == '__main__':
     nargs = len(sys.argv)
     if nargs < 3:
-        sys.exit("usage: python corr.py filename method(poisson|dotproduct|corrcoef|cov) [argument]") 
+        sys.exit("usage: python score.py filename method(poisson|dotproduct|corrcoef|cov) [argument]") 
     fname = sys.argv[1]
     method = sys.argv[2]
     methodarg = None if nargs < 4 else int(sys.argv[3])
@@ -272,9 +273,13 @@ if __name__ == '__main__':
     if method == 'poisson':
         corr = traver_corr(elut.mat, repeat=methodarg) if methodarg else \
             traver_corr(elut.mat)
-    elif method in ['cosine','euclidean']:
-        corr = poisson_repeat(elut.mat, metric=method, repeat=methodarg) \
-            if methodarg else poisson_repeat(elut.mat, metric=method)
+    elif method in ['cosine_poisson','euclidean_poisson']:
+        corr = poisson_repeat(elut.mat, metric=method.split('_')[0],
+                repeat=methodarg) if methodarg else poisson_repeat(elut.mat,
+                        metric=method)
+    elif method in ['euclidean']:
+        corr = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
+                metric=method)
     #elif method == 'dotproduct':
         #corr = elut.mat * elut.mat.T
     #elif method == 'corrcoef':
