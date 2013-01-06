@@ -1,17 +1,18 @@
 from __future__ import division
 import cPickle
-import sys
-import os
 import errno
+import itertools
+import numpy as np
+import os
+import operator
 import re
 import random
-import operator
-import itertools
-import string
-import warnings
-import numpy as np
+import scipy
 import shutil
+import string
 import subprocess
+import sys
+import warnings
 from scipy.misc import comb
 from Struct import Struct
 
@@ -214,6 +215,10 @@ def printnow(s):
     print s
     sys.stdout.flush()
 
+def r_squared(a,b):
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(a,b)
+    return r_value**2
+
 def ravg(l):
     return rsum(l) / len(l)
 
@@ -224,8 +229,8 @@ def rescale(p,n):
     return p/(1+(1-p)*n)
 
 def regex_filter(seq, pattern):
-    feats = [n for n in seq if len(re.findall(pattern, n))>0]
-    return feats
+    matches = [n for n in seq if len(re.findall(pattern, n))>0]
+    return matches
 
 def rsum(l): #reduce sum
     # This is exactly like the Python built-in sum, but scipy overloads it
@@ -317,6 +322,8 @@ def load_array(fname):
 
 def load_list_of_lists(fname, **kwargs):
     return load_list_of_type(fname, list, **kwargs)
+load_lol = load_list_of_lists #shortcut
+
 
 def load_list_of_type(fname, argtype, **kwargs):
     return [argtype(l) for l in load_tab_file(fname, **kwargs)]
@@ -485,10 +492,15 @@ def dict_bicliques(d, minlen=1):
 # Arrays
 ##########################################
 
-def retype_array(arr, newtypes, newnames=None):
+def arrnd_retype(arr, newtypes, newnames=None):
     newarr = np.zeros(shape=len(arr), dtype = ','.join(newtypes))
     newarr.dtype.names = tuple(newnames) if newnames else arr.dtype.names
     newarr[:] = arr[:]
+    return newarr
+
+def arr_retype(arr, newtype='f2'):
+    newarr = np.zeros(arr.shape, dtype=newtype)
+    newarr[:,:] = arr[:,:]
     return newarr
 
 def arr_norm(arr, axis=0):
@@ -512,6 +524,9 @@ def proj_path(pathkey,basename=''):
         return os.path.join(base_path, config()[pathkey])
 
 def config():
+    """
+    Usage: value = ut.config()['strkey']
+    """
     def str_to_bool(string):
         return (True if string.lower() == 'true' else False if string.lower() ==
             'false' else string)
@@ -525,6 +540,9 @@ def config():
 ##########################################
 
 def confirm(prompt="Continue? y/n"):
+    """
+    Usage: if confirm(): take action
+    """
     while True:
         ans = raw_input(prompt)
         if ans not in ['y','n']:
@@ -536,6 +554,9 @@ def confirm(prompt="Continue? y/n"):
             return False
         
 def temp_placeholder(path):
+    """
+    Usage: if temp_placeholder(ftemp): take action; remove ftemp; else: skip.
+    """
     try:
         os.makedirs(path)
     except OSError as exception:
