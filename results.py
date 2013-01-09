@@ -10,8 +10,54 @@ import cyto
 import compare as cp
 import os
 
+def cvtest(name, base_sp, nsp, fs, base_featstruct, kfold=10, clf_factory=None,
+        clffact_feats=None, nfeats=40, norm=True, ppi_output=None,
+        train_limit=None, save_data=True, **kwargs):
+    """
+    Making base train/test: give ttbase as None, pass do_filter=False, fs=[],
+    extdata=[], nfeats=None
+    """
+    exs = ppi.feature_array(base_sp, fs, base_featstruct,
+            nsp, **kwargs) if ppi_output is None else ppi_output
+    arrfeats, ntest_pos = exs.arrfeats, exs.ntest_pos
+    if train_limit: 
+        print 'Sampling %s train/cv examples' % train_limit
+        arrfeats = fe.keep_rows(arrfeats, random.sample(range(len(arrfeats)),
+            int(train_limit)))
+        ntest_pos = int(ntest_pos * train_limit / exs.arrfeats.shape[0])
+    random.shuffle(arrfeats)
+    ppis = []
+    for k in range(kfold):
+        ppis_fold,clf,scaler,feats = fold_test(arrfeats, kfold, k, clf_factory,
+                clffact_feats, nfeats, norm)
+        ppis += ppis_fold
+    random.shuffle(ppis)
+    ppis.sort(key=lambda x: x[2], reverse=True)
+    result = Struct(traincv=arrfeats[['id1','id2','hit']], clf=clf,
+            scaler=scaler, ppis=ppis, ntest_pos=ntest_pos, name=name,
+            species=base_sp, ppi_params=str(clf), feats=feats,
+            source_feats=exs.arrfeats.dtype.names)
+    if save_data:
+        result.exs = exs
+    return result
 
-def test(name, base_sp, nsp, fs, ttbase, clf=None, clf_feats=None, nfeats=40,
+def fold_test(arrfeats, kfold, k, clf_factory, clffact_feats, nfeats, norm):
+    arrtrain, arrtest = fe.arr_kfold(arrfeats, kfold, k)
+    if nfeats:
+        feats = feature_selection(arrtrain, nfeats, clffact_feats)
+        arrtrain,arrtest = [fe.keep_cols(a,feats) for a in arrtrain,arrtest]
+    else:
+        feats = None
+    clf = clf_factory() if clf_factory else ml.svm()
+    if k==0: print "Classifier:", clf
+    scaler = ml.fit_clf(arrtrain, clf, norm=norm)
+    if ml.exist_pos_neg(arrtrain):
+        ppis = ml.classify(clf, arrtest, scaler=scaler, do_sort=False)
+    else:
+        ppis = []
+    return ppis,clf,scaler,feats
+
+def test(name, base_sp, nsp, fs, ttbase, clf=None, clffact_feats=None, nfeats=40,
         norm=True, ppi_output=None, train_limit=None, save_data=True,
         **kwargs):
     """
@@ -20,7 +66,7 @@ def test(name, base_sp, nsp, fs, ttbase, clf=None, clf_feats=None, nfeats=40,
     """
     exs = ppi.learning_examples(base_sp, fs, ttbase,
             nsp, **kwargs) if ppi_output is None else ppi_output
-    feats = feature_selection(exs.train, nfeats, clf_feats)
+    feats = feature_selection(exs.train, nfeats, clffact_feats)
     arr_train, arr_test = [fe.keep_cols(a,feats) for a in exs.train, exs.test]
     # Careful: clf is length 0 even when instantiated. Do not say 'if clf:'
     clf = clf if clf is not None else ml.svm()
@@ -42,11 +88,11 @@ def test(name, base_sp, nsp, fs, ttbase, clf=None, clf_feats=None, nfeats=40,
         result.exs = exs
     return result
 
-def feature_selection(arr, nfeats, clf=None):
+def feature_selection(arr, nfeats, clf_factory=None):
     if nfeats>0:
         print 'Selecting top %s of %s features' % (nfeats,
             len(arr.dtype.names)-3)
-        clf = clf if clf is not None else ml.linear()
+        clf = clf_factory() if clf_factory is not None else ml.linear()
         feats = ml.feature_selection(arr, clf)[0][:nfeats]
     else:
         feats = list(arr.dtype.names[3:])

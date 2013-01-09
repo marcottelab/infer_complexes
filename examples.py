@@ -8,10 +8,32 @@ from Struct import Struct
 from pairdict import PairDict
 import compare as cp
 
-def base_examples(ppi_cxs, clean_cxs, all_cxs, test_neg_set,
-        splits=[0,0.33,0.66,1], nratio_train=4, nratio_test=40,
-        pos_lengths=None, pos_splits=None, clean_splits=None,
-        ind_cycle=None):
+def base_examples_single(ppi_cxs, clean_cxs, all_cxs, splits,
+        pos_splits=None, clean_splits=None, ind_cycle=None):
+    """
+    Builds the training/test examples struct ready for scoring and learning.
+    Test_neg_set: full list of proteins found in our data to use for test set
+                  negatives generation. Use None to make negs the same way as
+                  training, from the members of those complexes.
+    ind_cycle: [0,-1] to start with train, then holdout, then test.  None for
+    random sampling according to splits.
+    """
+    # Still not quite right: bashes any same-named complexes.
+    # But 20121005 none of these exist currently.
+    ppi_cxs,clean_cxs,all_cxs = [dict(cs) for cs in ppi_cxs,clean_cxs,all_cxs]
+    if pos_splits is None:
+        pos_splits,clean_splits = positives_from_corum(ppi_cxs, clean_cxs,
+              splits, ind_cycle)
+    ptrain_lp = pos_splits[0]
+    all_pos_lp = _complexes_to_LPairset(all_cxs)
+    train_lp = add_negs(ptrain_lp, all_pos_lp, None, None)
+    return (PairDict([(p[0],p[1],1 if p[2]=='true' else 0) 
+        for p in train_lp.pairs]), 
+        clean_splits)
+
+def base_examples(ppi_cxs, clean_cxs, all_cxs, splits, test_neg_set=None,
+        nratio_train=None, nratio_test=None, pos_lengths=None, pos_splits=None,
+        clean_splits=None, ind_cycle=None):
     """
     Builds the training/test examples struct ready for scoring and learning.
     Test_neg_set: full list of proteins found in our data to use for test set
@@ -45,10 +67,11 @@ def add_negs(pos_lp, exclude_lp, from_set, ratio):
     set of (ID1, ID2, 'true'/'false').  Take possible negatives for each split
     only from from_set, which for training is the positives set, and for
     testing is the set of all proteins with scores in our data.
+    If a ratio isn't specified, just keep them all (asks for a huge number).
     """
     if from_set is None:
         from_set = pos_lp.members()
-    k = len(pos_lp.pairs)*ratio
+    k = len(pos_lp.pairs)*ratio if ratio is not None else 10**9
     nitems = len(from_set)
     if nitems*(nitems-1)/2 < 2*k:
         negs_lp = all_pairs(from_set, exclude_lp, k)

@@ -12,9 +12,51 @@ from numpy import zeros,ndarray
 from pairdict import PairDict
 import features as fe
 import os
+extfs = ['ext_Dm_guru','ext_Hs_malo'] 
 
-extfs = ['ext_Dm_guru','ext_Hs_malo']
-
+def feature_array(species, elut_fs, base_exs, nsp,
+        scores=['poisson','wcc','apex'], extdata=['net_Hs19']+extfs,
+        splits=[0,.5,1], ind_cycle=None, cutoff=0.25, pos_splits=None,
+        gold_consv_sp='Dm', do_filter=True, require_base=False,
+        single_base_orth=False, filter_multi_orths=0.25):
+    """
+    - Species: 'Hs' or 'Ce'... The base of the predictions in terms of
+      identifiers used and orthology pairings.
+    - base_exs: uses test, train, splits from output of previous run.
+    - extdata: list of items that are either a string data_key matching to
+      those specified in config.py, or a tuple ('name', data): made for _as_ext
+      re-use of ml scores as a new feature, but could support any data set
+      provided as a variable rather than file. The data should simply be a
+      sequence of list/tuple of (id1, id2, score). other_evidence just appends
+      to this.
+    - do_filter: only set to false if you want a full unfiltered test/train arr
+    - require_base: if True, only keeps interactions with score exceeding
+      cutoff in the base species.  if False, in any species.
+    - ind_cycle: leave as none for stochastic rotation when assigning positives
+      to splits; set as eg [0,1] for cycling repeatedly through 2 splits.
+      """
+    gold_consv_sp = gold_consv_sp if nsp>1 else '' #ignore for 1-sp case
+    filter_multi_orths = filter_multi_orths if nsp>1 else False #ignore if 1sp
+    if nsp > 1 and do_filter: check_nspecies(elut_fs, nsp)
+    if base_exs:
+        pdtrain = pd_from_arr(base_exs.arrfeats)
+        splits = base_exs.splits
+        ntest_pos = base_exs.ntest_pos
+    else:
+        print "\n\nGenerating splits and negatives."
+        pdtrain,splits = base_splits(species, elut_fs, splits,
+                ind_cycle, pos_splits, gold_consv_sp)
+        ntest_pos = len([v for k,v in pdtrain.d.items() if v[0]==1])
+    print 'total train/cv positives:', ntest_pos
+    arrfeats = new_score_array(pdtrain, scores, elut_fs, extdata) 
+    arrfeats = score_and_filter(arrfeats, scores, elut_fs, cutoff, species,
+                      extdata, do_filter, require_base, single_base_orth,
+                      filter_multi_orths)
+    if nsp > 1 and do_filter:
+        arrfeats = fe.filter_nsp_nocounts(arrfeats, nsp=nsp, cutoff=cutoff) 
+    print 'done.'#, stats(train)
+    return Struct(arrfeats=arrfeats, ntest_pos=ntest_pos, splits=splits)
+    
 def learning_examples(species, elut_fs, base_exs, nsp,
         scores=['poisson','wcc','apex'], extdata=['net_Hs19']+extfs,
         splits=[0,.33,.66,1], neg_ratios=[2.5,230], ind_cycle=None,
@@ -48,7 +90,7 @@ def learning_examples(species, elut_fs, base_exs, nsp,
     else:
         print "\n\nGenerating learning examples."
         (pdtrain,pdtest),splits = base_splits(species, elut_fs, splits,
-                neg_ratios, ind_cycle, test_negs, pos_splits, gold_consv_sp)
+                ind_cycle, pos_splits, gold_consv_sp, exs_func='old')
         ntest_pos = len([v for k,v in pdtest.d.items() if v[0]==1])
     check_overlaps(pdtrain, pdtest)
     # Note this is wrong if base_tt is supplied since that is already filtered.
@@ -72,18 +114,21 @@ def check_nspecies(fnames, nsp):
             (nsp,nspec_fracs))
 
 def pd_from_tt(train_test):
-    return [PairDict([[p[0],p[1],p[2]] for p in t]) for t in train_test]
+    return [pd_from_arr(t) for t in train_test]
 
-def base_splits(species, elut_fs, splits, neg_ratios, ind_cycle,
-                test_negs, pos_splits, consv_sp):
+def pd_from_arr(arr):
+    return PairDict([[p[0],p[1],p[2]] for p in arr])
+
+def base_splits(species, elut_fs, splits, ind_cycle, pos_splits, consv_sp,
+        exs_func='new'):
     ppi_cxs,clean_cxs,all_cxs = load_training_complexes(species,
             consv_sp=consv_sp)
-    elut_prots = el.all_prots(elut_fs, species) if test_negs=='all' else None
-    train,test = ex.base_examples(ppi_cxs, clean_cxs, all_cxs, elut_prots,
-            splits=splits, nratio_train=neg_ratios[0],
-            nratio_test=neg_ratios[1], pos_splits=pos_splits,
-            ind_cycle=ind_cycle)
-    return train,test
+    if exs_func=='new':
+        return ex.base_examples_single(ppi_cxs, clean_cxs, all_cxs,
+                splits, pos_splits=pos_splits, ind_cycle=ind_cycle)
+    else:
+        return ex.base_examples(ppi_cxs, clean_cxs, all_cxs, splits,
+                pos_splits=pos_splits, ind_cycle=ind_cycle)
 
 def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
         extdata=['net_Hs19']+extfs, nsp=1,

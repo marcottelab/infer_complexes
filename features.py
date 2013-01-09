@@ -55,6 +55,13 @@ def arr_copy(arr, newdtype=None):
         newarr[field] = arr[field]
     return newarr
     
+def arr_kfold(arr, kfold, k):
+    total = arr.shape[0]
+    start,stop = int(k*total/kfold), int((k+1)*total/kfold)
+    arrtrain = arr[range(0,start)+range(stop,arr.shape[0])]
+    arrtest = arr[range(start,stop)]
+    return arrtrain,arrtest
+
 def merge_by_species(arr, matches, func, remove=False):
     """
     matches: like [apex] or [wcc, apex, ...]
