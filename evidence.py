@@ -104,7 +104,7 @@ def single_array(gids, unnorm_eluts, sp='Hs', min_count=2,
         startcol += freqarr.shape[1]
     return bigarr
 
-def cluster_ids(gids, unnorm_eluts, gt=None, dist='cityblock', do_plot=True,
+def cluster_ids(gids, unnorm_eluts, gt=None, dist='cosine', do_plot=True,
         norm_rows=True, **kwargs):
     import plotting as pl
     arr = single_array(gids, unnorm_eluts, norm_rows=norm_rows)
@@ -121,21 +121,23 @@ def cluster_ids(gids, unnorm_eluts, gt=None, dist='cityblock', do_plot=True,
     return list(np.array(gids)[order])
 
 def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=2,
-        remove_multi_base=False, gtrans=None, eluts_per_plot=10,
+        remove_multi_base=False, gt=None, eluts_per_plot=10,
         do_cluster=False, label_trans=None, **kwargs):
     """
     supply EITHER prots OR protids, set other to None
     unnorm_eluts: [el.NormElut(f, sp=sp, norm_cols=False, norm_rows=False) for f in fs]
     """
     import plotting as pl
-    gt = seqs.GTrans() if gtrans is None else gtrans
     if prots is not None:
         pids = [gt.name2id[p] for p in prots]
     if do_cluster:
         print "clustering"
-        pids = cluster_ids(pids, unnorm_eluts, gt=gtrans, do_plot=False, 
+        pids = cluster_ids(pids, unnorm_eluts, gt=gt, do_plot=False, 
                 **kwargs)
-    prots = [gt.id2name[pid] for pid in pids] #re-order to match
+    if gt is not None:
+        prots = [gt.id2name[pid] for pid in pids if pid in gt.id2name] #re-order to match
+    else:
+        prots = pids
     if label_trans: 
         # Translate displayed names from base ids according to provided dict
         prots = [list(label_trans[pid])[0] if pid in label_trans else
