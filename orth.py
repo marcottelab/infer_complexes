@@ -16,7 +16,7 @@ def odict(from_sp, to_sp):
         if key in keys:
             swap_order=True
         else:
-            assert False, "Orthogroup key not in keys list"
+            assert False, "Orthogroup key %s not in keys list" % key
     return _ogroups_to_odict(_load_ogroups(ut.proj_path('convert_orth',
                                                         'table.'+key)),
                              swap_order=swap_order)

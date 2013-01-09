@@ -1,6 +1,7 @@
 from __future__ import division
 import os
 import sys
+import random
 if not '/home/blakeb/.local/lib/python2.7/scikit_learn-0.11-py2.7-linux-x86_64.egg' in sys.path:
     if os.path.exists('/home/blakeb/.local/lib/python2.7/scikit_learn-0.11-py2.7-linux-x86_64.egg'):
         sys.path.append('/home/blakeb/.local/lib/python2.7/scikit_learn-0.11-py2.7-linux-x86_64.egg')
@@ -69,7 +70,9 @@ def classify(clf, arr, scaler=None, do_sort=True):
     print "Predicting: %s examples, %s features" % (len(arr), len(X[0]))
     probs = (x[1] for x in clf.predict_proba(X))
     tested = zip(arr['id1'], arr['id2'], probs, arr['hit'])
-    if do_sort: tested.sort(key=lambda x:x[2],reverse=True)
+    if do_sort: 
+        random.shuffle(tested)
+        tested.sort(key=lambda x:x[2],reverse=True)
     return tested
 
 def arr_feats(arr):

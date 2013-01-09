@@ -19,10 +19,11 @@ gene_desc_Ce   data/convert/Ce_seqname_genename_desc_uni_hasid.txt
 gene_desc_Dm    data/convert/Dm_fbgn_name_desc_uni_entrez.txt
 gene_desc_Sp    data/convert/Sp_spuid_name_desc.txt
 
-# Ext files
+# Ext files: must start with net or ext to be handled correctly.
 net_Hs19    Hs_net/Hs_net_19.tab
 net_Hs_hs6    Hs_net/Hs_net_hs6.tab
 net_Hs_nosc12    Hs_net/Hs_net_nosc12.tab
+net_Hs_havug17    Hs_net/Hs_net_havug17.tab
 ext_Hs_malo    Hs_entrez_malovannaya_ints.tab
 ext_Dm_guru    Dm_fbgn_guruharsha_ints.tab
 net_Ce_ce5  Ce_net/Ce_net_ce5.tab
