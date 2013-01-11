@@ -16,19 +16,16 @@ extfs = ['ext_Dm_guru','ext_Hs_malo']
 
 def feature_array(species, elut_fs, base_exs, nsp,
         scores=['poisson','wcc','apex'], extdata=['net_Hs19']+extfs,
-        splits=[0,.5,1], ind_cycle=None, cutoff=0.25, pos_splits=None,
-        gold_consv_sp='Dm', do_filter=True, require_base=False,
-        single_base_orth=False, filter_multi_orths=0.25):
+        split_props=[0,.5,1], ind_cycle=None, cutoff=0.25, pos_splits=None,
+        gold_consv_sp='Dm', do_filter=True, gidscheme='', **score_kwargs):
     """
     - Species: 'Hs' or 'Ce'... The base of the predictions in terms of
       identifiers used and orthology pairings.
     - base_exs: uses test, train, splits from output of previous run.
     - extdata: list of items that are either a string data_key matching to
-      those specified in config.py, or a tuple ('name', data): made for _as_ext
-      re-use of ml scores as a new feature, but could support any data set
-      provided as a variable rather than file. The data should simply be a
-      sequence of list/tuple of (id1, id2, score). other_evidence just appends
-      to this.
+      those specified in config.py, or a tuple ('name', data).
+      The data should simply be a sequence of list/tuple of (id1, id2, score).
+      other_evidence just appends to this.
     - do_filter: only set to false if you want a full unfiltered test/train arr
     - require_base: if True, only keeps interactions with score exceeding
       cutoff in the base species.  if False, in any species.
@@ -36,105 +33,44 @@ def feature_array(species, elut_fs, base_exs, nsp,
       to splits; set as eg [0,1] for cycling repeatedly through 2 splits.
       """
     gold_consv_sp = gold_consv_sp if nsp>1 else '' #ignore for 1-sp case
-    filter_multi_orths = filter_multi_orths if nsp>1 else False #ignore if 1sp
-    if nsp > 1 and do_filter: check_nspecies(elut_fs, nsp)
+    if nsp > 1 and do_filter: 
+        check_nspecies(elut_fs, nsp)
     if base_exs:
         pdtrain = pd_from_arr(base_exs.arrfeats)
         splits = base_exs.splits
         ntest_pos = base_exs.ntest_pos
     else:
         print "\n\nGenerating splits and negatives."
-        pdtrain,splits = base_splits(species, elut_fs, splits,
-                ind_cycle, pos_splits, gold_consv_sp)
+        pdtrain,splits = base_splits(species, elut_fs, split_props,
+                ind_cycle, pos_splits, gold_consv_sp, gidscheme)
         ntest_pos = len([v for k,v in pdtrain.d.items() if v[0]==1])
     print 'total train/cv positives:', ntest_pos
     arrfeats = new_score_array(pdtrain, scores, elut_fs, extdata) 
     arrfeats = score_and_filter(arrfeats, scores, elut_fs, cutoff, species,
-                      extdata, do_filter, require_base, single_base_orth,
-                      filter_multi_orths)
+            extdata, gidscheme, nsp=nsp, do_filter=do_filter, **score_kwargs)
     if nsp > 1 and do_filter:
         arrfeats = fe.filter_nsp_nocounts(arrfeats, nsp=nsp, cutoff=cutoff) 
     print 'done.'#, stats(train)
     return Struct(arrfeats=arrfeats, ntest_pos=ntest_pos, splits=splits)
     
-def learning_examples(species, elut_fs, base_exs, nsp,
-        scores=['poisson','wcc','apex'], extdata=['net_Hs19']+extfs,
-        splits=[0,.33,.66,1], neg_ratios=[2.5,230], ind_cycle=None,
-        cutoff=0.25, pos_splits=None, test_negs=None, gold_consv_sp='Dm',
-        do_filter=True, require_base=False, single_base_orth=False,
-        filter_multi_orths=0.25):
-    """
-    - Species: 'Hs' or 'Ce'... The base of the predictions in terms of
-      identifiers used and orthology pairings.
-    - base_exs: uses test, train, splits from output of previous run.
-    - Test_negs: 'all' to use full set of proteins from fs elution data; None
-      to generate test negatives like training negatives, from inter-complex
-      interactions.
-    - extdata: list of items that are either a string data_key matching to
-      those specified in config.py, or a tuple ('name', data): made for _as_ext
-      re-use of ml scores as a new feature, but could support any data set
-      provided as a variable rather than file. The data should simply be a
-      sequence of list/tuple of (id1, id2, score). other_evidence just appends
-      to this.
-    - do_filter: only set to false if you want a full unfiltered test/train arr
-    - require_base: if True, only keeps interactions with score exceeding
-      cutoff in the base species.  if False, in any species.
-      """
-    gold_consv_sp = gold_consv_sp if nsp>1 else '' #ignore for 1-sp case
-    filter_multi_orths = filter_multi_orths if nsp>1 else False #ignore if 1sp
-    if nsp > 1 and do_filter: check_nspecies(elut_fs, nsp)
-    if base_exs:
-        pdtrain,pdtest = pd_from_tt([base_exs.train, base_exs.test])
-        splits = base_exs.splits
-        ntest_pos = base_exs.ntest_pos
-    else:
-        print "\n\nGenerating learning examples."
-        (pdtrain,pdtest),splits = base_splits(species, elut_fs, splits,
-                ind_cycle, pos_splits, gold_consv_sp, exs_func='old')
-        ntest_pos = len([v for k,v in pdtest.d.items() if v[0]==1])
-    check_overlaps(pdtrain, pdtest)
-    # Note this is wrong if base_tt is supplied since that is already filtered.
-    print 'total test positives:', ntest_pos
-    train,test = [new_score_array(pdict, scores, elut_fs, extdata) 
-            for pdict in pdtrain,pdtest]
-    train,test = [score_and_filter(arr, scores, elut_fs, cutoff, species,
-                      extdata, do_filter, require_base, single_base_orth,
-                      filter_multi_orths) for
-                      arr in train,test]
-    if nsp > 1 and do_filter:
-        train,test = [fe.filter_nsp_nocounts(arr, nsp=nsp, cutoff=cutoff) 
-                for arr in train,test]
-    print 'done.', stats(train,test)
-    return Struct(train=train, test=test, ntest_pos=ntest_pos,
-            splits=splits)
-
 def check_nspecies(fnames, nsp):
     nspec_fracs = len(set([ut.shortname(f)[:2] for f in fnames]))
     assert nspec_fracs >= nsp, ("** Can't use %s species; only %s species" %
             (nsp,nspec_fracs))
 
-def pd_from_tt(train_test):
-    return [pd_from_arr(t) for t in train_test]
-
 def pd_from_arr(arr):
     return PairDict([[p[0],p[1],p[2]] for p in arr])
 
 def base_splits(species, elut_fs, splits, ind_cycle, pos_splits, consv_sp,
-        exs_func='new'):
+        gidscheme):
     ppi_cxs,clean_cxs,all_cxs = load_training_complexes(species,
-            consv_sp=consv_sp)
-    if exs_func=='new':
-        return ex.base_examples_single(ppi_cxs, clean_cxs, all_cxs,
-                splits, pos_splits=pos_splits, ind_cycle=ind_cycle)
-    else:
-        return ex.base_examples(ppi_cxs, clean_cxs, all_cxs, splits,
-                pos_splits=pos_splits, ind_cycle=ind_cycle)
+            gidscheme, consv_sp=consv_sp)
+    return ex.base_examples_single(ppi_cxs, clean_cxs, all_cxs,
+            splits, pos_splits=pos_splits, ind_cycle=ind_cycle)
 
 def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
-        extdata=['net_Hs19']+extfs, nsp=1,
-        cutoff=0.25, base_arr=None, do_filter_scores=True, do_filter_sp=True,
-        save_fname=None, require_base=False, single_base_orth=False,
-        filter_multi_orths=0.25):
+        extdata=['net_Hs19']+extfs, nsp=1, cutoff=0.25, base_arr=None,
+        do_filter_sp=True, save_fname=None, gidscheme='', **score_kwargs):
     """
     Same more or less as learning_examples above, but produces all predictions
     in the elution files.
@@ -148,8 +84,7 @@ def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
     else:
         arr = base_arr
     scored_arr = score_and_filter(arr, scores, elut_fs, cutoff, species,
-                extdata, do_filter_scores, require_base, single_base_orth,
-                filter_multi_orths)
+                extdata, gidscheme, nsp=nsp, **score_kwargs)
     if save_fname: np.save(save_fname+'1sp.npy', scored_arr)
     if nsp > 1 and do_filter_sp:
         scored_arr, spcounts = fe.filter_nsp(scored_arr, nsp=nsp,cutoff=cutoff)
@@ -158,23 +93,28 @@ def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
             ut.savepy(spcounts, save_fname+'_pdspcounts%s.pyd'%cutoff)
     return scored_arr
 
-def score_and_filter(arr, scores, elut_fs, cutoff, species, extdata,
-        do_filter, require_base, single_base_orth, filter_multi_orths):
+def score_and_filter(arr, scores, elut_fs, cutoff, species, extdata, gidscheme,
+        do_filter=True, require_base=False, single_base_orth=False,
+        filter_multi_orths=0.25, nsp=1): 
+    filter_multi_orths = (filter_multi_orths if (nsp>1 and not require_base)
+            else False) #ignore if 1sp
     print '\nScoring %s elutions with %s base, scores: %s.' % (len(elut_fs),
             species, ','.join(scores))
+    # FIX: currently not passing gidscheme, as I can't handle that currently
     score.score_array_multi(arr, species, elut_fs, scores, cutoff,
-            remove_multi_base=single_base_orth)
+            remove_multi_base=single_base_orth, gidscheme='')
     if do_filter:
         if cutoff != -1 and do_filter:
             print 'Filtering, require_base =', require_base
             require_species = set([species]) if require_base else None
             arr = fe.filter_require_sp(arr, require_species, cutoff=cutoff,
                     count_ext=False)
-        if filter_multi_orths and not require_base: # otherwise redundant
+        if filter_multi_orths: 
             arr = fe.filter_multi_orths(arr, species, filter_multi_orths)
     if extdata:
         print '\nScoring with external data:', ','.join(extdata)
-        for d in extdata: fnet.score_arr_ext(arr, species, d)
+        sp_idscheme = (species + '_' + gidscheme) if gidscheme else species
+        for d in extdata: fnet.score_arr_ext(arr, sp_idscheme, d)
     if cutoff == -1 and do_filter: # filter this if we haven't before.
         arr = remove_empties(arr)
     return arr 
@@ -232,24 +172,25 @@ def stats(train, test):
     nums =  [sum(arr['hit']==tf) for arr in train,test for tf in [1,0]]
     return 'train %sP/%sN; test %sP/%sN' % tuple(nums)
 
-def load_training_complexes(species, consv_sp=''):
+def load_training_complexes(species, gidscheme, consv_sp=''):
     ppi = co.load_ppi_cxs()
     clean = co.load_merged_cxs()
     allcxs = co.load_ppi_cxs(minlen=2,maxlen=1000)
-    ppi,clean,allcxs = [convert_complexes(cxs, species, consv_sp) for cxs in
-            [ppi,clean,allcxs]]
+    ppi,clean,allcxs = [convert_complexes(cxs, species, gidscheme, consv_sp)
+            for cxs in [ppi,clean,allcxs]]
     return ppi,clean,allcxs
 
-def convert_complexes(cxs, species, consv_sp=''):
+def convert_complexes(cxs, species, gidscheme, consv_sp=''):
     """
-    Convert from corum uniprot to human default, then to other base species if
-    specified.
+    Convert from uniprot to human default (unless already human uniprot), then
+    to other base species if specified.
     If consv_sp (conserved species) is provided, restrict gold standard to only
     include interactions for proteins with orthologs in that species.
     """
-    dconv = ut.load_dict_sets(ut.proj_path('corum_convert'))
-    ps = seqs.load_prots_from_fasta(ut.proj_path('fastadir', 'Hs.fasta'))
-    cxs = co.convert_complexes(cxs, dconv, ps)
+    if gidscheme != 'uni':
+        dconv = ut.load_dict_sets(ut.proj_path('corum_convert'))
+        ps = seqs.load_prots_from_fasta(ut.proj_path('fastadir', 'Hs.fasta'))
+        cxs = co.convert_complexes(cxs, dconv, ps)
     if species!='Hs':
         dconv = orth.odict('Hs', species)
         ps = seqs.load_prots_from_fasta(ut.proj_path('fastadir', 

@@ -12,7 +12,8 @@ import orth
 
 
 def score_array_multi(arr, sp_base, elut_fs, scores, cutoff, verbose=False,
-        remove_multi_base=False):
+        remove_multi_base=False, gidscheme=None):
+    assert gidscheme=='', "Gidscheme not implemented in scoring."
     current_sp = ''
     if remove_multi_base: 
         print ("Filtering orths: only single base gene in orthogroups.")

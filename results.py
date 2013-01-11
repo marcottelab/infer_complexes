@@ -57,9 +57,9 @@ def fold_test(arrfeats, kfold, k, clf_factory, clffact_feats, nfeats, norm):
         ppis = []
     return ppis,clf,scaler,feats
 
-def test(name, base_sp, nsp, fs, ttbase, clf=None, clffact_feats=None, nfeats=40,
-        norm=True, ppi_output=None, train_limit=None, save_data=True,
-        **kwargs):
+def deprecated_test(name, base_sp, nsp, fs, ttbase, clf=None,
+        clffact_feats=None, nfeats=40, norm=True, ppi_output=None,
+        train_limit=None, save_data=True, **kwargs):
     """
     Making base train/test: give ttbase as None, pass do_filter=False, fs=[],
     extdata=[], nfeats=None
@@ -98,33 +98,26 @@ def feature_selection(arr, nfeats, clf_factory=None):
         feats = list(arr.dtype.names[3:])
     return feats
 
-def predict(name, sp, arr_source, train_struct, nsp, clf_scaler_feats=None,
-        clf_base=None, clf_feats=None, norm=True, nfeats=40,
-        combine_train_test=True):
+def predict(name, sp, arrsource, arrfeats, nsp, clf_scaler_feats=None,
+        clf_base=None, clf_feats=None, norm=True, nfeats=40):
     """
-    Train_struct: can be straight from ppi or res.test.  Just must have .train,
-    .test.
+    - arrfeats: labeled training examples array, from
+      ppi.feature_array.arrfeats, also stored in res.cvtest result as
+      result.exs.arrfeats.
+    - arrsource: array of data to classify, matching the training array
     """
     if clf_scaler_feats:
         clf, scaler, feats = clf_scaler_feats
     else:
-        if combine_train_test:
-            print "Combining train_struct.train with subsampled .test"
-            arr_train = combine_train(train_struct.train, train_struct.test)
-            print "Pre-comb:", ppi.stats(train_struct.train, train_struct.test)
-            print "After combining:", ppi.stats(arr_train, arr_train[:0])
-        else:
-            print "Using train_struct.train as training set"
-            arr_train = train_struct.train
-        feats = feature_selection(arr_train, nfeats, clf_feats)
-        arr_train = fe.keep_cols(arr_train, feats)
+        feats = feature_selection(arrfeats, nfeats, clf_feats)
+        arrfeats = fe.keep_cols(arrfeats, feats)
         clf = clf_base if clf_base is not None else ml.svm()
-        scaler = ml.fit_clf(arr_train, clf, norm=norm)
+        scaler = ml.fit_clf(arrfeats, clf, norm=norm)
     print "Classifier:", clf
-    arr_source = fe.keep_cols(arr_source, feats)
-    ppis = ml.classify(clf, arr_source, scaler=scaler)
+    arrsource = fe.keep_cols(arrsource, feats)
+    ppis = ml.classify(clf, arrsource, scaler=scaler)
     return Struct(ppis=ppis,name=name, species=sp, ppi_params=str(clf),
-            feats=feats, nsp=nsp, train=arr_train)
+            feats=feats, nsp=nsp, arrfeats=arrfeats)
 
 def predict_clust(name, sp, scored, exs, nsp, savef=None, pres=None, 
         pd_spcounts=None, **kwargs):
