@@ -8,11 +8,14 @@ class PairDict(object):
     messiness of merging, deduping, etc.
     """
 
-    def __init__(self, lopair_vals):
+    def __init__(self, loitems):
         """
         Make this from a list or set of tuples of (id1, id2, val1, val2, ...)
         """
-        self.d = dict([((p[0],p[1]),list(p[2:])) for p in lopair_vals])
+        self.d = {}
+        pd_set_loi(self, loitems)
+        #self.d = dict([((p[0],p[1]),list(p)[2:]) for p in lopair_vals])
+
 
     def set(self, key, val):
         k = self.find(key)
@@ -46,6 +49,15 @@ class PairDict(object):
         if usepair:
             return self.d[usepair]
 
+def pd_set_loi(pd, loitems):
+    for r in loitems:
+        pd.set((r[0],r[1]),list(r)[2:])
+
+def pd_dedupe(pd):
+    newpd = PairDict([])
+    pd_set_loi(newpd, pd_lol(pd))
+    return newpd
+
 
 def pd_copy(pd):
     newpd = PairDict([])
@@ -56,7 +68,7 @@ def pd_flip(pair):
     return (pair[1],pair[0])
 
 def pd_lol(pd):
-    return [[k[0],k[1]] + pd.d[k] for k in pd.d]
+    return [[k[0],k[1]] + list(pd.d[k]) for k in pd.d]
 
 def pd_intersect_avals(pda, pdb):
     """
@@ -78,6 +90,30 @@ def pd_union_novals(a,b):
     newpd.d = a.d.copy()
     for k,v in b.d.items():
         newpd.set(k,v)
+    return newpd
+
+def pd_combine_ppis_matched(a,b,comb_func):
+    """
+    comb_func: a function used to combine the values, eg [lambda
+    x:x[0]] to always just take the first value.
+    REQUIRES: a,b contain same set of pairs.  Don't want to deal with it now.
+    """
+    newpd = PairDict([])
+    newpd.d = a.d.copy()
+    for p in a.d:
+        bp = b.find(p)
+        newpd.d[p][0] = comb_func(a.d[p][0],b.d[bp][0])
+    return newpd
+
+def pd_combine_ppis(a,b,comb_func):
+    """
+    comb_func: a function used to combine the values, eg [lambda
+    x,y:x] to always just take the first value.
+    """
+    #a,b = [PairDict(pd_lol(pdx)[:3]) for pdx in a,b] #Get rid of extra columns
+    newpd = pd_union_disjoint_vals(a,b,adefaults=[0,-1],bdefaults=[0,-1])
+    for pair,(ascore, atrue, bscore, btrue) in newpd.d.items():
+        newpd.d[pair] = (comb_func(ascore,bscore), max(atrue, btrue))
     return newpd
 
 def pd_union_disjoint_vals(a,b,adefaults=None,bdefaults=None):
