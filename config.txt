@@ -10,6 +10,8 @@ corum_pairs data/corum/pairs
 ppi_cxs     data/corum/pre_1209/corum_overlaps_forppi.tab
 clean_cxs   data/corum/pre_1209/corum_clean_nooverlaps_supptable3.tab
 corum_cxs     data/corum/CORUM_allComplexes20120925.csv
+cyto_prots  data/corum/cytoplasm_go_association.txt
+nuc_prots   data/corum/nucleus_go_association.txt
 
 # misco
 fastadir  data/sequences/canon

@@ -82,6 +82,9 @@ def tree(n_estimators=200,n_jobs=NCORES-1, bootstrap=True, **kwargs):
     return ExtraTreesClassifier(n_estimators=n_estimators, n_jobs=n_jobs,
                                 bootstrap=bootstrap, **kwargs)
 
+def tree_feats(**kwargs):
+    return tree(compute_importances=True, **kwargs)
+
 def svm(kernel='linear', cache_size=4000, **kwargs):
     return SVC(kernel=kernel, cache_size=cache_size, probability=True, **kwargs)
 

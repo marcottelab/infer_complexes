@@ -9,27 +9,34 @@ import ppi
 import cyto
 import compare as cp
 import os
+import pairdict as pd
+import corum as co
+import examples as ex
 
-def cvtest(name, base_sp, nsp, fs, base_featstruct, kfold=10, clf_factory=None,
-        clffact_feats=None, nfeats=40, norm=True, ppi_output=None,
-        train_limit=None, save_data=True, **kwargs):
+clf_factories = {'svm': (ml.svm, ml.linear), 'tree': (ml.tree, ml.tree_feats)}
+
+def cvtest(name, base_sp, nsp, fs, base_featstruct, kfold=10, clf_type='svm',
+        nfeats=40, norm=True, ppi_output=None, train_limit=None,
+        save_data=True, balance_train=True, **kwargs):
     """
     Making base train/test: give ttbase as None, pass do_filter=False, fs=[],
     extdata=[], nfeats=None
     """
     exs = ppi.feature_array(base_sp, fs, base_featstruct,
             nsp, **kwargs) if ppi_output is None else ppi_output
-    arrfeats, ntest_pos = exs.arrfeats, exs.ntest_pos
-    if train_limit: 
-        print 'Sampling %s train/cv examples' % train_limit
-        arrfeats = fe.keep_rows(arrfeats, random.sample(range(len(arrfeats)),
-            int(train_limit)))
-        ntest_pos = int(ntest_pos * train_limit / exs.arrfeats.shape[0])
-    random.shuffle(arrfeats)
+    arrfeats, ntest_pos = fe.arr_copy(exs.arrfeats), exs.ntest_pos
+    assert len(arrfeats)>0, '0 examples not supported'
+    if train_limit: print 'Sampling %s train/cv examples' % train_limit
+    train_limit = train_limit or len(arrfeats)
+    arrfeats = fe.keep_rows(arrfeats, random.sample(range(len(arrfeats)),
+        int(train_limit))) # shuffle even if not sampling. don't random.shuffle
+    ntest_pos = int(ntest_pos * train_limit / len(arrfeats))
+    clf_factory, clffact_feats = clf_factories[clf_type]
     ppis = []
     for k in range(kfold):
+        print 'Fold %s:' % k
         ppis_fold,clf,scaler,feats = fold_test(arrfeats, kfold, k, clf_factory,
-                clffact_feats, nfeats, norm)
+                clffact_feats, nfeats, norm, balance_train)
         ppis += ppis_fold
     random.shuffle(ppis)
     ppis.sort(key=lambda x: x[2], reverse=True)
@@ -41,14 +48,18 @@ def cvtest(name, base_sp, nsp, fs, base_featstruct, kfold=10, clf_factory=None,
         result.exs = exs
     return result
 
-def fold_test(arrfeats, kfold, k, clf_factory, clffact_feats, nfeats, norm):
+def fold_test(arrfeats, kfold, k, clf_factory, clffact_feats, nfeats, norm,
+        balance_train):
     arrtrain, arrtest = fe.arr_kfold(arrfeats, kfold, k)
+    if balance_train:
+        arrtrain = fe.balance_train(arrtrain)
     if nfeats:
-        feats = feature_selection(arrtrain, nfeats, clffact_feats)
+        clf_feats = clffact_feats()
+        feats = feature_selection(arrtrain, nfeats, clf_feats)
         arrtrain,arrtest = [fe.keep_cols(a,feats) for a in arrtrain,arrtest]
     else:
         feats = None
-    clf = clf_factory() if clf_factory else ml.svm()
+    clf = clf_factory()
     if k==0: print "Classifier:", clf
     scaler = ml.fit_clf(arrtrain, clf, norm=norm)
     if ml.exist_pos_neg(arrtrain):
@@ -88,18 +99,18 @@ def deprecated_test(name, base_sp, nsp, fs, ttbase, clf=None,
         result.exs = exs
     return result
 
-def feature_selection(arr, nfeats, clf_factory=None):
+def feature_selection(arr, nfeats, clf):
     if nfeats>0:
         print 'Selecting top %s of %s features' % (nfeats,
             len(arr.dtype.names)-3)
-        clf = clf_factory() if clf_factory is not None else ml.linear()
         feats = ml.feature_selection(arr, clf)[0][:nfeats]
     else:
         feats = list(arr.dtype.names[3:])
     return feats
 
 def predict(name, sp, arrsource, arrfeats, nsp, clf_scaler_feats=None,
-        clf_base=None, clf_feats=None, norm=True, nfeats=40):
+        clf_base=None, clf_feats=None, norm=True, nfeats=40,
+        balance_train=False):
     """
     - arrfeats: labeled training examples array, from
       ppi.feature_array.arrfeats, also stored in res.cvtest result as
@@ -109,6 +120,8 @@ def predict(name, sp, arrsource, arrfeats, nsp, clf_scaler_feats=None,
     if clf_scaler_feats:
         clf, scaler, feats = clf_scaler_feats
     else:
+        if balance_train:
+            arrfeats = fe.balance_train(arrfeats)
         feats = feature_selection(arrfeats, nfeats, clf_feats)
         arrfeats = fe.keep_cols(arrfeats, feats)
         clf = clf_base if clf_base is not None else ml.svm()
@@ -118,6 +131,36 @@ def predict(name, sp, arrsource, arrfeats, nsp, clf_scaler_feats=None,
     ppis = ml.classify(clf, arrsource, scaler=scaler)
     return Struct(ppis=ppis,name=name, species=sp, ppi_params=str(clf),
             feats=feats, nsp=nsp, arrfeats=arrfeats)
+
+def combine_cvres_ppis(cresa, cresb):
+    """
+    ntest_pos is fixed and updated.  splits are not carried over.
+    """
+    newres = combine_pres_ppis(cresa, cresb)
+    lpa,lpb = [res.exs.splits[0][0] for res in cresa,cresb]
+    merged_lpairset = ex.merge_lps([lpa,lpb])
+    newres.ntest_pos = len(merged_lpairset.pairs)
+    return newres
+
+def combine_pres_ppis(resa, resb):
+    res = ut.struct_copy(resa)
+    res.name = 'combined: %s, %s' % (resa.name, resb.name)
+    res.ppis = pd.pd_lol(pd.pd_combine_ppis(pd.PairDict(resa.ppis),
+            pd.PairDict(resb.ppis), combine_or))
+    res.ppis.sort(key=lambda x: x[2], reverse=True)
+    return res
+
+def combine_ppis(a,b):
+    ppis = pd.pd_lol(pd.pd_combine_ppis(pd.PairDict(a), pd.PairDict(b),
+        combine_or))
+    return ppis
+
+def combine_or(a,b):
+    return 1-((1-a)*(1-b))
+
+def combine_ppis_matched(ppisa, ppisb):
+    return [(pa[0],pa[1],combine_or(pa[2],pb[2]),pa[3])
+            for pa,pb in ut.zip_exact(ppisa, ppisb)]
 
 def predict_clust(name, sp, scored, exs, nsp, savef=None, pres=None, 
         pd_spcounts=None, **kwargs):

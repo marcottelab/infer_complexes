@@ -8,8 +8,8 @@ from Struct import Struct
 from pairdict import PairDict
 import compare as cp
 
-def base_examples_single(ppi_cxs, clean_cxs, all_cxs, splits,
-        pos_splits=None, clean_splits=None, ind_cycle=None):
+def base_examples_single(ppi_cxs, clean_cxs, all_cxs, split_fracs,
+        both_cx_splits=None, ind_cycle=None):
     """
     Builds the training/test examples struct ready for scoring and learning.
     Test_neg_set: full list of proteins found in our data to use for test set
@@ -21,15 +21,14 @@ def base_examples_single(ppi_cxs, clean_cxs, all_cxs, splits,
     # Still not quite right: bashes any same-named complexes.
     # But 20121005 none of these exist currently.
     ppi_cxs,clean_cxs,all_cxs = [dict(cs) for cs in ppi_cxs,clean_cxs,all_cxs]
-    if pos_splits is None:
-        pos_splits,clean_splits = positives_from_corum(ppi_cxs, clean_cxs,
-              splits, ind_cycle)
-    ptrain_lp = pos_splits[0]
+    lp_splits,clean_splits = (both_cx_splits or
+            positives_from_corum(ppi_cxs, clean_cxs, split_fracs, ind_cycle))
+    ptrain_lp = lp_splits[0]
     all_pos_lp = _complexes_to_LPairset(all_cxs)
     train_lp = add_negs(ptrain_lp, all_pos_lp, None, None)
     return (PairDict([(p[0],p[1],1 if p[2]=='true' else 0) 
         for p in train_lp.pairs]), 
-        clean_splits)
+        (lp_splits, clean_splits))
 
 def base_examples(ppi_cxs, clean_cxs, all_cxs, splits, test_neg_set=None,
         nratio_train=None, nratio_test=None, pos_lengths=None, pos_splits=None,

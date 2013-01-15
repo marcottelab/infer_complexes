@@ -1,12 +1,13 @@
 from __future__ import division
-import os
-import sys
-import utils as ut
-import numpy as np
 import multiprocessing
+import numpy as np
 import operator
+import os
+import random
+import sys
 import pairdict as pd
 import orth
+import utils as ut
 
 NCORES = multiprocessing.cpu_count()
 NET_SPS = 'HS CE DM SC'.split()
@@ -25,6 +26,11 @@ def keep_rows(arr, rows):
 
 def keep_cols(arr, colnames):
     return arr_copy(arr[['id1','id2','hit'] + colnames])
+
+def balance_train(arrfeats):
+    pos_inds, neg_inds = [[i for i,r in enumerate(arrfeats) if r[2]==pn] 
+            for pn in 1,0]
+    return arrfeats[pos_inds + random.sample(neg_inds, len(pos_inds))]
 
 def regex_cols(arr, pattern):
     return arr[['id1','id2','hit'] + ut.regex_filter(arr.dtype.names, pattern)]
@@ -58,8 +64,9 @@ def arr_copy(arr, newdtype=None):
 def arr_kfold(arr, kfold, k):
     total = arr.shape[0]
     start,stop = int(k*total/kfold), int((k+1)*total/kfold)
-    arrtrain = arr[range(0,start)+range(stop,arr.shape[0])]
-    arrtest = arr[range(start,stop)]
+    print 'k: %s   start: %s   stop: %s' % (k, start, stop)
+    arrtrain = keep_rows(arr, range(0,start)+range(stop,arr.shape[0]))
+    arrtest = keep_rows(arr, range(start,stop))
     return arrtrain,arrtest
 
 def merge_by_species(arr, matches, func, remove=False):

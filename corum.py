@@ -6,6 +6,7 @@ import utils as ut
 import ppi
 import seqs
 import cluster as cl
+from Struct import Struct
 
 def pairs(fname):
     return [list(e) for e in ut.load_tab_file(fname)]
@@ -31,23 +32,45 @@ def load_havug_cxppis():
     hints = cl._filter_ints(hints, hcxs)
     return hints
 
-def load_ppi_cxs(minlen=2, maxlen=50, sp_match='Human'):
+def filter_location(cxs, go_location):
+    """
+    Return only those cxs for x (cyto/nuc) where the go cell compartment is either:
+    - more proteins annotated with x than y
+    - more than half of the proteins annotated with x
+    """
+    assert go_location in ['cyto','nuc'], 'location not supported'
+    keys = ['cyto_prots','nuc_prots']
+    yes_key,no_key = keys if go_location=='cyto' else keys[::-1]
+    yes_prots,no_prots = [go_assoc_prots(ut.proj_path(key)) 
+            for key in yes_key, no_key]
+    return [c for c in cxs 
+            if len(set.intersection(c[1],yes_prots))/len(c[1]) > .5 
+            or (len(set.intersection(c[1],yes_prots)) -
+                len(set.intersection(c[1],no_prots))) > 0]
+
+def load_ppi_cxs(minlen=2, maxlen=50, sp_match='Human', go_location=None):
     """
     Returns a list of sets of uniprot ids.
     No de-duplication or anything else.
     Expected that this list may have duplicates.
     """
     fname = ut.proj_path('corum_cxs')
-    return [(name,ps) for name,ps,s in load_corum(fname) 
+    cxs = [(name,ps) for name,ps,s in load_corum(fname) 
             if (not sp_match or s==sp_match) 
             and len(ps)>=minlen and len(ps)<=maxlen]
+    if go_location:
+        cxs = filter_location(cxs, go_location)
+    return cxs
 
-def load_merged_cxs(cutoff=0.5, func=None, sep='|', **kwargs):
+def load_merged_cxs(cutoff=0.5, func=None, sep='|', go_location=None,**kwargs):
     if func==None:
         import compare as cp
         func = cp.simpson
     cxs = load_ppi_cxs(**kwargs)
-    return merge_atonce(cxs, cutoff, func, sep)
+    cxs = merge_atonce(cxs, cutoff, func, sep)
+    if go_location:
+        cxs = filter_location(cxs, go_location)
+    return cxs
     #if atonce: # deprecated since I didn't fix merge_iter for handling names
     #else:
         #return merge_iter(cxs, cutoff, func)
@@ -220,3 +243,23 @@ class CLookup(object):
 
     def findcs(self,gname):
         return [p for p in self.cxs if gname.lower() in p[1]]
+
+def go_assoc_prots(fname):
+    """
+    Just return the second item in each line if the line isn't commented (!).
+    Assume this file is already filtered only to contain the desired set of
+    proteins.
+    """
+    return set([l.split('\t')[1] for l in file(fname,'r') if l[0]!='!'])
+
+def count_ints(cxs):
+    """
+    Given cxs, a list of [(name, set([id1,id2...])), ...], return the number of
+    possible positive pairwise interactions implied.
+    """
+    def count_pairs(items):
+        n = len(items)
+        return int(n*(n-1)/2)
+    return sum([count_pairs(c[1]) for c in cxs])
+
+

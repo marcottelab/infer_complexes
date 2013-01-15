@@ -16,8 +16,9 @@ extfs = ['ext_Dm_guru','ext_Hs_malo']
 
 def feature_array(species, elut_fs, base_exs, nsp,
         scores=['poisson','wcc','apex'], extdata=['net_Hs19']+extfs,
-        split_props=[0,.5,1], ind_cycle=None, cutoff=0.25, pos_splits=None,
-        gold_consv_sp='Dm', do_filter=True, gidscheme='', **score_kwargs):
+        split_props=[0,.5,1], ind_cycle=None, cutoff=0.25, both_cx_splits=None,
+        gold_consv_sp='Dm', do_filter=True, gidscheme='', go_location=None,
+        **score_kwargs):
     """
     - Species: 'Hs' or 'Ce'... The base of the predictions in terms of
       identifiers used and orthology pairings.
@@ -42,7 +43,7 @@ def feature_array(species, elut_fs, base_exs, nsp,
     else:
         print "\n\nGenerating splits and negatives."
         pdtrain,splits = base_splits(species, elut_fs, split_props,
-                ind_cycle, pos_splits, gold_consv_sp, gidscheme)
+                ind_cycle, both_cx_splits, gold_consv_sp, gidscheme, go_location)
         ntest_pos = len([v for k,v in pdtrain.d.items() if v[0]==1])
     print 'total train/cv positives:', ntest_pos
     arrfeats = new_score_array(pdtrain, scores, elut_fs, extdata) 
@@ -50,9 +51,10 @@ def feature_array(species, elut_fs, base_exs, nsp,
             extdata, gidscheme, nsp=nsp, do_filter=do_filter, **score_kwargs)
     if nsp > 1 and do_filter:
         arrfeats = fe.filter_nsp_nocounts(arrfeats, nsp=nsp, cutoff=cutoff) 
-    print 'done.'#, stats(train)
+    print 'done.', stats(arrfeats)
     return Struct(arrfeats=arrfeats, ntest_pos=ntest_pos, splits=splits)
-    
+
+
 def check_nspecies(fnames, nsp):
     nspec_fracs = len(set([ut.shortname(f)[:2] for f in fnames]))
     assert nspec_fracs >= nsp, ("** Can't use %s species; only %s species" %
@@ -61,12 +63,12 @@ def check_nspecies(fnames, nsp):
 def pd_from_arr(arr):
     return PairDict([[p[0],p[1],p[2]] for p in arr])
 
-def base_splits(species, elut_fs, splits, ind_cycle, pos_splits, consv_sp,
-        gidscheme):
+def base_splits(species, elut_fs, splits, ind_cycle, both_cx_splits, consv_sp,
+        gidscheme, go_location):
     ppi_cxs,clean_cxs,all_cxs = load_training_complexes(species,
-            gidscheme, consv_sp=consv_sp)
+            gidscheme, consv_sp=consv_sp, go_location=go_location)
     return ex.base_examples_single(ppi_cxs, clean_cxs, all_cxs,
-            splits, pos_splits=pos_splits, ind_cycle=ind_cycle)
+            splits, both_cx_splits=both_cx_splits, ind_cycle=ind_cycle)
 
 def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
         extdata=['net_Hs19']+extfs, nsp=1, cutoff=0.25, base_arr=None,
@@ -168,14 +170,14 @@ def check_overlaps(pdtrain, pdtest):
     else:
         print "No common pairs between train/test."
 
-def stats(train, test):
-    nums =  [sum(arr['hit']==tf) for arr in train,test for tf in [1,0]]
-    return 'train %sP/%sN; test %sP/%sN' % tuple(nums)
+def stats(arr):
+    nums =  [sum(arr['hit']==tf) for tf in [1,0]]
+    return 'arrfeats: %sP/%sN' % tuple(nums)
 
-def load_training_complexes(species, gidscheme, consv_sp=''):
-    ppi = co.load_ppi_cxs()
-    clean = co.load_merged_cxs()
-    allcxs = co.load_ppi_cxs(minlen=2,maxlen=1000)
+def load_training_complexes(species, gidscheme, consv_sp='', go_location=None):
+    ppi = co.load_ppi_cxs(go_location=go_location)
+    clean = co.load_merged_cxs(go_location=go_location)
+    allcxs = co.load_ppi_cxs(minlen=2,maxlen=1000, go_location=go_location )
     ppi,clean,allcxs = [convert_complexes(cxs, species, gidscheme, consv_sp)
             for cxs in [ppi,clean,allcxs]]
     return ppi,clean,allcxs

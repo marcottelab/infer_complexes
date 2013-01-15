@@ -93,7 +93,7 @@ def targ2base(sp_base, sp_target):
 def file_sp(filename):
     return ut.shortname(filename)[:2]
 
-def all_prots(elut_fs, sp_base=None, min_count=0):
+def all_prots(elut_fs, sp_base=None, min_count=2):
     print 'Loading all proteins from files'
     allprots = set([])
     for f in elut_fs:
