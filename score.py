@@ -26,7 +26,8 @@ def score_array_multi(arr, sp_base, elut_fs, scores, cutoff, verbose=False,
                 remove_multi_base)
         for score in scores:
             if verbose: print score, f
-            score_array(arr, e, f, score, cutoff, baseid2inds)
+            score_array(arr, e, f, score, cutoff, baseid2inds, lambda prots:
+                    orth_indices(sp_base, sp_target, prots, remove_multi_base))
 
 def orth_indices(sp_base, sp_target, prot_list, remove_multi_base):
     """
@@ -62,7 +63,7 @@ def remove_multi_keys(d, max_keys=1):
                 break
     return newd
 
-def score_array(arr, elut, fname, score, cutoff, id2inds):
+def score_array(arr, elut, fname, score, cutoff, id2inds, recalc_id2inds):
     """
     Use the target species score matrix to get interaction pair in the base
     species array.  Don't score and just leave as default (0 now) cases where
@@ -80,6 +81,12 @@ def score_array(arr, elut, fname, score, cutoff, id2inds):
     elif score == 'euclidean':
         score_mat = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
                 metric=score)
+    elif score == 'maxquant_euc':
+        # Use mq specific elution file.
+        elut = el.load_elution(os.path.splitext(fname)[0] +'.mq_Intensity.tab')
+        id2inds = recalc_id2inds(elut.prots)
+        score_mat = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
+                metric='euclidean')
     else:
         fscore = fname + (
                   '.corr_poisson' if score=='poisson' else

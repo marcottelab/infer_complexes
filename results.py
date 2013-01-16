@@ -15,7 +15,7 @@ import examples as ex
 
 clf_factories = {'svm': (ml.svm, ml.linear), 'tree': (ml.tree, ml.tree_feats)}
 
-def cvtest(name, base_sp, nsp, fs, base_featstruct, kfold=10, clf_type='svm',
+def cvtest(name, base_sp, nsp, fs, base_featstruct, kfold=10, clf_type='tree',
         nfeats=40, norm=True, ppi_output=None, train_limit=None,
         save_data=True, balance_train=True, **kwargs):
     """

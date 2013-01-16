@@ -26,11 +26,21 @@ def load_havug_ppis():
 
 def load_havug_cxppis():
     hints = load_havug_ppis()
-    u2e = ut.dict_inverse_sets(ut.load_dict_sets('../../data/convert/Hs2Hs_uni.tab'))
-    hcxsu = ut.load_list_of_type('havig_complexes.tab',set)
-    hcxs = ut.i1(convert_complexes(dict([(i,c) for i,c in enumerate(hcxsu)]), u2e, seqs.load_prots_from_fasta('../../data/sequences/canon/Hs.fasta')))
-    hints = cl._filter_ints(hints, hcxs)
+    hcxs = load_havug_cxs()
+    hints = cl._filter_ints(hints, ut.i1(hcxs))
     return hints
+
+def load_havug_cxs(convert_ensg=True):
+    fname = ut.proj_path('havug_cxs')
+    u2e = ut.dict_inverse_sets(ut.load_dict_sets(
+        '../../data/convert/Hs2Hs_uni.tab'))
+    hcxs = ut.load_list_of_type(fname,set)
+    if convert_ensg:
+        hcxs = convert_complexes(dict([(i,c) for i,c in
+            enumerate(hcxs)]), u2e,
+            seqs.load_prots_from_fasta('../../data/sequences/canon/Hs.fasta'))
+    return hcxs
+
 
 def filter_location(cxs, go_location):
     """
