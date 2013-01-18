@@ -6,6 +6,8 @@ import numpy as np
 import elution as el
 import score as sc
 import hcluster
+import Pycluster
+from pandas import DataFrame
 
 YSCALE = np.log2(100)
 
@@ -79,12 +81,11 @@ def save_bigprofiles(prots, protids, unnorm_eluts, fname, **kwargs):
     pl.clf()
 
 def single_array(gids, unnorm_eluts, sp='Hs', min_count=2,
-        remove_multi_base=False, gtrans=None, norm_rows=False):
+        remove_multi_base=False, norm_rows=False):
     """
     unnorm_eluts: [el.NormElut(f, sp=sp, norm_cols=False, norm_rows=False) for f in fs]
     """
     import plotting as pl
-    gt = seqs.GTrans() if gtrans is None else gtrans
     use_eluts = elutions_containing_prots(unnorm_eluts, sp, gids, min_count)
     ncols = sum([e.normarr.shape[1] for e in use_eluts])
     bigarr = np.zeros((len(gids), ncols))
@@ -105,11 +106,13 @@ def single_array(gids, unnorm_eluts, sp='Hs', min_count=2,
     return bigarr
 
 def cluster_ids(gids, unnorm_eluts, gt=None, dist='cosine', do_plot=True,
-        norm_rows=True, **kwargs):
+        norm_rows=True, bigarr=None, **kwargs):
     import plotting as pl
-    arr = single_array(gids, unnorm_eluts, norm_rows=norm_rows)
+    arr = (bigarr if bigarr is not None else single_array(gids, unnorm_eluts,
+        norm_rows=norm_rows))
     ymat = hcluster.pdist(arr, metric=dist)
     zmat = hcluster.linkage(ymat)
+    zmat = np.clip(zmat, 0, 10**8)
     if do_plot: pl.figure()
     order = hcluster.dendrogram(zmat, no_plot=bool(1-do_plot), 
             **kwargs)['leaves']
@@ -318,3 +321,25 @@ def plot_sums(fs, shape=None):
         pl.title(ut.shortname(f))
         sums = np.sum(e.mat,axis=0)
         pl.plot(range(sums.shape[1]), sums[0,:].T)
+
+def treeview_eluts(name, fs, base_sp='Hs', gt=None, ids=None, bigarr=None):
+    print "Building big array."
+    ids = ids or el.all_prots(fs,sp_base=base_sp)
+    gt = gt or seqs.GTrans()
+    gene_names = [gt.id2name.get(x,x) for x in ids]
+    if bigarr is None:
+        unes = [el.NormElut(f,norm_rows=False,norm_cols=False) for f in fs]
+        bigarr = single_array(ids, unes, norm_rows=True)
+        df = DataFrame(data=bigarr, 
+                index=list(gene_names), 
+                columns=ut.flatten([[ut.shortname(u.filename)+'_'+str(i) 
+                    for i in range(u.normarr.shape[1])] for u in unes]))
+    print "Writing to temp file and reading into Pycluster object."
+    tempf = name + '.tab'
+    df.to_csv(tempf, sep='\t')
+    record = Pycluster.Record(open(tempf))
+    os.remove(tempf)
+    print "Clustering."
+    tree = record.treecluster()
+    print "Saving."
+    record.save(name, tree)
