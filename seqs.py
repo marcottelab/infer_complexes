@@ -62,6 +62,11 @@ def _load_prots_to_lol(fname):
             prots_clean[-1].append(line)
     return prots_clean
 
+def load_seqs_from_fasta(fname):
+    lol = _load_prots_to_lol(fname)
+    return dict([(item[0].split()[0].strip('>'),''.join(item[1:])) 
+        for item in lol])
+
 def load_prots_from_fasta(fname):
     """
     Files are in data/sequences/canon.  
@@ -147,9 +152,13 @@ class GTrans(object):
 
     def __init__(self, sp='Hs'):
         lines = ut.load_list_of_lists(ut.proj_path('gene_desc_'+sp))[1:]
-        self.gnames = [(l[1].lower(), l[2]) for l in lines]
-        self.name2id = dict([(l[1].lower(),l[0]) for l in lines])
-        self.id2name = dict([(l[0], l[1].lower()) for l in lines])
+        processed = [(l[0],l[1].lower(),l[2] if len(l)>2 else '') for l in lines]
+        self.gnames = [(l[1], l[2]) for l in processed]
+        self.name2id = dict([(l[1],l[0]) for l in processed])
+        self.id2name = dict([(l[0], l[1]) for l in processed])
+        self.name2desc = dict(self.gnames)
+        self.id2desc = dict([(l[0],l[2]) for l in processed])
+
 
     def gfind(self, name):
         name = name.lower()
@@ -161,8 +170,8 @@ class GTrans(object):
                 g[1].find(key)>-1]
 
 
-def ids2names(ids, **kwargs):
-    gt = GTrans(**kwargs)
+def ids2names(ids, gt=None, **kwargs):
+    gt = gt or GTrans(**kwargs)
     return [gt.id2name[i] for i in ids]
 
 def names2ids(names, **kwargs):

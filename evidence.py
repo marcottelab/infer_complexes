@@ -5,7 +5,6 @@ import seqs
 import numpy as np
 import elution as el
 import score as sc
-import hcluster
 import Pycluster
 from pandas import DataFrame
 
@@ -71,13 +70,13 @@ def save_many_bigprofiles(ind_cxs, unnorm_eluts, fpath, **kwargs):
                 os.rmdir(tempdir)
 
 
-def save_bigprofiles(prots, protids, unnorm_eluts, fname, **kwargs):
+def save_bigprofiles(prots, protids, unnorm_eluts, fname, hires_mult=1, **kwargs):
     import plotting as pl
     nplots = plot_bigprofiles(prots, protids, unnorm_eluts, **kwargs)
     fig = pl.gcf()
     nprots = len(prots) if prots else len(protids)
     fig.set_size_inches(20, 4+(nplots/4)*nprots)
-    pl.savefig(fname, bbox_inches='tight', dpi=200)
+    pl.savefig(fname, bbox_inches='tight', dpi=200*hires_mult)
     pl.clf()
 
 def single_array(gids, unnorm_eluts, sp='Hs', min_count=2,
@@ -108,6 +107,7 @@ def single_array(gids, unnorm_eluts, sp='Hs', min_count=2,
 def cluster_ids(gids, unnorm_eluts, gt=None, dist='cosine', do_plot=True,
         norm_rows=True, bigarr=None, **kwargs):
     import plotting as pl
+    import hcluster
     arr = (bigarr if bigarr is not None else single_array(gids, unnorm_eluts,
         norm_rows=norm_rows))
     ymat = hcluster.pdist(arr, metric=dist)
@@ -125,7 +125,7 @@ def cluster_ids(gids, unnorm_eluts, gt=None, dist='cosine', do_plot=True,
 
 def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=2,
         remove_multi_base=False, gt=None, eluts_per_plot=10,
-        do_cluster=False, label_trans=None, **kwargs):
+        do_cluster=True, label_trans=None, do_plot_tree=False, **kwargs):
     """
     supply EITHER prots OR protids, set other to None
     unnorm_eluts: [el.NormElut(f, sp=sp, norm_cols=False, norm_rows=False) for f in fs]
@@ -135,16 +135,17 @@ def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=2,
         pids = [gt.name2id[p] for p in prots]
     if do_cluster:
         print "clustering"
-        pids = cluster_ids(pids, unnorm_eluts, gt=gt, do_plot=False, 
+        pids = cluster_ids(pids, unnorm_eluts, gt=gt, do_plot=do_plot_tree, 
                 **kwargs)
     if gt is not None:
         prots = [gt.id2name[pid] for pid in pids if pid in gt.id2name] #re-order to match
     else:
         prots = pids
+        print "No gene names provided--labeling with ids."
     if label_trans: 
         # Translate displayed names from base ids according to provided dict
         prots = [list(label_trans[pid])[0] if pid in label_trans else
-            gtrans.id2name[pid] for pid in pids]
+            gt.id2name[pid] for pid in pids]
     use_eluts = elutions_containing_prots(unnorm_eluts, sp, pids, min_count)
     nplots = int(np.ceil(len(use_eluts) / eluts_per_plot))
     maxfracs = 0
@@ -343,3 +344,16 @@ def treeview_eluts(name, fs, base_sp='Hs', gt=None, ids=None, bigarr=None):
     tree = record.treecluster()
     print "Saving."
     record.save(name, tree)
+
+def gene_ppis(gnames, gids, ppis, gtrans=None, sp='Hs'):
+    """
+    Provide pres.ppis as input, get all interactors with the provied genes via
+    gnames or gids.
+    """
+    gt = gtrans or seqs.GTrans(sp=sp)
+    gids = gids or [gt.name2id[n] for n in gnames]
+    gids = set(gids)
+    return [(gt.id2name[p[0]], gt.id2name[p[1]], p[2], gt.id2desc[p[0]],
+        gt.id2desc[p[1]]) for p in ppis if p[0] in gids or p[1] in gids]
+
+    

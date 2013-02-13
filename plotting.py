@@ -10,6 +10,7 @@ from Struct import Struct
 import utils as ut
 import pairdict as pd
 import hcluster
+import pandas as pa
 
 
 COLORS = ['#4571A8', 'black', '#A8423F', '#89A64E', '#6E548D', '#3D96AE',
@@ -150,6 +151,17 @@ def ppis_scatter(ppis1, ppis2, useinds=range(3)):
     v1s,v2s = zip(*vals[:nvals]), zip(*vals[nvals:])
     return v1s,v2s
 
+def eluts_scatter(avals, alabels, bvals, blabels):
+    """
+    vals are the columns of data to scatter (eg, el.mat[:,0]).  
+    labels are el.prots.
+    """
+    dfs = [pa.DataFrame(data=vals,index=labels) for vals,labels in
+            [(avals,alabels),(bvals,blabels)]]
+    dfout = dfs[0].join(dfs[1], how='outer', rsuffix='_b')
+    dfout = dfout.fillna(0)
+    return dfout.values[:,0],dfout.values[:,1]
+
 def cluster_elut(mat):
     ymat = hcluster.pdist(mat)
     zmat = hcluster.linkage(ymat)
@@ -170,27 +182,29 @@ def profiles_cxs(e, cxs, **kwargs):
     imshow(vals, **kwargs)
     return vals
 
-def scatter_blake(a, b, which='points', classes=[0,1], colors=['k','r'],
+def scatter_blake(a, b, which='fadepoints', classes=[0,1], colors=['k','r'],
         **kwargs):
     defaults = {'s': 4, 'lw':0}
     kwargs = ut.dict_set_defaults(kwargs, defaults)
-    if len(a[0]) == 2:
+    if type(a[0]) == list or type(a[0]) == tuple:
         # second value is presumed to be class--should be 0 or 1, which will be
         # mapped to the colormap cmap.
         # Also need to clean a and b to just be values rather than values and
         # classes.
         print 'using classes'
         assert ut.i1(a) == ut.i1(b), "Classes not the same between a and b"
-        usecolors = [colors[0] if x==classes[0] else colors[1] for x in
+        kwargs['c'] = [colors[0] if x==classes[0] else colors[1] for x in
                 ut.i1(a)]
         a,b = ut.i0(a), ut.i0(b)
     else:
         c = 'k'
     if which=='pointcloud':
-        scatter(a, b, c=usecolors, **kwargs)
-        scatter(a, b, s=50, alpha=0.08, c=usecolors, lw=0)
+        scatter(a, b, s=50, alpha=0.08, lw=0)
+        scatter(a, b, **kwargs)
     elif which=='points':
-        scatter(a, b, c=usecolors, **kwargs)
+        scatter(a, b, **kwargs)
+    elif which=='fadepoints':
+        scatter(a, b, s=50, alpha=0.2, lw=0)
     title('R-squared: %0.3f' % ut.r_squared(a,b))
 
 def hexbin_blake(a, b, **kwargs):
@@ -200,6 +214,10 @@ def hexbin_blake(a, b, **kwargs):
 
 def multi_scatter(comps,scatter_func=scatter_blake, preprocess=None,
         names=None, **kwargs):
+    """
+    Takes care of making subplots and labeling axes when comparing more than
+    two sets of values.
+    """
     total = len(comps)
     for i in range(total):
         for j in range(i+1,total):

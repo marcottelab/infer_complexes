@@ -79,8 +79,8 @@ def calculate_mass(peptide):
 
     
 def msgf2seq_file(filename, fasta_file, seq_header):
-    # Get the sample filename from the first item of the third line
     usedir = os.path.split(filename)[0] 
+    # Get the sample filename from the first item of the third line
     fout = next(it.islice(ut.load_tab_file(filename),2,3))[0].split('.')[0]
     fout = os.path.join(usedir, fout + '.mzXML_dta.txt')
     in_gen = ut.load_tab_file(filename)

@@ -32,6 +32,7 @@ ext_Dm_guru    Dm_fbgn_guruharsha_ints.tab
 net_Ce_ce5  Ce_net/Ce_net_ce5.tab
 net_Ce_multi15  Ce_net/Ce_net_multi15.tab
 net_Ce_multi17  Ce_net/Ce_net_multi17.tab
+ext_Hs_coev Hs_uni_coevolution.tab
 
 # fasta identifier type defaults
 Ce_default  wbgn
