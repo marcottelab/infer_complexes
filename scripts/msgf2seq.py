@@ -5,6 +5,7 @@ import subprocess
 from os.path import abspath
 import os
 import sys
+sys.path.append(os.path.dirname(abspath(__file__))+'/../')
 import utils as ut
 import seqs
 
@@ -38,7 +39,13 @@ AAS = dict(
 DECOY = 'rv_'
 SEQ_DECOY = 'rm_'
 
-def msgfbest2sequest_line(r, prots2genes):
+searches = {
+        'logSpecProb_hit_list_best': 'msgfdb',
+        'MQscore_hit_list_best': 'inspect', 
+        'xcorr_hit_list_best': 'tide' 
+        }
+
+def msgfbest2sequest_line(r, prots2genes, search):
     fname_ind_scan_charge = r[0]
     charge = float(r[1])
     msgf_mass = float(r[2])
@@ -46,9 +53,9 @@ def msgfbest2sequest_line(r, prots2genes):
     peptide = r[4]
     protein = r[5]
     protid = protein[3:] if protein.startswith(DECOY) else protein
-    geneid = prots2genes[protid]
+    geneid = prots2genes[protid] if prots2genes is not None else protid
     seq_protein = SEQ_DECOY + geneid if protein.startswith(DECOY) else geneid
-    seq_mass = msgf2seq_mass(msgf_mass, charge)
+    seq_mass = msgf2seq_mass(msgf_mass, charge, search)
     seq_diff = calculate_mass(peptide) - seq_mass
     seq_diff_temp = seq_diff
     for i in range(5):
@@ -69,43 +76,59 @@ def msgfbest2sequest_line(r, prots2genes):
             ]])
     return line_out
 
-def msgf2seq_mass(m, z):
-    # msgfdb uses observed m/z, sequest uses an estimate of the molecular mass
-    # of the observed peptide
-    return m * z - z * PROTON
+def msgf2seq_mass(m, z, search):
+    # msgfdb and inspect use observed m/z. 
+    # tide uses something weird.
+    # sequest uses an estimate of the molecular mass of the observed peptide
+    if search in ['msgfdb','inspect']:
+        return m * z - z * PROTON
+    elif search == 'tide':
+        return m * z
 
 def calculate_mass(peptide):
     return sum([AAS[aa] for aa in peptide]) + WATER
 
     
-def msgf2seq_file(filename, fasta_file, seq_header):
-    usedir = os.path.split(filename)[0] 
+def msgf2seq_file(filepath, fasta_file, msb_psms):
+    """
+    msb_psms: set of spectid_peptidesequence
+    """
+    def parse_spec_pep_row(r):
+        # get spec_pep from _best file format
+        return r[0].split('.')[1] + '_' + r[4]
+    usedir,fin = os.path.split(filepath)
     # Get the sample filename from the first item of the third line
-    fout = next(it.islice(ut.load_tab_file(filename),2,3))[0].split('.')[0]
-    fout = os.path.join(usedir, fout + '.mzXML_dta.txt')
-    in_gen = ut.load_tab_file(filename)
+    fout = next(it.islice(ut.load_tab_file(filepath),2,3))[0].split('.')[0]
+    in_gen = ut.load_tab_file(filepath)
     in_gen.next(); in_gen.next() # skip 2 lines
     p2g = seqs.prots2genes(fasta_file)
-    temp_fout = fout + '_tmp'
-    ut.write_tab_file((msgfbest2sequest_line(r,p2g) for r in in_gen),
-            temp_fout)
-    subprocess.call('cat %s %s > %s' % (abspath(seq_header),
-        abspath(temp_fout), abspath(fout)), shell=True)
-    os.remove(temp_fout)
+    fout = os.path.join(usedir, '.'.join([fout, fin.split('.')[-1] ,
+        'sequestformat']))
+    search = searches[filepath.split('.')[-1]]
+    print "Converting/filtering; Search:", search
+    output = (msgfbest2sequest_line(r,p2g, search) for r in in_gen 
+            if parse_spec_pep_row(r) in msb_psms)
+    print "Writing", fout
+    ut.write_tab_file(output, fout)
     return fout
+
+def parse_msb_psms(fname):
+    item1s = (line[0] for line in ut.load_tab_file(fname))
+    # ex: WAN110811_HCW_HEK293NE_P1D08.01387.2.SGNLTEDDKHNNAK
+    item1s.next() # skip 1 line
+    spect_pep = (spect+'_'+pep for _,spect,_,pep in 
+            (i1.split('.') for i1 in item1s))
+    return set(spect_pep)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        sys.exit("usage: python script_msgf2seq.py fasta_file seq_header filename(s)") 
+        sys.exit("usage: python script_msgf2seq.py fasta_file msb_psm_file filename(s)") 
     fasta_file = sys.argv[1]
-    seq_header = sys.argv[2]
+    msb_psm_file = sys.argv[2]
     filenames = sys.argv[3:]
+    print "Loading msblender output", msb_psm_file
+    msb_psms = parse_msb_psms(msb_psm_file)
     for f in filenames:
-        fout = msgf2seq_file(f, fasta_file, seq_header)
-        # move to appropriate folder
-        currdir, fout_name = os.path.split(fout)
-        new_dirname = fout_name.split('.')[0] + '.mzXML_dta'
-        dest = os.path.join(currdir,new_dirname,fout_name)
-        #print 'moving:', fout, dest
-        os.rename(fout, dest)
+        print "Loading search output", f
+        fout = msgf2seq_file(f, fasta_file, msb_psms)
 
