@@ -536,7 +536,7 @@ def config():
     return dconf
 
 ##########################################
-# Misc helper functions
+# File and I/O helper functions
 ##########################################
 
 def confirm(prompt="Continue? y/n"):
