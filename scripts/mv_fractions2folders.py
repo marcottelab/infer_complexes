@@ -28,8 +28,7 @@ def maybe_move(fpath, file2folder, remove_final_underscore):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        sys.exit("usage: python blah.py files2folders.txt
-                remove_final_underscore{0,1} filename(s)") 
+        sys.exit("usage: python blah.py files2folders.txt remove_final_underscore{0,1} filename(s)") 
     fname_map = sys.argv[1]
     remove_final_underscore = int(sys.argv[2])
     print "Remove final underscore", "yes" if remove_final_underscore else "no"
