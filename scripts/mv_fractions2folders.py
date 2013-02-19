@@ -4,7 +4,7 @@ import sys
 sys.path.append(os.path.dirname(abspath(__file__))+'/../')
 import utils as ut
 
-def maybe_move(fpath, file2folder, remove_final_underscore=True):
+def maybe_move(fpath, file2folder, remove_final_underscore):
     if not os.path.exists(fpath):
         print "File not found:", fpath
         return
@@ -28,9 +28,12 @@ def maybe_move(fpath, file2folder, remove_final_underscore=True):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        sys.exit("usage: python blah.py files2folders.txt filename(s)") 
+        sys.exit("usage: python blah.py files2folders.txt
+                remove_final_underscore{0,1} filename(s)") 
     fname_map = sys.argv[1]
-    filenames = sys.argv[2:]
+    remove_final_underscore = int(sys.argv[2])
+    print "Remove final underscore", "yes" if remove_final_underscore else "no"
+    filenames = sys.argv[3:]
     files2folders = dict(ut.load_tab_file(fname_map))
     for f in filenames:
-        maybe_move(f, files2folders)
+        maybe_move(f, files2folders, remove_final_underscore)
