@@ -6,10 +6,10 @@ sys.path.append(os.path.dirname(abspath(__file__))+'/../')
 import utils as ut
 
 exec_unf = os.path.expanduser(
-"~/Dropbox/complex/tools/unfinnigan-14107a88926c/perl/Finnigan/bin/uf-mzml -c"
+"~/Dropbox/complex/tools/unfinnigan/perl/Finnigan/bin/uf-mzml -c"
 )
 exec_msconvert = os.path.expanduser(
-"~/Dropbox/complex/tools/pwiz-bin-linux-x86_64-gcc42-release-3_0_4268/msconvert --32 --mzXML"
+"~/Dropbox/complex/tools/pwiz/msconvert --32 --mzXML"
 )
 
 def process(fpath, destdir, do_copysource):
