@@ -69,8 +69,7 @@ def loadlab(fname, loadfunc=loadpy, copy=True):
             return loadfunc(remotef)
     elif confirm(prompt="Remote mount not found. Use scp? [y/n]: "):
         source = os.path.join("Dropbox",exp_dirs(),fname)
-        subprocess.call("scp lovelace:%s ." % source,
-                shell=True)
+        run_command("scp lovelace:%s ." % source)
         print "Copied locally."
         return loadfunc(fname)
     else:
@@ -565,3 +564,7 @@ def temp_placeholder(path):
         else:
             return False
     return True
+
+def run_command(cmd):
+    print cmd
+    subprocess.call(cmd, shell=True)

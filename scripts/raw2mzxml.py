@@ -6,47 +6,60 @@ sys.path.append(os.path.dirname(abspath(__file__))+'/../')
 import utils as ut
 
 exec_unf = os.path.expanduser(
-"~/Dropbox/complex/tools/unfinnigan-14107a88926c/ perl/Finnigan/bin/uf-mzml -c"
+"~/Dropbox/complex/tools/unfinnigan-14107a88926c/perl/Finnigan/bin/uf-mzml -c"
 )
 exec_msconvert = os.path.expanduser(
-"""
-~/Dropbox/complex/tools/pwiz-bin-linux-x86_64-gcc42-release-3_0_4268/msconvert 
---32 --mzXML
-"""
+"~/Dropbox/complex/tools/pwiz-bin-linux-x86_64-gcc42-release-3_0_4268/msconvert --32 --mzXML"
 )
 
-def process(fpath, destdir):
-    f_mzml = maybe_unf(fpath, destdir)
-    maybe_msconvert(f_mzml)
-    f_mzxml = os.remove(f_mzml)
-    compress(f_mzxml)
-
-def maybe_unf(pathin, destdir):
-    fname = os.path.split(pathin)[1]
-    outpath = os.path.join(destdir, fname)
-    cmd = "%s %s > %s" % (exec_unf, pathin, pathout)
-    check_run(cmd, outpath)
-    return fout
-
-def check_run(cmd, pathout):
+def process(fpath, destdir, do_copysource):
+    fname = os.path.split(fpath)[1]
+    new_fname = os.path.splitext(fname)[0] + '.mzXML.gz'
+    pathout = os.path.join(destdir, new_fname)
     if not os.path.exists(pathout):
         tempdir = pathout + ".tmp"
         if ut.temp_placeholder(tempdir):
-            print cmd
-            subprocess.call(cmd)
+            if do_copysource:
+                fpath = copy_source(fpath, destdir)
+            f_mzml = unf(fpath, destdir)
+            if do_copysource:
+                os.remove(fpath)
+            f_mzxml = msconvert(f_mzml)
+            os.remove(f_mzml)
+            compress(f_mzxml)
             os.rmdir(tempdir)
 
-def maybe_msconvert(fin):
+def copy_source(fpath, destdir):
+    ut.run_command('cp %s %s' % (fpath, destdir))
+    pathnew = os.path.join(destdir, os.path.split(fpath)[1])
+    return pathnew
+
+def unf(pathin, destdir):
+    fname = os.path.split(pathin)[1]
+    outname = os.path.splitext(fname)[0] + '.mzML'
+    outpath = os.path.join(destdir, outname)
+    cmd = "%s %s > %s" % (exec_unf, pathin, outpath)
+    ut.run_command(cmd)
+    return outpath
+
+def msconvert(fin):
     fout = fin.replace('.mzML','.mzXML')
-    cmd = "%s %s" % (exec_msconvert, fin)
-    check_run(cmd, fout)
+    out_newdir = os.path.splitext(fout)[0]
+    cmd = "%s %s -o %s" % (exec_msconvert, fin, out_newdir)
+    ut.run_command(cmd)
+    match_output = os.path.join(out_newdir, '*.mzXML')
+    ut.run_command('mv %s %s' % (match_output, fout))
+    os.rmdir(out_newdir)
     return fout
 
-def compress
+def compress(fname):
+    cmd = "gzip %s" % fname
+    ut.run_command(cmd)
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        sys.exit("usage: python blah.py filename destdir") 
+    if len(sys.argv) < 3:
+        sys.exit("usage: python blah.py filename destdir copy_source{0,1}") 
     filename = sys.argv[1]
-    dest = sys.argv[2]
-    process(filename, dest)
+    destdir = sys.argv[2]
+    do_copysource = int(sys.argv[3])
+    process(filename, destdir, do_copysource)
