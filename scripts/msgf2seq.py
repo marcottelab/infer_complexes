@@ -95,7 +95,9 @@ def msgf2seq_file(filepath, fasta_file, msb_psms):
     """
     def parse_spec_pep_row(r):
         # get spec_pep from _best file format
-        return r[0].split('.')[1] + '_' + r[4]
+        parsed = '_'.join(r[0].split('.')[:2] + [r[4]])
+        #print parsed
+        return parsed
     usedir,fin = os.path.split(filepath)
     # Get the sample filename from the first item of the third line
     fout = next(it.islice(ut.load_tab_file(filepath),2,3))[0].split('.')[0]
@@ -116,7 +118,7 @@ def parse_msb_psms(fname):
     item1s = (line[0] for line in ut.load_tab_file(fname))
     # ex: WAN110811_HCW_HEK293NE_P1D08.01387.2.SGNLTEDDKHNNAK
     item1s.next() # skip 1 line
-    spect_pep = (spect+'_'+pep for _,spect,_,pep in 
+    spect_pep = ('_'.join([sample,spect,pep]) for sample,spect,_,pep in 
             (i1.split('.') for i1 in item1s))
     return set(spect_pep)
 
@@ -128,6 +130,7 @@ if __name__ == '__main__':
     filenames = sys.argv[3:]
     print "Loading msblender output", msb_psm_file
     msb_psms = parse_msb_psms(msb_psm_file)
+    #print "msb psms 0:", list(msb_psms)[0]
     for f in filenames:
         print "Loading search output", f
         fout = msgf2seq_file(f, fasta_file, msb_psms)
