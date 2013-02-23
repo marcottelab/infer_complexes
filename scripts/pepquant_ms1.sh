@@ -14,7 +14,7 @@ py_convert=$py_dir/msgf2seq.py
 py_combine=$py_dir/sequest2txt.py
 
 # extract mzXML files to mzXML_data directories
-java -jar $source_dir/MSGFplusExtractor.jar $project_dir
+java -Xmx500M -jar $source_dir/MSGFplusExtractor.jar $project_dir
 # convert output from search engines and msblender filter into sequest format
 python $py_convert $fasta $project_dir/*pep_count_FDR*.log $project_dir/*_best
 # combine output files from separate search engines into sequest input
