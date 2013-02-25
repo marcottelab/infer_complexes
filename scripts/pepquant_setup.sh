@@ -4,7 +4,7 @@ abspath(){ python -c "import os.path; print os.path.abspath('$1')" ; }
 usage="Usage: pepquant_setup.sh <data_root> <project_name> <output_dir>"
 if [ $# -lt 3 ] ; then
     echo $usage
-    exit 1
+    return 1
 fi
 # Assumes folder structure:
 # data root
@@ -29,13 +29,13 @@ data_root=$1
 project_name=$2
 output_dir=$3
 script_dir=$(dirname $(abspath $0))
-pq_run=$script_dir/pepquant_ms1.py
+pq_run=$script_dir/pepquant_ms1.sh
 
 # create project folder
 project_dir=$output_dir/$project_name
 if [ -d $project_dir ]; then
     echo "output/project exists:" $project_dir
-    exit 1
+    return 1
 fi
 mkdir $project_dir
 
@@ -52,4 +52,4 @@ echo "using fasta "$fasta
 sed 's/FASTA_FILE/'$fasta'/g' $source_dir/sequest.params > $project_dir/sequest.params
 
 # run pepquant
-python $pq_run $fasta $project_dir
+./$pq_run $fasta $project_dir
