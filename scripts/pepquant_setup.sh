@@ -22,7 +22,7 @@ fi
 
 # constants
 mzxml_dirname="mz_ms1"
-msb_out_dirname="mzb_output"
+msb_out_dirname="msb_output"
 
 source_dir=$(pwd)
 data_root=$1
@@ -52,5 +52,4 @@ echo "using fasta "$fasta
 sed 's/FASTA_FILE/'$fasta'/g' $source_dir/sequest.params > $project_dir/sequest.params
 
 # run pepquant
-#python $pq_run $fasta $project_dir
-
+python $pq_run $fasta $project_dir
