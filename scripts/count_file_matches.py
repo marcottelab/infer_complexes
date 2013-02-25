@@ -6,8 +6,8 @@ sys.path.append(os.path.dirname(abspath(__file__))+'/../')
 import utils as ut
 
 def countfs(fmap, filenames):
-    fshorts = [f.split('.')[0] for f in filenames]
-    counts = [count_dict_values(fmap, x) for x in fmap.keys(), fshorts]
+    fshorts = [ut.shortname(f) for f in filenames]
+    counts = [count_dict_values(fmap, x) for x in [fmap.keys(), fshorts]]
     print "folder original_counts current_counts"
     output = [(folder, counts[0][folder], counts[1][folder]) for folder in
             sorted(set(fmap.values()))]
