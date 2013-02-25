@@ -8,7 +8,7 @@ def maybe_move(fpath, file2folder, remove_final_underscore):
     if not os.path.exists(fpath):
         print "File not found:", fpath
         return
-    basename = ut.shortname(fpath).split('.')[0]
+    basename = ut.shortname(fpath)
     if remove_final_underscore:
         basename = ('_'.join(basename.split('_')[:3]) 
                 if len(basename.split('_'))>2 else basename)

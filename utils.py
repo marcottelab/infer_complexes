@@ -288,7 +288,7 @@ def pre_ext(fname, preext):
     return os.path.join(path, basename+preext+ext)
 
 def shortname(fname):
-    return os.path.splitext(os.path.basename(fname))[0]
+    return os.path.basename(fname).split('.')[0]
 
 def load_dict_flat(fname):
     # insted use dict(load_tab_file(fname))
