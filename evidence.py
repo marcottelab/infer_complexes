@@ -143,9 +143,10 @@ def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=2,
         prots = pids
         print "No gene names provided--labeling with ids."
     if label_trans: 
+        print "Translating names for display."
         # Translate displayed names from base ids according to provided dict
-        prots = [list(label_trans[pid])[0] if pid in label_trans else
-            gt.id2name[pid] for pid in pids]
+        #prots = [gt.id2name[pid] for pid in pids]
+        prots = [label_trans[p] if p in label_trans else p for p in prots]
     use_eluts = elutions_containing_prots(unnorm_eluts, sp, pids, min_count)
     nplots = int(np.ceil(len(use_eluts) / eluts_per_plot))
     maxfracs = 0
