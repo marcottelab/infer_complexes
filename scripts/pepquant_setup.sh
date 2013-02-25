@@ -2,7 +2,7 @@
 abspath(){ python -c "import os.path; print os.path.abspath('$1')" ; }
 
 usage="Usage: pepquant_setup.sh <data_root> <project_name> <output_dir>"
-if [ $# -lt 4 ] ; then
+if [ $# -lt 3 ] ; then
     echo $usage
     exit 1
 fi
@@ -35,7 +35,7 @@ pq_run=$script_dir/pepquant_ms1.py
 project_dir=$output_dir/$project_name
 if [ -d $project_dir ]; then
     echo "output/project exists:" $project_dir
-    return 1
+    exit 1
 fi
 mkdir $project_dir
 
