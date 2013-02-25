@@ -19,8 +19,7 @@ def cvtest(name, base_sp, nsp, fs, base_featstruct, kfold=10, clf_type='tree',
         nfeats=40, norm=True, ppi_output=None, train_limit=None,
         save_data=True, balance_train=True, **kwargs):
     """
-    Making base train/test: give ttbase as None, pass do_filter=False, fs=[],
-    extdata=[], nfeats=None
+    
     """
     exs = ppi.feature_array(base_sp, fs, base_featstruct,
             nsp, **kwargs) if ppi_output is None else ppi_output

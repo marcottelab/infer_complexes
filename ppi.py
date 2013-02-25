@@ -32,6 +32,8 @@ def feature_array(species, elut_fs, base_exs, nsp,
       cutoff in the base species.  if False, in any species.
     - ind_cycle: leave as none for stochastic rotation when assigning positives
       to splits; set as eg [0,1] for cycling repeatedly through 2 splits.
+    - Making base train/test: give ttbase as None, pass do_filter=False, fs=[],
+      extdata=[].
       """
     gold_consv_sp = gold_consv_sp if nsp>1 else '' #ignore for 1-sp case
     if nsp > 1 and do_filter: 

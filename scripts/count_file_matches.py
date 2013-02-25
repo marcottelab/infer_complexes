@@ -8,7 +8,6 @@ import utils as ut
 def countfs(fmap, filenames):
     fshorts = [f.split('.')[0] for f in filenames]
     counts = [count_dict_values(fmap, x) for x in fmap.keys(), fshorts]
-    #oldcounts = dict([(k, len(v)) for k,v in fmap.items()])
     print "folder original_counts current_counts"
     output = [(folder, counts[0][folder], counts[1][folder]) for folder in
             sorted(set(fmap.values()))]
@@ -29,6 +28,5 @@ if __name__ == '__main__':
         sys.exit("usage: python blah.py mapfile.txt filename(s)") 
     fname_map = sys.argv[1]
     filenames = sys.argv[2:]
-    #fmap = ut.dict_inverse_sets(ut.load_dict_sets(fname_map))
     fmap = dict(ut.load_tab_file(fname_map))
     countfs(fmap, filenames)

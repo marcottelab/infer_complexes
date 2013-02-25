@@ -28,6 +28,10 @@ def process(fpath, destdir, do_copysource):
             os.remove(f_mzml)
             compress(f_mzxml)
             os.rmdir(tempdir)
+        else:
+            print "Placeholder exists:", tempdir
+    else:
+        print "Output exists:", pathout
 
 def copy_source(fpath, destdir):
     ut.run_command('cp %s %s' % (fpath, destdir))
