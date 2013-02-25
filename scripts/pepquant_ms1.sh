@@ -13,6 +13,8 @@ py_dir=$(dirname $(abspath $0))
 py_convert=$py_dir/msgf2seq.py
 py_combine=$py_dir/sequest2txt.py
 
+# test python version
+echo "python:" $(which python)
 # extract mzXML files to mzXML_data directories
 java -Xmx500M -jar $source_dir/MSGFplusExtractor.jar $project_dir
 # convert output from search engines and msblender filter into sequest format

@@ -45,7 +45,7 @@ searches = {
         'xcorr_hit_list_best': 'tide' 
         }
 
-def msgfbest2sequest_line(r, prots2genes, search):
+def msgfbest2sequest_line(r, prots2genes, genes2prots, search):
     fname_ind_scan_charge = r[0]
     charge = float(r[1])
     msgf_mass = float(r[2])
@@ -53,7 +53,13 @@ def msgfbest2sequest_line(r, prots2genes, search):
     peptide = r[4]
     protein = r[5]
     protid = protein[3:] if protein.startswith(DECOY) else protein
-    geneid = prots2genes[protid] if prots2genes is not None else protid
+    if protid in prots2genes:
+        geneid = prots2genes[protid]
+    elif protid in genes2prots:
+        geneid = protid
+    else:
+        print "WARNING: %s not gene or protein in fasta; assumed gene" % protid
+        geneid = protid
     seq_protein = SEQ_DECOY + geneid if protein.startswith(DECOY) else geneid
     seq_mass = msgf2seq_mass(msgf_mass, charge, search)
     seq_diff = calculate_mass(peptide) - seq_mass
@@ -104,11 +110,12 @@ def msgf2seq_file(filepath, fasta_file, msb_psms):
     in_gen = ut.load_tab_file(filepath)
     in_gen.next(); in_gen.next() # skip 2 lines
     p2g = seqs.prots2genes(fasta_file)
+    g2p = ut.dict_inverse(p2g)
     fout = os.path.join(usedir, '.'.join([fout, fin.split('.')[-1] ,
         'sequestformat']))
     search = searches[filepath.split('.')[-1]]
     print "Converting/filtering; Search:", search
-    output = (msgfbest2sequest_line(r,p2g, search) for r in in_gen 
+    output = (msgfbest2sequest_line(r,p2g, g2p, search) for r in in_gen 
             if parse_spec_pep_row(r) in msb_psms)
     print "Writing", fout
     ut.write_tab_file(output, fout)
