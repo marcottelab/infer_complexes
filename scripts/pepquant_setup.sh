@@ -52,4 +52,4 @@ echo "using fasta "$fasta
 sed 's/FASTA_FILE/'$fasta'/g' $source_dir/sequest.params > $project_dir/sequest.params
 
 # run pepquant
-./$pq_run $fasta $project_dir
+$pq_run $fasta $project_dir
