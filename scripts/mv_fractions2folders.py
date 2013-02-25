@@ -5,6 +5,13 @@ sys.path.append(os.path.dirname(abspath(__file__))+'/../')
 import utils as ut
 
 def maybe_move(fpath, file2folder, remove_final_underscore):
+    """
+    For moving a file into the proper folder based on a text mapping file.
+    Format: fbase\tfolder
+    Ex: WAN1100427_OT2_Celegans_HCW_P1A04       Ce_1104
+    Purpose of remove_final_underscore is for non-exact mappings.  If using
+    the mapping file from the raw files, should not be neede.
+    """
     if not os.path.exists(fpath):
         print "File not found:", fpath
         return

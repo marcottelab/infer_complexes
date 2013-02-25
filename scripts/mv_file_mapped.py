@@ -5,6 +5,10 @@ sys.path.append(os.path.dirname(abspath(__file__))+'/../')
 import utils as ut
 
 def move(fname, fmap):
+    """
+    For renaming a file based on a mapping old_fname to new_fname.
+    NOT for moving a file to mapped folder.  That's the other script.
+    """
     basename = ut.shortname(fname)
     fext = os.path.splitext(fname)[1]
     fdir = os.path.split(fname)[0]
