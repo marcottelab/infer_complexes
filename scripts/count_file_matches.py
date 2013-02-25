@@ -21,6 +21,8 @@ def count_dict_values(d, keys):
     for k in keys:
         if k in d: # some files are renamed, eg 5_8cyto4 to 5_8cyto04. fix.
             c[d[k]] += 1
+        else:
+            print "%s not in map" % k
     return c
 
 if __name__ == '__main__':
