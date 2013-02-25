@@ -278,3 +278,17 @@ def subset_elution(elution, prot_set):
     print len(newel.prots), 'prots from', elution.filename, 'in set'
     return newel
 
+def filter_matching_elution(edata, efilter):
+    """
+    Use efilter as a mask on edata, setting edata to 0 based on efilter being 0
+    """
+    newmat = np.matrix(np.zeros(edata.mat.shape))
+    filter_map = ut.list_inv_to_dict(efilter.prots)
+    for i,g in enumerate(edata.prots):
+        if g in filter_map:
+            newmat[i,:] = (np.asarray(edata.mat)[i,:] *
+                    (np.asarray(efilter.mat)[filter_map[g],:] > 0).astype(int))
+        else:
+            newmat[i,:] = np.zeros(edata.mat.shape[1])
+    return newmat
+
