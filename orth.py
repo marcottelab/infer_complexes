@@ -8,6 +8,12 @@ def odict(from_sp, to_sp):
     Load a dict from file, eg:
     {HsProt1: set([CeProtA, CeProtB,...]), ...}
     """
+    key, swap_order = orth_key(from_sp, to_sp)
+    return _ogroups_to_odict(_load_ogroups(ut.proj_path('convert_orth',
+                                                        'table.'+key)),
+                             swap_order=swap_order)
+
+def orth_key(from_sp, to_sp):
     key = from_sp + '-' + to_sp
     if key in keys:
         swap_order=False
@@ -17,9 +23,8 @@ def odict(from_sp, to_sp):
             swap_order=True
         else:
             assert False, "Orthogroup key %s not in keys list" % key
-    return _ogroups_to_odict(_load_ogroups(ut.proj_path('convert_orth',
-                                                        'table.'+key)),
-                             swap_order=swap_order)
+    return key, swap_order
+
 
 def odict_1to1(from_sp, to_sp):
     """
