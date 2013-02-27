@@ -26,9 +26,18 @@ def ensembl_prots_to_genes(fname, bar_split=None, second_split=False,
     ut.write_tab_file(genes_list, fname+'_longest')
 
 def prots2genes(fname):
-    lines = ut.load_list(fname)
-    return dict([(p.split()[-1].split(':')[1], p.split()[0].strip('>'))
-                    for p in lines if p[0]=='>'])
+    """
+    If there's only one item in the first line, just return a dummy dict
+    mapping each id to itself.
+    Otherwise, assume the line begins with >GENEID and ends with
+    protein:PROTEINID.
+    """
+    lines = [l for l in ut.load_list(fname) if l[0]=='>']
+    if len(lines[0].split())==1:
+        return dict([(g,g) for g in [l.strip('>') for l in lines]])
+    else:
+        return dict([(p.split()[-1].split(':')[1], p.split()[0].strip('>'))
+                    for p in lines])
 
 
 def _longest_seqs_dep(fname, bar_split, second_split=False,
