@@ -182,9 +182,9 @@ def profiles_cxs(e, cxs, **kwargs):
     imshow(vals, **kwargs)
     return vals
 
-def scatter_blake(a, b, which='fadepoints', classes=[0,1], colors=['k','r'],
+def scatter_blake(a, b, which='circles', classes=[0,1], colors=['k','r'],
         **kwargs):
-    defaults = {'s': 4, 'lw':0}
+    defaults = {'s': 50, 'alpha':.2, 'lw':0}
     kwargs = ut.dict_set_defaults(kwargs, defaults)
     if type(a[0]) == list or type(a[0]) == tuple:
         # second value is presumed to be class--should be 0 or 1, which will be
@@ -204,7 +204,10 @@ def scatter_blake(a, b, which='fadepoints', classes=[0,1], colors=['k','r'],
     elif which=='points':
         scatter(a, b, **kwargs)
     elif which=='fadepoints':
-        scatter(a, b, s=50, alpha=0.2, lw=0)
+        scatter(a, b, **kwargs)
+    elif which=='circles':
+        del kwargs['lw']
+        scatter(a, b, facecolors='none', edgecolors=c, **kwargs)
     title('R-squared: %0.3f' % ut.r_squared(a,b))
 
 def hexbin_blake(a, b, **kwargs):
