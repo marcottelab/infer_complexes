@@ -7,7 +7,11 @@ import utils as ut
 
 exec_unf = os.path.expanduser(
 "~/Dropbox/complex/tools/unfinnigan/perl/Finnigan/bin/uf-mzml -c"
-)
+) 
+#exec_unf = os.path.expanduser(
+#"~/Dropbox/complex/tools/unfinnigan/perl/Finnigan/bin/uf-mzml"
+#) # if the first doesn't work, try this (-c is for centroids--depends on how
+## the mass spec machine was run
 exec_msconvert = os.path.expanduser(
 "~/Dropbox/complex/tools/pwiz/msconvert --32 --mzXML"
 )
