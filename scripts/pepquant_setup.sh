@@ -49,10 +49,10 @@ mkdir $project_dir
 mzxml_dir=$data_root/$mzxml_dirname/$project_name
 msb_out_dir=$data_root/$msb_out_dirname/$project_name
 ln -s $msb_out_dir/*.log $project_dir
-# Can't be sure of selecting the matching _best for the mzXMLs without some
-# effort, so just do them all.
-ln -s $msb_out_dir/*_best $project_dir
 ln -s $(ls $mzxml_dir/*mzXML | head -n $end | tail -n $length) $project_dir
+for f in $(ls $project_dir/*mzXML)
+    do ln -s $msb_out_dir/${f}*_best $project_dir
+done
 
 # make new sequest.params with correct fasta
 fasta=${project_name:0:2}.fasta
