@@ -35,6 +35,9 @@ def prots2genes(fname):
     lines = [l for l in ut.load_list(fname) if l[0]=='>']
     if len(lines[0].split())==1:
         return dict([(g,g) for g in [l.strip('>') for l in lines]])
+    elif len(lines[0].split(':'))==1:
+        # Xl
+        return dict([(g,g) for g in [l.split()[0].strip('>') for l in lines]])
     else:
         return dict([(p.split()[-1].split(':')[1], p.split()[0].strip('>'))
                     for p in lines])
