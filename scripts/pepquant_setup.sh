@@ -51,7 +51,10 @@ msb_out_dir=$data_root/$msb_out_dirname/$project_name
 ln -s $msb_out_dir/*.log $project_dir
 ln -s $(ls $mzxml_dir/*mzXML | head -n $end | tail -n $length) $project_dir
 for f in $(ls $project_dir/*mzXML)
-    do ln -s $msb_out_dir/${f}*_best $project_dir
+    do f=$(basename $f)
+    f=${f/.mzXML/}
+    echo f $f
+    ln -s $msb_out_dir/${f}*_best $project_dir
 done
 
 # make new sequest.params with correct fasta
