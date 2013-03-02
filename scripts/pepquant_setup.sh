@@ -54,7 +54,6 @@ ln -s $(ls $mzxml_dir/*mzXML | head -n $end | tail -n $length) $project_dir
 for f in $(ls $project_dir/*mzXML)
     do f=$(basename $f)
     f=${f/.mzXML/}
-    echo f $f
     ln -s $msb_out_dir/${f}*_best $project_dir
 done
 
