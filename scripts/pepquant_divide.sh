@@ -20,6 +20,6 @@ pq_setup=$script_dir/pepquant_setup.sh
 n_files=$(ls $mzxml_dir/*mzXML | wc -l)
 n_runs=$(expr $(expr $(expr $n_files - 1 ) / $length) + 1)
 for i in $(seq $n_runs)
-    do $pq_setup $data_root $project_name $output_dir $length $i &
+    do $pq_setup $data_root $project_name $output_dir $length $i ;
 done
 wait
