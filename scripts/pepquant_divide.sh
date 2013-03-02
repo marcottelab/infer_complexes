@@ -1,8 +1,8 @@
 #! /bin/bash
 abspath(){ python -c "import os.path; print os.path.abspath('$1')" ; }
 
-usage="Usage: pepquant_setup.sh <data_root> <project_name> <output_dir> <length>"
-if [ $# -lt 3 ] ; then
+usage="Usage: pepquant_setup.sh <data_root> <project_name> <output_dir> <length> <run_pepquant>{true/false}"
+if [ $# -lt 5 ] ; then
     echo $usage
     exit 1
 fi
@@ -12,6 +12,7 @@ data_root=$1
 project_name=$2
 output_dir=$3
 length=$4
+do_run_pq=$5
 mzxml_dir=$data_root/$mzxml_dirname/$project_name
 
 script_dir=$(dirname $(abspath $0))
@@ -20,6 +21,6 @@ pq_setup=$script_dir/pepquant_setup.sh
 n_files=$(ls $mzxml_dir/*mzXML | wc -l)
 n_runs=$(expr $(expr $(expr $n_files - 1 ) / $length) + 1)
 for i in $(seq $n_runs)
-    do $pq_setup $data_root $project_name $output_dir $length $i ;
+    do $pq_setup $data_root $project_name $output_dir $length $i $do_run_pq ;
 done
 wait

@@ -2,11 +2,11 @@
 abspath(){ python -c "import os.path; print os.path.abspath('$1')" ; }
 
 usage="Usage: pepquant_setup.sh <data_root> <project_name> <output_dir>
-<length> <index>"
+<length> <index> <run_pepquant>{true/false}"
 
-if [ $# -lt 3 ] ; then
+if [ $# -lt 6 ] ; then
     echo $usage
-    return 1
+    exit 1
 fi
 # Assumes folder structure:
 # data root
@@ -36,6 +36,7 @@ output_name=${project_name}_$index
 script_dir=$(dirname $(abspath $0))
 pq_run=$script_dir/pepquant_ms1.sh
 end=$(expr $(expr $index) \* $length)
+do_run_pq=$6
 
 # create project folder
 project_dir=$output_dir/$output_name
@@ -63,4 +64,6 @@ echo "using fasta "$fasta
 sed 's/FASTA_FILE/'$fasta'/g' $source_dir/sequest.params > $project_dir/sequest.params
 
 # run pepquant
-$pq_run $fasta $project_dir
+if $do_run_pq; then
+    $pq_run $fasta $project_dir
+fi
