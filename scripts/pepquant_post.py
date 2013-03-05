@@ -20,9 +20,11 @@ def process(proj_dir, msb_out_dir, dirnames):
     proj_name = ut.shortname(proj_dir)
     if proj_dir in dirnames and len(dirnames) > 1:
         dirnames.remove(proj_dir)
-    pq_path = os.path.join(proj_dir, PQ_OUTFILE)
     if dirnames != [proj_dir]:
+        pq_path = os.path.join(proj_dir, PQ_OUTFILE)
         merge(proj_dir, dirnames, pq_path)
+    else:
+        pq_path = os.path.join(proj_dir, PQ_FILE)
     pq_clean_path = os.path.join(proj_dir, proj_name+PQ_CLEAN)
     elut_clean_prots(pq_path, pq_clean_path)
     pq_filt_path = msb_filter(proj_dir, msb_out_dir, pq_clean_path)
@@ -42,7 +44,7 @@ def msb_filter(proj_dir, msb_out_dir, pq_path):
     pq_elut, msb_elut = [el.load_elution(f) for f in pq_path,
             msb_quant_file]
     pq_elut.mat = el.filter_matching_elution(pq_elut, msb_elut)
-    pq_filt_path = pq_path.replace(PQ_NEW, PQ_FILT)
+    pq_filt_path = pq_path.replace(PQ_CLEAN, PQ_FILT)
     el.write_elution(pq_elut, pq_filt_path)
     return pq_filt_path
     
