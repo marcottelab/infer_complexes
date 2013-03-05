@@ -34,9 +34,9 @@ def msb_filter(proj_dir, msb_out_dir, pq_new_path):
     msb_quant_file = os.path.join(msb_out_dir, proj_name+MSB_EXT)
     pq_elut, msb_elut = [el.load_elution(f) for f in pq_new_path,
             msb_quant_file]
-    pq_filt = el.filter_matching_elution(pq_elut, msb_elut)
+    pq_elut.mat = el.filter_matching_elution(pq_elut, msb_elut)
     pq_filt_path = pq_new_path.replace(PQ_NEW, PQ_FILT)
-    el.write_elution(pq_filt, pq_filt_path)
+    el.write_elution(pq_elut, pq_filt_path)
     return pq_filt_path
     
 
