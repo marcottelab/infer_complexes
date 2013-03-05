@@ -8,7 +8,7 @@ import utils as ut
 
 MSB_EXT = '.prot_count_uniqpeps_FDR0010'
 PQ_FILE = 'ISO_QUAN/quantification-protein-intensity.txt'
-PQ_NEW = '_pqmsb.tab'
+PQ_CLEAN = '_pqmsb.tab'
 PQ_FILT = '_pqmsb_filtmsb.tab'
 
 def process(proj_dir, msb_out_dir, dirnames):
@@ -17,25 +17,31 @@ def process(proj_dir, msb_out_dir, dirnames):
     If multiple, merge then process.
     """
     proj_name = ut.shortname(proj_dir)
-    pq_new_path = os.path.join(proj_dir, proj_name+PQ_NEW)
-    if len(dirnames) > 1:
-        merge(proj_dir, dirnames, pq_new_path)
-    else:
-        pq_old_path = os.path.join(proj_dir, PQ_FILE)
-        shutil.copy(pq_old_path, pq_new_path)
-    pq_filt_path = msb_filter(proj_dir, msb_out_dir, pq_new_path)
+    if proj_dir in dirnames and len(dirnames) > 1:
+        dirnames.remove(proj_dir)
+    pq_path = os.path.join(proj_dir, PQ_FILE)
+    if dirnames != [proj_dir]:
+        merge(proj_dir, dirnames, pq_path)
+    pq_clean_path = os.path.join(proj_dir, proj_name+PQ_CLEAN)
+    elut_clean_prots(pq_path, pq_clean_path)
+    pq_filt_path = msb_filter(proj_dir, msb_out_dir, pq_clean_path)
 
-def msb_filter(proj_dir, msb_out_dir, pq_new_path):
+def elut_clean_prots(fin,fout):
+    elut = el.load_elution(fin)
+    elut.prots = [p.strip('>') for p in el.prots]
+    el.write_elution(elut, fout)
+
+def msb_filter(proj_dir, msb_out_dir, pq_path):
     """
     Filter the pepquant output by keeping only values with spectral counts in
     the msblender output.
     """
     proj_name = ut.shortname(proj_dir)
     msb_quant_file = os.path.join(msb_out_dir, proj_name+MSB_EXT)
-    pq_elut, msb_elut = [el.load_elution(f) for f in pq_new_path,
+    pq_elut, msb_elut = [el.load_elution(f) for f in pq_path,
             msb_quant_file]
     pq_elut.mat = el.filter_matching_elution(pq_elut, msb_elut)
-    pq_filt_path = pq_new_path.replace(PQ_NEW, PQ_FILT)
+    pq_filt_path = pq_path.replace(PQ_NEW, PQ_FILT)
     el.write_elution(pq_elut, pq_filt_path)
     return pq_filt_path
     
@@ -50,8 +56,6 @@ def merge(proj_dir, dirnames, pq_new_path):
     proj_name = ut.shortname(proj_dir)
     assert not os.path.exists(pq_new_path), "%s exists. Exiting." % pq_new_path
     dirnames = ut.i0(sort_numbered(dirnames))
-    if proj_dir in dirnames and len(dirnames) > 1:
-        dirnames.remove(proj_dir)
     print "Sorted dirnames:", dirnames
     pq_files = [os.path.join(d,PQ_FILE) for d in dirnames]
     eluts = (el.load_elution(f) for f in pq_files)
