@@ -8,6 +8,7 @@ import utils as ut
 
 MSB_EXT = '.prot_count_uniqpeps_FDR0010'
 PQ_FILE = 'ISO_QUAN/quantification-protein-intensity.txt'
+PQ_OUTFILE = 'quantification-protein-intensity.txt'
 PQ_CLEAN = '_pqmsb.tab'
 PQ_FILT = '_pqmsb_filtmsb.tab'
 
@@ -19,7 +20,7 @@ def process(proj_dir, msb_out_dir, dirnames):
     proj_name = ut.shortname(proj_dir)
     if proj_dir in dirnames and len(dirnames) > 1:
         dirnames.remove(proj_dir)
-    pq_path = os.path.join(proj_dir, PQ_FILE)
+    pq_path = os.path.join(proj_dir, PQ_OUTFILE)
     if dirnames != [proj_dir]:
         merge(proj_dir, dirnames, pq_path)
     pq_clean_path = os.path.join(proj_dir, proj_name+PQ_CLEAN)
