@@ -29,7 +29,7 @@ def process(proj_dir, msb_out_dir, dirnames):
 
 def elut_clean_prots(fin,fout):
     elut = el.load_elution(fin)
-    elut.prots = [p.strip('>') for p in el.prots]
+    elut.prots = [p.strip('>') for p in elut.prots]
     el.write_elution(elut, fout)
 
 def msb_filter(proj_dir, msb_out_dir, pq_path):
