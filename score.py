@@ -81,6 +81,12 @@ def score_array(arr, elut, fname, score, cutoff, id2inds, recalc_id2inds):
     elif score == 'euclidean':
         score_mat = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
                 metric=score)
+    elif score == 'pq_euc':
+        # Use pepquant specific elution file.
+        elut = el.load_elution(os.path.splitext(fname)[0] +'_pqmsb_filtmsb.tab')
+        id2inds = recalc_id2inds(elut.prots)
+        score_mat = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
+                metric='euclidean')
     elif score == 'maxquant_euc':
         # Use mq specific elution file.
         elut = el.load_elution(os.path.splitext(fname)[0] +'.mq_Intensity.tab')
