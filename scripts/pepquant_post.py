@@ -16,6 +16,7 @@ def process(proj_dir, msb_out_dir, dirnames):
     If a single dirname, just process.
     If multiple, merge then process.
     """
+    proj_name = ut.shortname(proj_dir)
     pq_new_path = os.path.join(proj_dir, proj_name+PQ_NEW)
     if len(dirnames) > 1:
         merge(proj_dir, dirnames, pq_new_path)

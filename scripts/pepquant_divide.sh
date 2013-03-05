@@ -30,5 +30,5 @@ done
 if $do_run_pq; then
     project_dir=$output_dir/$project_name
     # Handles either divided or not divided output
-    python $pq_post $project_dir $msb_dir $(ls -d $output_dir/$project_name*)
+    python $pq_post $project_dir $msb_dir $(ls -d $project_dir*)
 fi
