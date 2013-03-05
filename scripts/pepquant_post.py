@@ -50,6 +50,8 @@ def merge(proj_dir, dirnames, pq_new_path):
     proj_name = ut.shortname(proj_dir)
     assert not os.path.exists(pq_new_path), "%s exists. Exiting." % pq_new_path
     dirnames = ut.i0(sort_numbered(dirnames))
+    if proj_dir in dirnames and len(dirnames) > 1:
+        dirnames.remove(proj_dir)
     print "Sorted dirnames:", dirnames
     pq_files = [os.path.join(d,PQ_FILE) for d in dirnames]
     eluts = (el.load_elution(f) for f in pq_files)
