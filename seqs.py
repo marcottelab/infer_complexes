@@ -32,7 +32,7 @@ def prots2genes(fname):
     Otherwise, assume the line begins with >GENEID and ends with
     protein:PROTEINID.
     """
-    lines = [l for l in ut.load_list(fname) if l[0]=='>']
+    lines = [l for l in ut.load_list(fname) if len(l)>0 and l[0]=='>']
     if len(lines[0].split())==1:
         return dict([(g,g) for g in [l.strip('>') for l in lines]])
     elif len(lines[0].split(':'))==1:
