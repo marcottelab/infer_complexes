@@ -61,7 +61,10 @@ def merge(proj_dir, dirnames, pq_new_path):
     dirnames = ut.i0(sort_numbered(dirnames))
     print "Sorted dirnames:", dirnames
     pq_files = [os.path.join(d,PQ_FILE) for d in dirnames]
-    eluts = (el.load_elution(f) for f in pq_files)
+    for f in pq_files:
+        if not os.path.exists(f):
+            print "No Elution File:", f
+    eluts = (el.load_elution(f) for f in pq_files if os.path.exists(f))
     merged = reduce(el.combine_elutions, eluts)
     el.write_elution(merged, pq_new_path)
 
