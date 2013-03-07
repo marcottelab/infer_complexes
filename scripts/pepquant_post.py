@@ -59,7 +59,7 @@ def merge(proj_dir, dirnames, pq_new_path):
     proj_name = ut.shortname(proj_dir)
     assert not os.path.exists(pq_new_path), "%s exists. Exiting." % pq_new_path
     dirnames = ut.i0(sort_numbered(dirnames))
-    print "Sorted dirnames:", dirnames
+    #print "Sorted dirnames:", dirnames
     pq_files = [os.path.join(d,PQ_FILE) for d in dirnames]
     for f in pq_files:
         if not os.path.exists(f):
@@ -79,5 +79,9 @@ if __name__ == '__main__':
     proj_dir = sys.argv[1]
     msb_out_dir = sys.argv[2]
     dirnames = sys.argv[3:]
-    print "Directories:", dirnames
+    #print "Directories:", dirnames
+    if not os.path.exists(dirnames[0]):
+        print "First directory doesn't exist:", dirnames[0]
+        return
+    print "Project:", ut.shortname(proj_dir), "First directory", dirnames[0]
     process(proj_dir, msb_out_dir, dirnames)
