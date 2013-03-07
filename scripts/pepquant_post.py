@@ -82,6 +82,6 @@ if __name__ == '__main__':
     #print "Directories:", dirnames
     if not os.path.exists(dirnames[0]):
         print "First directory doesn't exist:", dirnames[0]
-        return
-    print "Project:", ut.shortname(proj_dir), "First directory", dirnames[0]
-    process(proj_dir, msb_out_dir, dirnames)
+    else:
+        print "Project:", ut.shortname(proj_dir), "First directory", dirnames[0]
+        process(proj_dir, msb_out_dir, dirnames)
