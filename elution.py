@@ -278,16 +278,24 @@ def subset_elution(elution, prot_set):
     print len(newel.prots), 'prots from', elution.filename, 'in set'
     return newel
 
-def filter_matching_elution(edata, efilter):
+def filter_matching_elution(edata, efilter, remove_data_ending='.map'):
     """
     Use efilter as a mask on edata, setting edata to 0 based on efilter being 0
     """
     newmat = np.matrix(np.zeros(edata.mat.shape))
+    # First create the column-matched array from filter to data
+    inv_fracs = ut.list_inv_to_dict(efilter.fractions)
+    data_fracs = [f.replace(remove_data_ending,"") for f in edata.fractions]
+    arrfilt = np.zeros((efilter.mat.shape[0], edata.mat.shape[1]))
+    for i,f in enumerate(data_fracs):
+        arrfilt[:,i] = (np.asarray(efilter.mat)[:,inv_fracs[f]] if f in
+        inv_fracs else np.zeros(edata.mat.shape[0]))
+    # Then go row-by-row
     filter_map = ut.list_inv_to_dict(efilter.prots)
     for i,g in enumerate(edata.prots):
         if g in filter_map:
             newmat[i,:] = (np.asarray(edata.mat)[i,:] *
-                    (np.asarray(efilter.mat)[filter_map[g],:] > 0).astype(int))
+                    (arrfilt[filter_map[g],:] > 0).astype(int))
         else:
             newmat[i,:] = np.zeros(edata.mat.shape[1])
     return newmat
