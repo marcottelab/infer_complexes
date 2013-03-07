@@ -24,6 +24,7 @@ def process(proj_dir, msb_out_dir, dirnames):
         pq_path = os.path.join(proj_dir, PQ_OUTFILE)
         merge(proj_dir, dirnames, pq_path)
     else:
+        print "No merging."
         pq_path = os.path.join(proj_dir, PQ_FILE)
     pq_clean_path = os.path.join(proj_dir, proj_name+PQ_CLEAN)
     elut_clean_prots(pq_path, pq_clean_path)
