@@ -69,7 +69,7 @@ def loadlab(fname, loadfunc=loadpy, copy=True):
             return loadfunc(remotef)
     elif confirm(prompt="Remote mount not found. Use scp? [y/n]: "):
         source = os.path.join("Dropbox",exp_dirs(),fname)
-        run_command("scp lovelace:%s ." % source)
+        run_command("scp libra:%s ." % source)
         print "Copied locally."
         return loadfunc(fname)
     else:
@@ -82,8 +82,8 @@ def exp_dirs():
     return '/'.join(os.path.abspath('.').split('/')[-3:])
 
 def bigd(fname=''):
-    bigbase = '/work/' if os.uname()[1]=='libra' else os.path.expanduser('~')
-    bigpath = os.path.join(bigbase,'bigdata', exp_dirs())
+    bigbase = '/data/' if os.uname()[1]=='libra' else os.path.expanduser('~/bigdata')
+    bigpath = os.path.join(bigbase,exp_dirs())
     if not os.path.exists(bigpath):
         print "Dir did not previously exist; ran mkdir" , bigpath
         os.mkdir(bigpath)
