@@ -41,6 +41,7 @@ def msb_filter(proj_dir, msb_out_dir, pq_path):
     """
     proj_name = ut.shortname(proj_dir)
     msb_quant_file = os.path.join(msb_out_dir, proj_name+MSB_EXT)
+    assert os.path.exists(msb_quant_file), "No filter elution found: %s" % msb_quant_file
     pq_elut, msb_elut = [el.load_elution(f) for f in pq_path,
             msb_quant_file]
     pq_elut.mat = el.filter_matching_elution(pq_elut, msb_elut)

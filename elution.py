@@ -213,8 +213,9 @@ def combine_elutions(e1, e2, combine_corr_func=None):
     # Proteins (rows) are merged.
     allprots = list(set.union(set(e1.prots), set(e2.prots)))
     nprots = len(allprots)
-    nfracs1 = e1.mat.shape[1]
-    allfracs = nfracs1 + e2.mat.shape[1]
+    # use n fractions instead of matrix shape to handle 0-row elutions
+    nfracs1 = len(e1.fractions) 
+    allfracs = nfracs1 + len(e2.fractions)
     mat = np.matrix(np.zeros((nprots,allfracs)))
     mat[0:len(e1.prots),0:e1.mat.shape[1]] = e1.mat[:,:]
     for elut,(start,stop) in [(e1,(0,nfracs1)),(e2,(nfracs1,None))]:
