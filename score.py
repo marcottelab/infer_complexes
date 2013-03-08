@@ -72,35 +72,8 @@ def score_array(arr, elut, fname, score, cutoff, id2inds, recalc_id2inds):
     get no information from this data (see notes 2012.08.12).
     Also exclude any proteins with just one total count in this elution.
     """
-    if score == 'apex':
-        score_mat = ApexScores(elut)
-    elif score == 'cosine_old':
-        score_mat = CosineLazyScores(elut)
-    elif score == 'cosine':
-        score_mat = CosineLazyNew(elut)
-    elif score == 'euclidean':
-        score_mat = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
-                metric=score)
-    elif score == 'pq_euc':
-        # Use pepquant specific elution file.
-        elut = el.load_elution(os.path.splitext(fname)[0] +'_pqmsb_filtmsb.tab')
-        id2inds = recalc_id2inds(elut.prots)
-        score_mat = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
-                metric='euclidean')
-    elif score == 'maxquant_euc':
-        # Use mq specific elution file.
-        elut = el.load_elution(os.path.splitext(fname)[0] +'.mq_Intensity.tab')
-        id2inds = recalc_id2inds(elut.prots)
-        score_mat = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
-                metric='euclidean')
-    else:
-        fscore = fname + (
-                  '.corr_poisson' if score=='poisson' else
-                  '.T.wcc_width1' if score=='wcc' else
-                  '.corr_euclidean' if score=='euc_poisson' else
-                  '.standard' if score=='standard' else # eg elution/testms1
-                  0 ) # no score: exception since string and int don't add
-        score_mat = precalc_scores(fscore)
+    score_mat, new_id2inds, _ = scorekey_elution(score, elut, recalc_id2inds)
+    id2inds = new_id2inds if new_id2inds is not None else id2inds
     score_name = name_score(fname,score)
     singles = prots_singles(elut)
     for i,row in enumerate(arr):
@@ -123,20 +96,40 @@ def prots_singles(elut):
     singles_inds = np.array(np.where(elut.mat.sum(axis=1) == 1)[0])[0]
     return set(np.array(elut.prots)[singles_inds])
 
-def scorekey_elution(score_key, elution):
-    if score_key == 'apex':
-        score_mat = ApexScores(elution)
-    elif score_key == 'poisson':
-        score_mat = precalc_scores(elution.filename+'.corr_poisson')
-    elif score_key == 'wcc':
-        score_mat = precalc_scores(elution.filename+'.T.wcc_width1')
-    elif score_key == 'euc_poisson':
-        score_mat = precalc_scores(elution.filename+'.corr_euclidean')
+def scorekey_elution(score, elut, recalc_id2inds):
+    new_id2inds = None
+    new_prots = None
+    if score == 'apex':
+        score_mat = ApexScores(elut)
+    elif score == 'cosine_old':
+        score_mat = CosineLazyScores(elut)
+    elif score == 'cosine':
+        score_mat = CosineLazyNew(elut)
+    elif score == 'euclidean':
+        score_mat = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
+                metric=score)
+    elif score in ('pq_euc', 'pq_unfilt_euc', 'mq_euc'):
+        # Use pepquant specific elution file.
+        extension = ( '_pqmsb_filtmsb.tab' if score=='pq_euc' else
+                '_pqmsb.tab' if score=='pq_unfilt_euc' else
+                '.mq_Intensity.tab' if score=='mq_euc' else 0)
+        elut = el.load_elution(os.path.splitext(elut.filename)[0] + extension)
+        if recalc_id2inds is not None:
+            new_id2inds = recalc_id2inds(elut.prots) #cv framework (arrfeats)
+        else:
+            new_prots = elut.prots #prediction framework (all_pairs)
+        score_mat = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
+                metric='euclidean')
     else:
-        assert False, "key not supported:" + score_key
-    return score_mat
-    
-    
+        fscore = elut.filename + (
+                  '.corr_poisson' if score=='poisson' else
+                  '.T.wcc_width1' if score=='wcc' else
+                  '.corr_euclidean' if score=='euc_poisson' else
+                  '.standard' if score=='standard' else # eg elution/testms1
+                  0 ) # no score: exception since string and int don't add
+        score_mat = precalc_scores(fscore)
+    return score_mat, new_id2inds, new_prots
+
 def traver_corr(mat, repeat=200, norm='columns', verbose=True):
     # As described in supplementary information in paper.
     # Randomly draw from poisson(C=A+1/M) for each cell
@@ -270,7 +263,9 @@ def pairs_exceeding(elut, skey, thresh):
         apexes = ApexScores(elut).apex_array
         pairs = matching_pairs(apexes, arr_prots)
     else: # loading precomputed indices is so far massively slower than this
-        score_mat = scorekey_elution(skey, elut)
+        score_mat, _, new_prots = scorekey_elution(skey, elut, None)
+        if new_prots is not None:
+            arr_prots = np.array(new_prots)
         rows, cols = np.where(score_mat > thresh)
         p1s, p2s = [arr_prots[ids] for ids in rows, cols]
         pairs =  ut.zip_exact(p1s, p2s)
