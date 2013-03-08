@@ -21,6 +21,7 @@ def cvtest(name, base_sp, nsp, fs, base_featstruct, kfold=10, clf_type='tree',
     """
     
     """
+    assert kfold>1, "CV K-fold 1 not possible"
     exs = ppi.feature_array(base_sp, fs, base_featstruct,
             nsp, **kwargs) if ppi_output is None else ppi_output
     arrfeats, ntest_pos = fe.arr_copy(exs.arrfeats), exs.ntest_pos
