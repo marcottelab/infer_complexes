@@ -26,9 +26,10 @@ def base_examples_single(ppi_cxs, clean_cxs, all_cxs, split_fracs,
     ptrain_lp = lp_splits[0]
     all_pos_lp = _complexes_to_LPairset(all_cxs)
     train_lp = add_negs(ptrain_lp, all_pos_lp, None, None)
-    return (PairDict([(p[0],p[1],1 if p[2]=='true' else 0) 
-        for p in train_lp.pairs]), 
-        (lp_splits, clean_splits))
+    pdtrain = PairDict([(p[0],p[1],1 if p[2]=='true' else 0) 
+        for p in train_lp.pairs]) 
+    splits = (lp_splits, clean_splits)
+    return pdtrain, splits
 
 def base_examples(ppi_cxs, clean_cxs, all_cxs, splits, test_neg_set=None,
         nratio_train=None, nratio_test=None, pos_lengths=None, pos_splits=None,
