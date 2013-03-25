@@ -8,15 +8,20 @@ import seqs
 import cluster as cl
 from Struct import Struct
 
+
 def pairs(fname):
     return [list(e) for e in ut.load_tab_file(fname)]
 
-def load_corum(fname):
+def load_corum(fname, filter_methods=True):
     """
     Returns a list of tuples: (name, set(uniprotIDs), species)
     """
-    return [(l[1], set(l[4].split(',')), l[3]) 
-            for l in ut.load_list_of_lists(fname, sep=';')[1:]]
+    lines = [l[:7] for l in ut.load_tab_file(fname, sep=';')][1:]
+    keep_methods = set([x[0] for x in
+        (ut.load_tab_file(ut.proj_path('corum_methods'))) if int(x[3])==1])
+    return [(name, set(prots.split(',')), species) 
+            for _,name,_,species,prots,_,method in lines
+            if (method.split('-')[0] in keep_methods or not filter_methods)]
 
 def load_havug_ppis():
     hints = ut.load_list_of_lists('../../docs/SupplementaryTableS2.tab')
