@@ -1,7 +1,9 @@
 from __future__ import division
 import numpy as np
+import scipy
 import utils as ut
 import pairdict as pd
+import ppi
 import corum as co
 import cv
 import operator
@@ -32,6 +34,9 @@ cp_funcs = [
     #lambda gold,cxs: avg_best(cxs, gold, sensitivity_adj)
     # 8 Nepusz 2012, second and optimized metric for havig/hart
     ('mmr',lambda gold,cxs: max_match_ratio(gold, cxs)),
+    ('size', lambda gold,cxs: len(cxs)),
+    ('non_overlap', lambda gold,cxs: 1-cxs_self_match_frac(cxs)),
+    ('nonov_iter', lambda gold,cxs: 1-cxs_self_match_frac_iter(cxs))
     ]
 
 def stats(gold,cxs_list, conv_to_sets=True, func_inds=None):
@@ -48,20 +53,32 @@ def stats(gold,cxs_list, conv_to_sets=True, func_inds=None):
         arr[i] = np.array([f(gold, cxs) for f in ut.i1(use_funcs)])
     return arr
 
-def result_stats(sp, splits, clusts, nsp, func_inds=[2,8], split_inds=[2]):
+def result_stats(sp, splits, cxstructs, nsp, func_inds=[2,8,9,10,11],
+        split_inds=[0], cxs_sets=None):
+    """
+    split_inds: specifies which of the cxs_splits to use as gold--merges these
+    indices. mar 2013 there are just two splits now, the train/cv set and the
+    holdout set, so use index 1.
+    """
     clstats = stats(result_gold(splits, sp, split_inds=split_inds,
-        consv_sp=('Dm' if nsp==2 else '')), [c[1][0] for c in clusts],
-        func_inds=func_inds)
-    return Struct(clusts=clusts, stats=clstats)
+        consv_sp=('Dm' if nsp==2 else '')), cxs_sets or [cstr.cxs for cstr in
+            cxstructs], func_inds=func_inds)
+    return Struct(cxstructs=cxstructs, stats=clstats)
 
 
-def select_best(clstruct, scorenames, rfunc=operator.add, use_norm=True):
-    clusts, stats = clstruct.clusts, clstruct.stats
+def select_best(clstruct, scorenames=['ppv','mmr','nonov_iter'],
+        rfunc=operator.add, use_norm=True, dispn=15, ranks_only=False):
+    cxstructs, stats = clstruct.cxstructs, clstruct.stats
+    clusts = [cxstr.cxs for cxstr in cxstructs]
     if use_norm: stats = norm_columns(stats)
     inds = np.argsort(reduce(rfunc, [stats[n] for n in scorenames]))[::-1]
-    for i in inds[:10]: 
-        print i, ["%0.4f " % s for s in clstruct.stats[i]], len(clusts[i][1][0]), len(clusts[i][1][1]), clusts[i][0]
-    return clusts[inds[0]][1][0], clusts[inds[0]][1][1], inds[0]
+    for i in inds[:dispn]: 
+        print (i, ["%0.4f " % s for s in clstruct.stats[i]], len(clusts[i]), 
+                len(cxstructs[i].cxppis), cxstructs[i].params)
+    if ranks_only:
+        return inds
+    else:
+        return clusts[inds[0]], cxstructs[inds[0]].cxppis, inds[0]
 
 def result_gold(splits, species, split_inds, make_unmerged=False,
         consv_sp='Dm'):
@@ -69,7 +86,8 @@ def result_gold(splits, species, split_inds, make_unmerged=False,
         print "Converting to unmerged using conserved:", (consv_sp if consv_sp
                 else "None")
         ppi_corum,_,_ = ppi.load_training_complexes(species,consv_sp)
-        splits = unmerged_splits_from_merged_splits(ut.i1(ppi_corum), splits)
+        splits = unmerged_splits_from_merged_splits(ut.i1(ppi_corum),
+                [[ut.i1(s) for s in split] for split in splits])
     gold = ut.i1(reduce(operator.add, [splits[i] for i in split_inds]))
     return gold
 
@@ -100,7 +118,8 @@ def unmerged_splits_from_merged_splits(unmerged, merged_splits):
 def norm_columns(arr):
     newarr = ut.arr_copy(arr)
     for n in newarr.dtype.names:
-        newarr[n] = newarr[n]/np.max(newarr[n])
+        #newarr[n] = np.nan_to_num(newarr[n]/np.max(np.nan_to_num(newarr[n])))
+        newarr[n] = scipy.stats.zscore(np.nan_to_num(newarr[n]))
     return newarr
 
 def max_match_ratio(gold, cxs):
@@ -269,6 +288,11 @@ def triple_venn(three_ppis, names=['a','b','c']):
 
 def cxs_self_match_frac(cxs, limit=.6, func=bader_score):
     return len(overlaps(cxs,cxs,limit,func=func,skip_self=True))/len(cxs)
+
+def cxs_self_match_frac_iter(cxs, ntests=10, func=bader_score):
+    limits = np.arange(0,1,1/ntests)
+    return np.mean([cxs_self_match_frac(cxs, limit=lim, func=func) for lim in
+        limits])
 
 def ints_overlap_orth(aints, bints, b2a):
     """
