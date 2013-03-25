@@ -15,10 +15,10 @@ import os
 extfs = ['ext_Dm_guru','ext_Hs_malo'] 
 
 def feature_array(species, elut_fs, base_exs, nsp,
-        scores=['poisson','wcc','apex'], extdata=['net_Hs19']+extfs,
-        split_props=[0,.5,1], ind_cycle=None, cutoff=0.25, both_cx_splits=None,
+        scores=['poisson','wcc','apex','pq_euc'], extdata=['net_Hs19']+extfs,
+        split_props=[0,.5,1], ind_cycle=None, cutoff=0.5, both_cx_splits=None,
         gold_consv_sp='Dm', do_filter=True, gidscheme='', go_location=None,
-        **score_kwargs):
+        filter_incl_ext=False, **score_kwargs):
     """
     - Species: 'Hs' or 'Ce'... The base of the predictions in terms of
       identifiers used and orthology pairings.
@@ -50,9 +50,11 @@ def feature_array(species, elut_fs, base_exs, nsp,
     print 'total train/cv positives:', ntest_pos
     arrfeats = new_score_array(pdtrain, scores, elut_fs, extdata) 
     arrfeats = score_and_filter(arrfeats, scores, elut_fs, cutoff, species,
-            extdata, gidscheme, nsp=nsp, do_filter=do_filter, **score_kwargs)
-    if nsp > 1 and do_filter:
-        arrfeats = fe.filter_nsp_nocounts(arrfeats, nsp=nsp, cutoff=cutoff) 
+            extdata, gidscheme, nsp=nsp, do_filter=do_filter,
+            filter_incl_ext=filter_incl_ext, **score_kwargs)
+    if nsp > 1 and do_filter: # why do this after the previous step? 3/8/13
+        arrfeats = fe.filter_nsp_nocounts(arrfeats, nsp=nsp, cutoff=cutoff,
+                count_ext=filter_incl_ext) 
     print 'done.', stats(arrfeats)
     return Struct(arrfeats=arrfeats, ntest_pos=ntest_pos, splits=splits)
 
@@ -72,9 +74,10 @@ def base_splits(species, elut_fs, splits, ind_cycle, both_cx_splits, consv_sp,
     return ex.base_examples_single(ppi_cxs, clean_cxs, all_cxs,
             splits, both_cx_splits=both_cx_splits, ind_cycle=ind_cycle)
 
-def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
-        extdata=['net_Hs19']+extfs, nsp=1, cutoff=0.25, base_arr=None,
-        do_filter_sp=True, save_fname=None, gidscheme='', **score_kwargs):
+def predict_all(species, elut_fs, scores=['poisson','wcc','apex','pq_euc'],
+        extdata=['net_Hs19']+extfs, nsp=1, cutoff=0.5, base_arr=None,
+        do_filter_sp=True, save_fname=None, gidscheme='',
+        filter_incl_ext=False, **score_kwargs):
     """
     Same more or less as learning_examples above, but produces all predictions
     in the elution files.
@@ -88,10 +91,12 @@ def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
     else:
         arr = base_arr
     scored_arr = score_and_filter(arr, scores, elut_fs, cutoff, species,
-                extdata, gidscheme, nsp=nsp, **score_kwargs)
+                extdata, gidscheme, nsp=nsp, filter_incl_ext=filter_incl_ext,
+                **score_kwargs)
     if save_fname: np.save(save_fname+'1sp.npy', scored_arr)
     if nsp > 1 and do_filter_sp:
-        scored_arr, spcounts = fe.filter_nsp(scored_arr, nsp=nsp,cutoff=cutoff)
+        scored_arr, spcounts = fe.filter_nsp(scored_arr, nsp=nsp,cutoff=cutoff,
+                count_ext=filter_incl_ext)
         if save_fname: 
             np.save(save_fname+str(nsp)+'sp.npy', scored_arr)
             ut.savepy(spcounts, save_fname+'_pdspcounts%s.pyd'%cutoff)
@@ -99,7 +104,7 @@ def predict_all(species, elut_fs, scores=['poisson','wcc','apex'],
 
 def score_and_filter(arr, scores, elut_fs, cutoff, species, extdata, gidscheme,
         do_filter=True, require_base=False, single_base_orth=False,
-        filter_multi_orths=0.25, nsp=1): 
+        filter_multi_orths=0.25, nsp=1, filter_incl_ext=False): 
     filter_multi_orths = (filter_multi_orths if (nsp>1 and not require_base)
             else False) #ignore if 1sp
     print '\nScoring %s elutions with %s base, scores: %s.' % (len(elut_fs),
@@ -112,7 +117,7 @@ def score_and_filter(arr, scores, elut_fs, cutoff, species, extdata, gidscheme,
             print 'Filtering, require_base =', require_base
             require_species = set([species]) if require_base else None
             arr = fe.filter_require_sp(arr, require_species, cutoff=cutoff,
-                    count_ext=False)
+                    count_ext=filter_incl_ext)
         if filter_multi_orths: 
             arr = fe.filter_multi_orths(arr, species, filter_multi_orths)
     if extdata:
