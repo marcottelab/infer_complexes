@@ -113,7 +113,7 @@ def pd_combine_ppis(a,b,comb_func):
     #a,b = [PairDict(pd_lol(pdx)[:3]) for pdx in a,b] #Get rid of extra columns
     newpd = pd_union_disjoint_vals(a,b,adefaults=[0,-1],bdefaults=[0,-1])
     for pair,(ascore, atrue, bscore, btrue) in newpd.d.items():
-        newpd.d[pair] = (comb_func(ascore,bscore), max(atrue, btrue))
+        newpd.d[pair] = (comb_func(float(ascore),float(bscore)), max(int(atrue), int(btrue)))
     return newpd
 
 def pd_union_disjoint_vals(a,b,adefaults=None,bdefaults=None):
@@ -130,12 +130,12 @@ def pd_union_disjoint_vals(a,b,adefaults=None,bdefaults=None):
         for apair in from_set:
             bpair = b.find(apair)
             if bpair:
-                newvals = (a.d[apair] + b.d[bpair] if not reverse else
-                            b.d[bpair] + a.d[apair])
+                newvals = (list(a.d[apair]) + list(b.d[bpair]) if not reverse else
+                            list(b.d[bpair]) + list(a.d[apair]))
                 bleftovers.remove(bpair)
             else:
-                newvals = (a.d[apair] + bdefaults if not reverse else bdefaults
-                        + a.d[apair])
+                newvals = (list(a.d[apair]) + list(bdefaults) if not reverse
+                        else list(bdefaults) + list(a.d[apair]))
             newpd.set(apair,newvals)
         return bleftovers
     bleftovers = merge_help(a.d.keys(),newpd,a,b,adefaults,bdefaults)
