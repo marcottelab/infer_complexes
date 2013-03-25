@@ -285,7 +285,7 @@ def zip_exact(*seqs):
 def pre_ext(fname, preext):
     path, name = os.path.split(fname)
     basename,ext = os.path.splitext(name)
-    return os.path.join(path, basename+preext+ext)
+    return os.path.join(path, basename+str(preext)+ext)
 
 def shortname(fname):
     return os.path.basename(fname).split('.')[0]
