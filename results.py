@@ -17,7 +17,7 @@ clf_factories = {'svm': (ml.svm, ml.linear), 'tree': (ml.tree, ml.tree_feats)}
 
 def cvtest(name, base_sp, nsp, fs, base_featstruct, kfold=10, clf_type='tree',
         nfeats=40, norm=True, ppi_output=None, train_limit=None,
-        save_data=True, balance_train=True, **kwargs):
+        save_data=True, balance_train=False, **kwargs):
     """
     
     """
@@ -68,37 +68,6 @@ def fold_test(arrfeats, kfold, k, clf_factory, clffact_feats, nfeats, norm,
         ppis = []
     return ppis,clf,scaler,feats
 
-def deprecated_test(name, base_sp, nsp, fs, ttbase, clf=None,
-        clffact_feats=None, nfeats=40, norm=True, ppi_output=None,
-        train_limit=None, save_data=True, **kwargs):
-    """
-    Making base train/test: give ttbase as None, pass do_filter=False, fs=[],
-    extdata=[], nfeats=None
-    """
-    exs = ppi.learning_examples(base_sp, fs, ttbase,
-            nsp, **kwargs) if ppi_output is None else ppi_output
-    feats = feature_selection(exs.train, nfeats, clffact_feats)
-    arr_train, arr_test = [fe.keep_cols(a,feats) for a in exs.train, exs.test]
-    # Careful: clf is length 0 even when instantiated. Do not say 'if clf:'
-    clf = clf if clf is not None else ml.svm()
-    print "Classifier:", clf
-    if train_limit: 
-        print 'Sampling %s training examples' % train_limit
-        arr_train = fe.keep_rows(arr_train,
-                random.sample(range(len(arr_train)),train_limit))
-    scaler = ml.fit_clf(arr_train, clf, norm=norm)
-    if ml.exist_pos_neg(arr_train):
-        ppis = ml.classify(clf, arr_test, scaler=scaler)
-    else:
-        ppis = []
-    result = Struct(train=arr_train[['id1','id2','hit']], clf=clf,
-            scaler=scaler, ppis=ppis, ntest_pos=exs.ntest_pos, name=name,
-            species=base_sp, ppi_params=str(clf), feats=feats,
-            source_feats=exs.train.dtype.names)
-    if save_data:
-        result.exs = exs
-    return result
-
 def feature_selection(arr, nfeats, clf):
     if nfeats>0:
         print 'Selecting top %s of %s features' % (nfeats,
@@ -122,9 +91,10 @@ def predict(name, sp, arrsource, arrfeats, nsp, clf_scaler_feats=None,
     else:
         if balance_train:
             arrfeats = fe.balance_train(arrfeats)
+        clf_feats = clf_feats if clf_feats is not None else ml.tree_feats()
         feats = feature_selection(arrfeats, nfeats, clf_feats)
         arrfeats = fe.keep_cols(arrfeats, feats)
-        clf = clf_base if clf_base is not None else ml.svm()
+        clf = clf_base if clf_base is not None else ml.tree()
         scaler = ml.fit_clf(arrfeats, clf, norm=norm)
     print "Classifier:", clf
     arrsource = fe.keep_cols(arrsource, feats)
@@ -163,23 +133,26 @@ def combine_ppis_matched(ppisa, ppisb):
             for pa,pb in ut.zip_exact(ppisa, ppisb)]
 
 def predict_clust(name, sp, scored, exs, nsp, savef=None, pres=None, 
-        pd_spcounts=None, **kwargs):
+        pd_spcounts=None, cl_kwargs={}, clusts=None, runid=0, count_ext=False,
+        cutoff=0.5, **kwargs):
     savef = savef if savef else ut.bigd(name)+'.pyd'
-    if pres is None:
-        pres_fname = ut.pre_ext(savef, '_pres')
-        assert not os.path.exists(pres_fname), "Destination filename exists"
-        pres = predict(name, sp, scored, exs, nsp, **kwargs)
-        pres.splits = exs.splits
-        ut.savepy(pres, pres_fname) 
-    clusts = cl.multi_clust(pres.ppis)
-    clstruct = cp.result_stats(sp, exs.splits, clusts, nsp)
-    ut.savepy(clstruct, ut.pre_ext(savef, '_clstruct'))
-    pres.cxs, pres.cxppis, pres.ind = cp.select_best(clstruct, ['ppv','mmr'])
+    if clusts is None:
+        if pres is None:
+            pres_fname = ut.pre_ext(savef, '_pres')
+            assert not os.path.exists(pres_fname), "Destination filename exists"
+            pres = predict(name, sp, scored, exs.arrfeats, nsp, **kwargs)
+            pres.splits = exs.splits
+            ut.savepy(pres, pres_fname) 
+        clusts, runid = cl.multi_clust(pres.ppis, savef=savef, **cl_kwargs)
+    merged_splits = exs.splits[1] # splits is (lp_splits, clean_splits)
+    clstruct = cp.result_stats(sp, merged_splits, clusts, nsp)
+    ut.savepy(clstruct, ut.pre_ext(savef, '_clstruct_%s' % runid))
+    pres.cxs, pres.cxppis, pres.ind = cp.select_best(clstruct)
     ut.savepy([pres.cxs,pres.cxppis],
-    ut.pre_ext(savef,'_cxs_cxppis_clust%s_%scxs' % (pres.ind, len(pres.cxs))))
-    cyto_export(pres, pres.train, name_ext='_clust%s_%scxs' % (pres.ind,
+    ut.pre_ext(savef,'_cxs_cxppis_clust_run%s_ind%s_%scxs' % (runid, pres.ind, len(pres.cxs))))
+    cyto_export(pres, pres.arrfeats, name_ext='_clust%s_%scxs' % (pres.ind,
         len(pres.cxs)), geneatts=ut.proj_path('gene_desc_'+sp),
-        pd_spcounts=pd_spcounts)
+        pd_spcounts=pd_spcounts, arrdata=scored, cutoff=cutoff, count_ext=False)
     return pres, clstruct
 
 def combine_train(atrain, atest):
@@ -218,13 +191,13 @@ def cluster(result, fracppis, **kwargs):
 
 def cyto_export(result, arrtrain, ppis=None, cxs='default', geneatts=
         'Hs_ensg_name_desc_uni_entrez.tab', species=None, pd_spcounts=None, 
-        name_ext=''):
+        name_ext='', arrdata=None, do_splist=True, cutoff=0.5, count_ext=False):
     fname = 'cy_'+result.name+name_ext+'.tab'
     species = species if species else result.species
     ppis = ppis if ppis else result.cxppis
     cxs = cxs if cxs!='default' else result.cxs
     cyto.cyto_prep(ppis, arrtrain, fname, geneatts, cxs, species=species,
-            pd_spcounts=pd_spcounts)
+            pd_spcounts=pd_spcounts, do_splist=do_splist, arrdata=arrdata)
 
 def replace_eluts(arr, scores, name='eluts'):
     species = set(ut.config()['elut_species'].split('_'))
