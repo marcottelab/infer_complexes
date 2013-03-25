@@ -91,7 +91,7 @@ def svm(kernel='linear', cache_size=4000, **kwargs):
 def linear(dual=False, **kwargs):
     return LinearSVC(dual=dual, **kwargs)
 
-def feature_selection(arr, clf, do_plot=False):
+def feature_selection(arr, clf, printn=10, do_plot=False):
     """
     clf: ml.tree(compute_importances=True) or ml.linear()
     """
@@ -101,7 +101,8 @@ def feature_selection(arr, clf, do_plot=False):
             clf.feature_importances_)
     indices = np.argsort(importances)[::-1]
     ranked = [(names[index], importances[index]) for index in indices]
-    for i,(name,imp) in enumerate(ranked):
+    print "Dislaying top %s features:" % printn
+    for i,(name,imp) in enumerate(ranked[:printn]):
         print "%d. %s (%f)" % (i + 1, name, imp)
     # Plot the feature importances of the trees and of the forest
     if do_plot:

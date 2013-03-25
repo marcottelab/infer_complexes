@@ -59,7 +59,7 @@ def normalize_fracs(arr, norm_rows=True, norm_cols=True):
         arr = ut.arr_norm(arr, 1)
     return arr
 
-def all_filtered_pairs(fnames, score_keys, cutoff=0.25, sp_base=None,
+def all_filtered_pairs(fnames, score_keys, cutoff=0.5, sp_base=None,
                        verbose=True):
     allpairs = PairDict([])
     for skey,f in itertools.product(score_keys,fnames):
