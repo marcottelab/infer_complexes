@@ -86,7 +86,7 @@ def merge_by_species(arr, matches, func, remove=False):
             ut.config()['elut_species'].split('_')]
     return merge_recurse(arr, patterns, func)
 
-def filter_require_sp(arr, set_species, cutoff=0.25, count_ext=True):
+def filter_require_sp(arr, set_species, cutoff=0.5, count_ext=False):
     """
     Set_species: if None, just requires any column in the array to pass the
     cutoff.
@@ -178,18 +178,25 @@ def add_passing_features(arr, threshes):
         newarr[name] = max_fracs_passing(arr, t)
     return newarr
 
-def add_passing_feats_exs(exs, threshes):
-    newexs = ut.struct_copy(exs)
-    newexs.train, newexs.test = [add_passing_features(t,threshes) for t in
-            newexs.train, newexs.test]
-    return newexs
-
 def species_list(features):
     sps = set([n[:2] for n in features 
                 if n[:2] not in set(NET_SPS) and n[:2] != 'ex'])
     return sps
 
-def filter_nsp(arr, nsp=2, cutoff=0.25, count_ext=True, do_counts=True):
+def passing_species(arr, cutoff=0.5, count_ext=False):
+    """
+    Intended for a single row of the array: a length=1 ndarray.
+    """
+    features = arr.dtype.names[3:]
+    sps = species_list(features)
+    spcols = [[f for f in features 
+                if f[:2]==s or (count_ext==True and f[:2]=='ex' and f[4:6]==s)]
+                for s in sps]
+    maxes = arr_collist_maxes(arr, spcols)
+    passing = [s for s,m in zip(sps, maxes[0]) if m > cutoff]
+    return passing
+
+def filter_nsp(arr, nsp=2, cutoff=0.5, count_ext=False, do_counts=True):
     """
     Filter to only leave interactions for which evidence exists in nsp species.
     scores: [arr_train, arr_test]
@@ -199,6 +206,7 @@ def filter_nsp(arr, nsp=2, cutoff=0.25, count_ext=True, do_counts=True):
     features = arr.dtype.names[3:]
     sps = species_list(features)
     print 'Filtering >=%s of these species >=%s:' % (nsp, cutoff), sps
+    print '' if count_ext else 'NOT', 'Counting external in filter passing.'
     spcols = [[f for f in features 
                 if f[:2]==s or (count_ext==True and f[:2]=='ex' and f[4:6]==s)]
                 for s in sps]

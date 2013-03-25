@@ -1,18 +1,22 @@
 from __future__ import division
-import utils as ut
+import itertools as it
 import pairdict as pd
 from pairdict import PairDict
-import ppi
 import corum as co
-import itertools as it
+import features as fe
+import ppi
+import utils as ut
 
 def cyto_prep(ppis, arrtrain, fname, f_geneatts, cxs=[], species='Hs', 
-        negmult=50, pd_spcounts=None):
+        negmult=50, pd_spcounts=None, arrdata=None, cutoff=0.5,
+        count_ext=False, do_splist=True):
     header=['id1', 'id2', 'score', 'corum']
     ppis = ppis_gold_standard(ppis, arrtrain, species)
     if pd_spcounts: 
         ppis = ppis_add_counts(ppis, pd_spcounts)
         header.append('CountOfSpecies')
+    if do_splist:
+        ppis = ppis_add_splist(ppis, arrdata, cutoff, count_ext)
     if cxs:
         ppis = ppis_as_cxs(ppis, cxs)
         header.append('complexid')
@@ -104,6 +108,7 @@ def ppis_gold_standard(ppis, arrtrain, species):
     counterrs = 0
     for tpair in pdtrainpos.d:
         cpair = pdcomb.find(tpair)
+        assert cpair is not None, "Gold standard problem--filter_methods changed since run?"
         if pdcomb.d[cpair][1] != 'gold':
             #print 'error: train should be subset', tpair
             counterrs += 1
@@ -125,6 +130,17 @@ def ppis_add_counts(ppis, pd_spcounts):
         if not pair: n_notfound += 1
         newppis.append(p + pd_spcounts.d.get(pair,[-1])) # already a list
     print "appending species counts;", n_notfound, "not found."
+    return newppis
+
+def ppis_add_splist(ppis, arrfeats, cutoff, count_ext):
+    idict = ut.list_inv_to_dict(((r[0],r[1]) for r in arrfeats))
+    newppis = []
+    print '' if count_ext else 'NOT', 'Counting external in filter passing.'
+    print "Cutoff: %s" % cutoff
+    for p in ppis:
+        index = idict[(p[0],p[1])]
+        splist = fe.passing_species(arrfeats[index:index+1], cutoff, count_ext)
+        newppis.append(p + [' '.join(splist)])
     return newppis
 
 def ppis_label_cxs(ppis, cxs):
