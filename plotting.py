@@ -13,9 +13,17 @@ import hcluster
 import pandas as pa
 
 
-COLORS = ['#4571A8', 'black', '#A8423F', '#89A64E', '#6E548D', '#3D96AE',
-           '#DB843D', '#91C4D5', '#CE8E8D', '#B6CA93', '#8EA5CB', 'yellow',
-           'gray', 'blue']
+#COLORS = ['#4571A8', 'black', '#A8423F', '#89A64E', '#6E548D', '#3D96AE',
+           #'#DB843D', '#91C4D5', '#CE8E8D', '#B6CA93', '#8EA5CB', 'yellow',
+           #'gray', 'blue']
+#COLORS_BLACK = ['#4571A8', 'white', '#A8423F', '#89A64E', '#6E548D', '#3D96AE',
+           #'#DB843D', '#91C4D5', '#CE8E8D', '#B6CA93', '#8EA5CB', 'yellow',
+           #'gray', 'blue']
+COLORSTRING = "4571A8, 000000, A8423F, 89A64E, 6E548D, 3D96AE, DB843D, 91C4D5, CE8E8D, B6CA93, 8EA5CB, FFFF00, 404040, 0000FF"
+COLORS_WHITE = ["#"+c for c in COLORSTRING.split(', ')]
+COLORSTRING_BLACK = "4571A8, FFFFFF, A8423F, 89A64E, 6E548D, 3D96AE, DB843D, 91C4D5, CE8E8D, B6CA93, 8EA5CB, FFFF00, 404040, 0000FF"
+COLORS_BLACK = ["#"+c for c in COLORSTRING_BLACK.split(', ')]
+COLORS = COLORS_WHITE
           
 
 def plot_result(result, ppis=None, **kwargs):
@@ -26,9 +34,11 @@ def plot_result(result, ppis=None, **kwargs):
 def boot_resample(extr_exte):
     return [Struct(names=ex.names,examples=ut.sample_wr(ex.examples, len(ex.examples))) for ex in extr_exte]
     
-def rolling_scores(tested, show=1000, window=50, **kwargs):
+def rolling_scores(tested, show=1000, window=50, rescale=0, **kwargs):
     #rolling = [len([t for t in tested[i:i+window] if t[3]==1])/window for i in
     #range(show-window)]
+    if rescale > 0:
+        tested = [(t[0],t[1],ut.rescale(t[2],rescale), t[3]) for t in tested]
     padded = list(np.zeros((50,4)))+list(tested)
     rolling = [len([t for t in padded[i:i+window] if t[3]==1])/window for i in range(show)]
     #plot([0]*window + rolling, **kwargs)
@@ -116,25 +126,45 @@ def examples_dist_arr(arr, score_indices, uselog=True, normed=True, default=-1,
     subplot(int(nplots/ncols)+2,ncols,1)
     legend([hp[0],hn[0]],['Pos','Neg'])
         
-def presentation_mode(on=True):
+def presentation_mode(color='white', on=True):
     # customize individually with mpl.rcParams['text.color'] = '#000000'
     normmode = {
         'axes.facecolor': '#f8f8f8',
         'axes.labelcolor': '#222222',
+        'xtick.color': '#222222',
+        'ytick.color': '#222222',
         'figure.facecolor': '#dddddd',
         'axes.edgecolor': '#bcbcbc',
         'lines.linewidth': 2,
+        #'axes.color_cycle': COLORSTRING, 
         #'text.color': '#222222'
         }
-    presmode = {
+    whitemode = {
         'axes.facecolor': 'white',
-        'axes.labelcolor': '#000000',
+        'axes.labelcolor': 'black',
+        'xtick.color': '#000000',
+        'ytick.color': '#000000',
         'figure.facecolor': 'white',
-        'axes.edgecolor': '#000000',
+        'axes.edgecolor': 'black',
         'lines.linewidth': 3,
+        #'axes.color_cycle': COLORSTRING, 
         #'text.color': '#222222'
         }
-    usemode = presmode if on else normmode
+    blackmode = {
+        'axes.facecolor': 'black',
+        'axes.labelcolor': '#ffffff',
+        'xtick.color': '#FFFFFF',
+        'ytick.color': '#FFFFFF',
+        'figure.facecolor': 'black',
+        'axes.edgecolor': '#ffffff',
+        'lines.linewidth': 2,
+        #'axes.color_cycle': COLORSTRING_BLACK, 
+        #'text.color': '#222222'
+        }
+    usemode = normmode if not on else (whitemode if color=='white' else
+            blackmode)
+    global COLORS
+    COLORS = COLORS_BLACK if usemode == blackmode else COLORS_WHITE
     mpl.rcParams.update(usemode)
     
 def ppis_scatter(ppis1, ppis2, useinds=range(3)):
