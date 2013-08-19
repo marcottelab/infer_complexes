@@ -1,5 +1,6 @@
 from __future__ import division
 import cPickle
+import datetime
 import errno
 import itertools
 import numpy as np
@@ -22,21 +23,24 @@ from Struct import Struct
 ## PYTHON OBJECT SAVE/LOAD
 ######################################################################
 
-def savepy(obj,fname,safe=False):
+def savepy(obj,fname, check_exists=False):
     # If safe is true, we save obj to a temporary file first, then mv the file
     # to its final destination
-    if safe:
-        save(obj, fname+'.partial', safe=False)
-        shutil.move(fname+'.partial', fname)
-        return
-    # Because reloading a module thwarts pickling 
-    # (the new class is not the same as the old)
-    def maybe_reload(obj):
-        if hasattr(obj, '_pickle_reload'):
-            obj = obj._pickle_reload()
-        return obj
-    obj = maybe_reload(obj)
-    cPickle.dump(obj, file(fname, 'wb'), protocol=2)
+    #if safe:
+        #save(obj, fname+'.partial', safe=False)
+        #shutil.move(fname+'.partial', fname)
+        #return
+    ## Because reloading a module thwarts pickling 
+    ## (the new class is not the same as the old)
+    #def maybe_reload(obj):
+        #if hasattr(obj, '_pickle_reload'):
+            #obj = obj._pickle_reload()
+        #return obj
+    #obj = maybe_reload(obj)
+    if check_exists and os.path.exists(fname):
+        print "File already exists. Not saved.", fname
+    else:
+        cPickle.dump(obj, file(fname, 'wb'), protocol=2)
 
 def loadpy(fname):
     obj = cPickle.load(file(fname, 'rb'))
@@ -101,13 +105,19 @@ def all_same(f, bag):
         if f(x) != v: return False
     return True
 
-def arr_add_feats(arr, names):
+def arr_add_feats(arr, names, newtype=None):
     olddtype = arr.dtype.descr[-1][1]
-    newdescr = arr.dtype.descr + [(n,olddtype) for n in names]
+    newtype = newtype or olddtype
+    newdescr = arr.dtype.descr + [(n,newtype) for n in names]
     newarr = np.empty(arr.shape, dtype=newdescr)
     for n in arr.dtype.names:
         newarr[n] = arr[n]
     return newarr
+
+def arr_assign_row_values(arr, rowind, colinds, values):
+    row = arr[rowind]
+    for c,v in zip_exact(colinds,values):
+        row[c] = v
 
 def arr_copy(arr):
     newarr = np.empty(arr.shape, dtype=arr.dtype.descr)
@@ -190,6 +200,15 @@ def idpr(x): #useful sometimes for printing nested in expressions
     print x
     return x
 
+def list_filter_value(l, index, val):
+    return [x for x in l if x[index]==val]
+
+def list_frac(l, frac):
+    return l[:int(frac * len(l))]
+
+def list_inds(l, inds):
+    return list(np.array(l)[inds])
+
 def least(f, seq, comp=operator.lt):
     # Returns the x in seq for which f(x) is smallest
     l = None
@@ -221,10 +240,26 @@ def r_squared(a,b):
 def ravg(l):
     return rsum(l) / len(l)
 
-def rescale(p,n):
+def rescale(frac, mult):
     """
+    frac: fraction positives
+    mult: negative multiplier
+    End cases 0 and 1 work here.
+    Doing the math: wlog, p+n=1, so frac=p=1-n  (for p=%pos, n=%neg)
+    """
+    #return p/(p+(1-p)*n) # to show similarity to wrong version below
+    return frac / (frac + (1-frac) * mult)
+
+def rescale_dep(p,n):
+    """
+    This is WRONG. But was used in clusterings etc so I'll keep it for now.
     Rescale posterior probability p according to multiple of negatives n.
+    Instead should just be p/n, which hardly needs a function. 
+    Think about the edge case of a multiplier of 1--should just return p.
+    Must have been thinking additively when I made this, but used
+    multiplicatively.
     """
+    print "ut.rescale: Deprecated. Wrong."
     return p/(1+(1-p)*n)
 
 def regex_filter(seq, pattern):
@@ -306,12 +341,13 @@ def load_tab_file(fname, sep='\t', use_special_clean=False):
     else:
         return (tuple(clean(l).split(sep)) for l in file(fname, 'r'))
 
-def load_dict_sets(fname, lines='pairs'):
+def load_dict_sets(fname, lines='pairs', **kwargs):
     # Returns a key->set(values) mapping
     if lines=='pairs':
-        return dict_sets_from_tuples(load_list_of_lists(fname))
+        return dict_sets_from_tuples(load_list_of_lists(fname, **kwargs))
     elif lines=='lists':
-        return dict([(l[0],set(l[1:])) for l in load_list_of_lists(fname)])
+        return dict([(l[0],set(l[1:])) for l in load_list_of_lists(fname,
+            **kwargs)])
 
 def load_list(fname):
     return [row[0] for row in load_tab_file(fname)]
@@ -323,12 +359,20 @@ def load_list_of_lists(fname, **kwargs):
     return load_list_of_type(fname, list, **kwargs)
 load_lol = load_list_of_lists #shortcut
 
+def load_los(fname, **kwargs):
+    return load_list_of_type(fname, set, **kwargs)
+
+def load_lot(fname, **kwargs):
+    return load_list_of_type(fname, tuple, **kwargs)
 
 def load_list_of_type(fname, argtype, **kwargs):
     return [argtype(l) for l in load_tab_file(fname, **kwargs)]
 
-def write_dict_sets_lines(d,fname):
-    write_tab_file([[i[0]]+list(i[1]) for i in d.items()],fname)
+def write_dict_sets_lines(d,fname, sep='\t'):
+    if sep=='\t':
+        write_tab_file([[k]+list(v) for k,v in d.items()],fname)
+    else:
+        write_tab_file([[k] + [sep.join(v)] for k,v in d.items()],fname)
     
 def write_dict_sets_tab(d,fname):
     mylist = []
@@ -336,17 +380,16 @@ def write_dict_sets_tab(d,fname):
         mylist.extend([(k,v) for v in d[k]])
     write_tab_file(mylist,fname)
 
-def write_tab_file(ll, fname, formatter='{0}'):
+def write_tab_file(ll, fname, formatter='{0}', header=None, islist=False):
     # '{0:10g}' for 10 digit precision
     f = file(fname, 'w')
-    for l in ll:
-        if isinstance(l, type('teststring')):
-            f.write(formatter.format(l))
-        else:
-            for i,x in enumerate(l):
-                if i>0: f.write('\t')
-                f.write(formatter.format(x))
-        f.write('\n')
+    if header:
+        f.write('\t'.join(formatter.format(x) for x in header) + '\n')
+    if islist:
+        f.write('\n'.join((formatter.format(l) for l in ll)))
+    else:
+        for l in ll:
+            f.write('\t'.join(formatter.format(x) for x in l) + '\n')
 
 def print_lol(lol):
     for l in lol:
@@ -364,6 +407,10 @@ def flatten(lst):
            out.extend(sublist)
    return out
 
+def fremove(lst,item):
+    newl = list(lst)
+    newl.remove(item)
+    return newl
 
 
 #######################################
@@ -509,6 +556,15 @@ def arr_norm(arr, axis=0):
     mat = np.asmatrix(arr)
     return np.asarray(np.nan_to_num(mat / np.sum(mat, axis)))
 
+def normalize_fracs(arr, norm_rows=True, norm_cols=True):
+    if norm_cols:
+        # Normalize columns first--seems correct for overall elution profile if
+        # you're calculating correlation-type scores
+        arr = arr_norm(arr, 0)
+    if norm_rows:
+        arr = arr_norm(arr, 1)
+    return arr
+
 ##########################################
 # Configuration Filenames/Paths/Etc
 ##########################################
@@ -568,3 +624,16 @@ def temp_placeholder(path):
 def run_command(cmd):
     print cmd
     subprocess.call(cmd, shell=True)
+
+def date():
+    """
+    Returns eg "20130420"
+    """
+    return date_ymd()
+
+def date_ymd():
+    return datetime.date.today().strftime("%Y%m%d")
+
+def date_md():
+    return datetime.date.today().strftime("%m%d")
+
