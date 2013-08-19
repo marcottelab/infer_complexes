@@ -9,6 +9,7 @@ def score_arr_ext(arr, species, ext_key):
     Key_or_data: either a string matching one of the keys for ext data in
     config.py, or a tuple of (name,data) where data is a sequence of (id1, id2,
     score), and the sequence can be a generator.
+    fnet_cols: list of columns or first 2 letters to include, eg ['HS','CE']
     """
     ext_file = ut.config()[ext_key]
     conv_dict = convdict_from_fname(species, ext_file)
@@ -16,7 +17,8 @@ def score_arr_ext(arr, species, ext_key):
     stored_names = fnet_names(ext_file) # None if only one data column.
     names = stored_names if stored_names else [ext_key]
     data_dict = load_net(ut.load_tab_file(filename))
-    print 'External data file: %s size: %s' % (ext_file, len(data_dict))
+    print 'External data file: %s; size: %s; cols: %s' % (ext_file,
+            len(data_dict), len(names))
     score_arr(arr, species, names, data_dict, conv_dict)
 
 def score_arr(arr, species, names, data_dict, conv_dict):

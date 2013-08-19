@@ -164,12 +164,15 @@ class GTrans(object):
 
     def __init__(self, sp='Hs'):
         lines = ut.load_list_of_lists(ut.proj_path('gene_desc_'+sp))[1:]
-        processed = [(l[0],l[1].lower(),l[2] if len(l)>2 else '') for l in lines]
+        processed = [tuple([l[0],l[1].lower()] + (l[2:] if len(l)>2 else [''])) for l in
+                lines if len(l)>1]
         self.gnames = [(l[1], l[2]) for l in processed]
-        self.name2id = dict([(l[1],l[0]) for l in processed])
-        self.id2name = dict([(l[0], l[1]) for l in processed])
+        self.name2id = dict(((l[1],l[0]) for l in processed))
+        self.id2name = dict(((l[0], l[1]) for l in processed))
         self.name2desc = dict(self.gnames)
-        self.id2desc = dict([(l[0],l[2]) for l in processed])
+        self.id2desc = dict(((l[0],l[2]) for l in processed))
+        self.id2all = dict(((l[0],l[1:]) for l in processed))
+        self.entrez2id = dict(((l[4][2:],l[0]) for l in processed))
 
 
     def gfind(self, name):
