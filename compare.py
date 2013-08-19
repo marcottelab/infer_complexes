@@ -9,73 +9,116 @@ import cv
 import operator
 from Struct import Struct
 import itertools as it
+import sys
+from pandas import DataFrame
 
 
 cp_funcs = [
+    # ( function name, function, whether to use random mean/variance )
     # 0 count of partially recovered gold cxs, first measure of havig/hart
-    ("bader", lambda gold,cxs: count_overlaps(gold, cxs, limit=0.25,
-        func=bader_score)),
+    ("bader", lambda gold,cxs,cxppis: count_overlaps(gold, cxs, limit=0.25,
+        func=bader_score), False),
     # 1 clustering-wise sensitivity, Brohee 2006
-    ("sensitivity", lambda gold,cxs: avg_best(cxs, gold,
-        sensitivity)),
+    ("sensitivity", lambda gold,cxs,cxppis: avg_best(cxs, gold,
+        sensitivity), True),
     # 2 clustering-wise ppv, Brohee 2006
-    ('ppv', lambda gold,cxs: ppv(gold, cxs)),
+    ('ppv', lambda gold,cxs,cxppis: ppv(gold, cxs), True),
     # 3 geometric accuracy, Brohee 2006, third havig/hart
-    ('accuracy', lambda gold,cxs: geom_avg(avg_best(cxs, gold,
-        sensitivity), ppv(gold, cxs))),
+    ('accuracy', lambda gold,cxs,cxppis: geom_avg(avg_best(cxs, gold,
+        sensitivity), ppv(gold, cxs)), True),
     # 4 geometric separation, Brohee 2006
-    ('separation', lambda gold, cxs: geom_avg(separation(gold, cxs),
-        separation(cxs, gold))),
-    ('overlaps sens', lambda gold,cxs: (count_overlaps(gold, cxs, limit=0.5,
-        func=sensitivity)/len(gold))),
-    ('overlaps sens rev', lambda gold,cxs: (count_overlaps(cxs, gold, limit=0.5,
-        func=sensitivity)/len(cxs))),
-    ('corr', lambda gold,cxs: gold_corr(gold, cxs)),
-    #lambda gold,cxs: avg_best(cxs, gold, sensitivity_adj)
+    ('separation', lambda gold,cxs,cxppis: geom_avg(separation(gold, cxs),
+        separation(cxs, gold)), True),
+    ('overlaps sens', lambda gold,cxs,cxppis: (count_overlaps(gold, cxs, limit=0.5,
+        func=sensitivity)/len(gold)), True),
+    ('overlaps sens rev', lambda gold,cxs,cxppis: (count_overlaps(cxs, gold, limit=0.5,
+        func=sensitivity)/len(cxs)) if len(cxs)!=0 else 0, True),
+    ('corr', lambda gold,cxs,cxppis: gold_corr(gold, cxs), True),
+    #lambda gold,cxs,cxppis: avg_best(cxs, gold, sensitivity_adj)
     # 8 Nepusz 2012, second and optimized metric for havig/hart
-    ('mmr',lambda gold,cxs: max_match_ratio(gold, cxs)),
-    ('size', lambda gold,cxs: len(cxs)),
-    ('non_overlap', lambda gold,cxs: 1-cxs_self_match_frac(cxs)),
-    ('nonov_iter', lambda gold,cxs: 1-cxs_self_match_frac_iter(cxs))
-    ]
+    ('mmr',lambda gold,cxs,cxppis: max_match_ratio(gold, cxs), True),
+    #('non_overlap', lambda gold,cxs,cxppis: 1-cxs_self_match_frac(cxs), False), False),
+    #('auroc', lambda gold,cxs,cxppis: auroc(gold,cxppis), False), 
+    ('aupr', lambda gold,cxs,cxppis: aupr(gold, cxppis), False), 
+    ('nonov_iter', lambda gold,cxs,cxppis: 1-cxs_self_match_frac_iter(cxs), False), 
+    ('cliqueness_3_20', lambda gold,cxs,cxppis: cliqueness(filter_len(cxs, 3, 20), cxppis), False),
+    #('ppi_pr', lambda gold,cxs,cxppis: prstats(gold, cxppis), False), 
+    ('sm_cxs_3', lambda gold,cxs,cxppis: 1/cxs_avg_size(filter_len(cxs, 3, None)), False),
+    ('n_proteins', lambda gold,cxs,cxppis: count_uniques(cxs), False),
+    ('n_complexes_3_20', lambda gold,cxs,cxppis: len(filter_len(cxs, 3, 20)), False)
+]
 
-def stats(gold,cxs_list, conv_to_sets=True, func_inds=None):
+
+def stats(gold,cxs_list, cxppis_list=None, conv_to_sets=True, funcs=None):
     if conv_to_sets:
         gold = [set(c) for c in gold]
         cxs_list = [[set(c) for c in cxs] for cxs in cxs_list]
-    use_funcs = np.array(cp_funcs)[func_inds] if func_inds else cp_funcs
-    names = ut.i0(use_funcs)
-    print names
-    arr = np.zeros(len(cxs_list),dtype=','.join(['f8']*len(names)))
-    arr.dtype.names = names
-    for i, cxs in enumerate(cxs_list):
-        print 'complex %s of %s' %(i, len(cxs_list))
-        arr[i] = np.array([f(gold, cxs) for f in ut.i1(use_funcs)])
+    funcs = funcs or ut.i0(cp_funcs)
+    use_funcs = [f for f in cp_funcs if f[0] in funcs]
+    print funcs
+    arr = np.zeros(len(cxs_list),dtype=','.join(['f8']*len(funcs)))
+    arr.dtype.names = funcs
+    print '%s total maps.' % len(cxs_list)
+    for i, (cxs, cxppis) in enumerate(zip(cxs_list, cxppis_list)):
+        #sys.stdout.write(str(i))
+        print i
+        arr[i] = np.array([f(gold, cxs, cxppis) for f in ut.i1(use_funcs)])
     return arr
 
-def result_stats(sp, splits, cxstructs, nsp, func_inds=[2,8,9,10,11],
-        split_inds=[0], cxs_sets=None):
+def result_stats(sp, splits, cxstructs, nsp, funcs=None,
+        split_inds=[0], cxs_sets=None, min_gold_size=3):
     """
     split_inds: specifies which of the cxs_splits to use as gold--merges these
     indices. mar 2013 there are just two splits now, the train/cv set and the
-    holdout set, so use index 1.
+    holdout set, so use index 0 for selection and 1 for testing. Note tree
+    overfits and performs especially well on the training set.
     """
-    clstats = stats(result_gold(splits, sp, split_inds=split_inds,
-        consv_sp=('Dm' if nsp==2 else '')), cxs_sets or [cstr.cxs for cstr in
-            cxstructs], func_inds=func_inds)
+    cxs_gold = result_gold(splits, sp, split_inds=split_inds, 
+            consv_sp=('Dm' if nsp==2 else ''))
+    if min_gold_size>1:
+        cxs_gold = [c for c in cxs_gold if len(c) >= min_gold_size]
+    clstats = stats(cxs_gold, cxs_sets or [cstr.cxs for cstr in
+            cxstructs], [cstr.cxppis for cstr in cxstructs], funcs=funcs)
     return Struct(cxstructs=cxstructs, stats=clstats)
 
 
-def select_best(clstruct, scorenames=['ppv','mmr','nonov_iter'],
-        rfunc=operator.add, use_norm=True, dispn=15, ranks_only=False):
+def select_best(clstruct,
+scorenames=['sensitivity','mmr','aupr','cliqueness_3_20','nonov_iter','n_proteins','n_complexes_3_20'],
+        rfunc=operator.add, use_norm=False, dispn=15, score_factors=None,
+        use_ranks=True, output_ranks=False, print_ranks=False,
+        require_scores=None):
     cxstructs, stats = clstruct.cxstructs, clstruct.stats
     clusts = [cxstr.cxs for cxstr in cxstructs]
-    if use_norm: stats = norm_columns(stats)
+    scorenames = scorenames or list(stats.dtype.names)
+    stats = stats[scorenames]
+    ranks = rank_columns(stats)
+    if use_ranks:
+        stats = ranks
+    else:
+        if use_norm: stats = norm_columns(stats)
+        if score_factors: stats = rescale_columns(stats, score_factors)
     inds = np.argsort(reduce(rfunc, [stats[n] for n in scorenames]))[::-1]
+    if require_scores is not None:
+        for req_name,thresh in require_scores:
+            thresh = (np.median(clstruct.stats[req_name]) if thresh is None
+                    else thresh)
+            inds = [i for i in inds if clstruct.stats[req_name][i] > thresh]
+    nstats = len(stats)
+    def filt_params(s):
+        return " ".join([p[:2]+p.split('=')[1] for p in s.split(',')])
+    show_columns = (scorenames if require_scores is None else
+            scorenames+ut.i0(require_scores))
+    d = DataFrame(clstruct.stats[inds[:dispn]][show_columns],
+            index=["#%s: %sc %si %s" %
+                (i,len(clusts[i]),len(cxstructs[i].cxppis),
+                    filt_params(cxstructs[i].params)) for i in inds[:dispn]])
+    print d.head(dispn)
     for i in inds[:dispn]: 
-        print (i, ["%0.4f " % s for s in clstruct.stats[i]], len(clusts[i]), 
-                len(cxstructs[i].cxppis), cxstructs[i].params)
-    if ranks_only:
+        #print (i, ["%0.4f " % s for s in clstruct.stats[i]], len(clusts[i]), 
+                #len(cxstructs[i].cxppis), cxstructs[i].params)
+        if print_ranks:
+            print i, [nstats-s for s in ranks[i]]
+    if output_ranks:
         return inds
     else:
         return clusts[inds[0]], cxstructs[inds[0]].cxppis, inds[0]
@@ -85,41 +128,76 @@ def result_gold(splits, species, split_inds, make_unmerged=False,
     if make_unmerged: 
         print "Converting to unmerged using conserved:", (consv_sp if consv_sp
                 else "None")
-        ppi_corum,_,_ = ppi.load_training_complexes(species,consv_sp)
+        ppi_corum,_,_ = ppi.load_training_complexes(species,'',consv_sp)
         splits = unmerged_splits_from_merged_splits(ut.i1(ppi_corum),
                 [[ut.i1(s) for s in split] for split in splits])
     gold = ut.i1(reduce(operator.add, [splits[i] for i in split_inds]))
     return gold
 
-def prstats(gold, pred_ints, ntest_pos, prec=0.5):
+def prstats(gold, ppis, prec=0.2):
     """
     Pred_ints: list of pred_result.ppis, or clustering filtered predicted ppis.
     """
-    gold_pd = pd.PairDict([(p0,p1,1) for p0,p1 in
-        co.pairs_from_complexes(dict([(i,g) for i,g in enumerate(gold)]))])
-    tested_ppis = [[(id1,id2,score,1 if gold_pd.contains((id1,id2)) else
-        0) for id1,id2,score,_ in ppis] for ppis in pred_ints]
-    stats = [cv.preccheck(c,pchecks=[prec],total_trues=ntest_pos)[0]
-            for c in tested_ppis]
-    return stats
+    tested,ntest_pos = tested_ppis(gold, ppis)
+    recalled = cv.preccheck(tested,pchecks=[prec],total_trues=ntest_pos)[0]
+    return recalled
+
+def aupr(gold, ppis):
+    """
+    Area under precision-recall.
+    """
+    tested,ntest_pos = tested_ppis(gold, ppis)
+    return cv.aupr(tested, ntest_pos)
 
 def unmerged_splits_from_merged_splits(unmerged, merged_splits):
     """
-    Unmerged: list of sets.
+    Unmerged: list of enumerated/named complex sets, usually from
+    ppi.load_training_complexes.
     Merged_splits: A list of sets for each split (often 3 splits).
     """
-    usplits = [[] for ms in merged_splits]
+    merged_splits = [ut.i1(ms) for ms in merged_splits]
+    unmerged = ut.i1(unmerged)
+    usplits = [[] for ms in merged_splits] + [[]] # extra for non matches
     for u in unmerged:
-        which_split = np.argmax([best_match(u, ms, sensitivity) 
-            for ms in merged_splits])
+        matches = [best_match(u, ms, sensitivity) for ms in merged_splits]
+        which_split = np.argmax(matches) if max(matches) > 0 else -1
         usplits[which_split].append(u)
     return usplits
+
+def gold_label_ppis(ppis, merged_splits, sp, gold_nsp):
+    gold_consv = 'Dm' if gold_nsp>1 else ''
+    ppi_cxs,_,_ = ppi.load_training_complexes(sp, '', gold_consv)
+    train_cxs = unmerged_splits_from_merged_splits(ppi_cxs, merged_splits)[0]
+    ppis = cv.gold_label_ppis(ppis,
+            co.pairs_from_complexes(dict(enumerate([set(c) for c in train_cxs]))))
+    return ppis
+
+
+
+def rescale_columns(arr, scale_factors):
+    newarr = ut.arr_copy(arr)
+    for i,n in enumerate(newarr.dtype.names):
+        #newarr[n] = np.nan_to_num(newarr[n]/np.max(np.nan_to_num(newarr[n])))
+        newarr[n] = newarr[n] * scale_factors[i]
+    return newarr
 
 def norm_columns(arr):
     newarr = ut.arr_copy(arr)
     for n in newarr.dtype.names:
-        #newarr[n] = np.nan_to_num(newarr[n]/np.max(np.nan_to_num(newarr[n])))
         newarr[n] = scipy.stats.zscore(np.nan_to_num(newarr[n]))
+    return newarr
+
+#def rescale_rand(arr, randarr):
+    #newarr = ut.arr_copy(arr)
+    #for n in newarr.dtype.names:
+        #randmean = np.mean(randarr[n])
+        #datamean = np.mean(arr[n])
+        #newarr[n] = ( newarr[n] 
+
+def rank_columns(arr):
+    newarr = ut.arr_copy(arr)
+    for n in newarr.dtype.names:
+        newarr[n] = scipy.stats.rankdata(np.nan_to_num(newarr[n]))
     return newarr
 
 def max_match_ratio(gold, cxs):
@@ -185,13 +263,16 @@ def ppv(setsa, setsb):
     arr = arr_intersects(setsa, setsb)
     # Redundant steps in how their algo is presented were elminated but kept
     # here for clarity
-    #clust_ppvs = np.max(arr, axis=0) / np.sum(arr, axis=0)
-    #overall_ppv = (np.sum(arr, axis=0)*clust_ppvs) / np.sum(arr)
-    return np.sum(np.max(arr, axis=0))/np.sum(arr)
+    clust_ppvs = np.nan_to_num(np.max(arr, axis=0) / np.sum(arr, axis=0))
+    clust_sizes = [len(c) for c in setsb]
+    overall_ppv = weighted_avg(clust_ppvs, clust_sizes)
+    #return np.sum(np.max(arr, axis=0))/np.sum(arr)
+    return overall_ppv
 
 def separation(setsa, setsb):
     # Row-wise separation. Brohee 2006.
     # Transpose arguments for col-wise separation.
+    if len(setsa)==0 or len(setsb)==0: return 0
     arr = arr_intersects(setsa, setsb)
     col_normed = np.nan_to_num(arr/np.sum(arr, axis=0))
     row_normed = np.nan_to_num(np.array([arr[i,:]/np.sum(arr,axis=1)[i] 
@@ -226,8 +307,16 @@ def best_match_item(a, setsb, func):
 def best_match_index(a, setsb, func):
     return np.argmax([func(a, complexb) for complexb in setsb])
 
-def avg_best(setsa, setsb, func):
-    return np.mean([best_match(a, setsb, func) for a in setsa])
+def avg_best(setsa, setsb, func, weighted=True):
+    scores = [best_match(a, setsb, func) for a in setsa]
+    if weighted:
+        lengths = [len(c) for c in setsa]
+        return weighted_avg(scores, lengths)
+    else:
+        return np.mean([scores])
+
+def weighted_avg(scores, weights):
+    return np.sum(np.array(scores)*np.array(weights)) / np.sum(weights)
 
 def first_match(a, setsb, limit, skip_self=False, func=ppv):
     if skip_self:
@@ -265,7 +354,13 @@ def pds_overlap(pds):
     """
     pds: list of pairdicts
     """
-    return len(reduce(pd.pd_intersect_avals, pds).d)
+    return len(pds_intersect_pd(pds).d)
+
+def pds_intersect_pd(pds):
+    """
+    pds: list of pairdicts
+    """
+    return reduce(pd.pd_intersect_avals, pds)
 
 def pds_alloverlaps(named_pds):
     """
@@ -276,20 +371,41 @@ def pds_alloverlaps(named_pds):
             print ut.i0(n_pd), pds_overlap(ut.i1(n_pd))
 
 def triple_venn(three_ppis, names=['a','b','c']):
+    # Can send output to venn3(sizes, names) for plotting
     ppis_names = zip(three_ppis, names)
-    print zip(names, [len(p) for p in three_ppis])
+    full_sizes = [len(p) for p in three_ppis]
+    print zip(names, full_sizes)
     trip = ints_overlap(three_ppis)
     print names, trip
-    intersects = []
+    intersects_2 = []
     for (a,namea),(b,nameb) in it.combinations(ppis_names,2):
         intersect = ints_overlap([a,b])
         print namea, nameb, "--", intersect
-        print namea, nameb, "-only-", intersect - trip
+        intersect_2 = intersect - trip
+        print namea, nameb, "-only-", intersect_2
+        intersects_2.append((set([namea,nameb]), intersect_2))
+    only_singles = []
+    for i,(a,namea) in enumerate(ppis_names):
+        #print namea, len(a), trip, intersects_2 #debug
+        only_single = (len(a) - trip - sum([x[1] for x in intersects_2 if namea in x[0]]))
+        print namea, "only:", only_single
+        only_singles.append(only_single)
+    # for output into matplotlib_venn format
+    set_sizes = [0] * 7 
+    set_sizes[6] = trip
+    set_sizes[:2], set_sizes[3] = only_singles[:2], only_singles[2]
+    set_sizes[2], set_sizes[4], set_sizes[5] = ut.i1(intersects_2)
+    return set_sizes, names
+
+def cxs_avg_size(cxs):
+    return np.mean([len(c) for c in cxs])
 
 def cxs_self_match_frac(cxs, limit=.6, func=bader_score):
-    return len(overlaps(cxs,cxs,limit,func=func,skip_self=True))/len(cxs)
+    return (len(overlaps(cxs,cxs,limit,func=func,skip_self=True))/len(cxs) if
+            len(cxs)!=0 else 0)
 
 def cxs_self_match_frac_iter(cxs, ntests=10, func=bader_score):
+    # should instead consider limit=1 rather than 0--1 is meaningful, 0 is not
     limits = np.arange(0,1,1/ntests)
     return np.mean([cxs_self_match_frac(cxs, limit=lim, func=func) for lim in
         limits])
@@ -317,3 +433,46 @@ def ints_overlap_consv(intlists, odict):
     has an ortholog in the given odict.
     """
     return ints_overlap([consv_pairs(ints,odict) for ints in intlists])
+
+def count_trues(ppis, gold, ncounts=10000):
+    pdgold = pd.PairDict(gold)
+    print "Total trues:", len(gold)
+    count = 0
+    for n,p in enumerate(ppis):
+        if pdgold.contains((p[0],p[1])):
+            count += 1
+        if n % ncounts == 0:
+            print "%s True of first %s" %(count, n)
+
+def combine_clstructs(ca, cb):
+    return Struct(cxstructs = ca.cxstructs + cb.cxstructs,
+            stats=np.concatenate((ca.stats, cb.stats)))
+
+def tested_ppis(gold_cxs, ppis):
+    gold_ints = co.pairs_from_complexes(dict(enumerate(gold_cxs)))
+    ntest_pos = len(gold_ints)
+    pdtrues = pd.PairDict(gold_ints)
+    ppis = [(p[0],p[1],p[2],1 if pdtrues.contains(tuple(p[:2])) else 0) for p in
+            ppis]
+    return ppis, ntest_pos
+
+def auroc(gold_cxs, cxppis):
+    cxppis, ntest_pos = tested_ppis(gold_cxs, cxppis)
+    xs,ys = cv.roc(cxppis) 
+    return cv.auroc(xs,ys)
+
+def cliqueness(cxs, cxppis):
+    pdints = pd.PairDict(cxppis)
+    return np.mean([clique_score(c,pdints) for c in cxs])
+
+def clique_score(cx, pdints):
+    cx_ints = co.pairs_from_complexes(dict([(1,cx)]))
+    return len([1 for edge in cx_ints if pdints.contains(edge)])/len(cx_ints)
+
+def filter_len(lol, min_len=0, max_len=None):
+    return [items for items in lol if len(items) >= min_len and (max_len is None
+        or len(items) <= max_len)]
+
+def count_uniques(lol):
+    return (len(reduce(set.union, [set(items) for items in lol])) if len(lol)>0
+            else 0)
