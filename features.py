@@ -21,6 +21,14 @@ def match_cols(arr, colstring):
     """
     return [f for f in arr.dtype.names if (f[:2] in colstring.split()
                                            or f in colstring.split())]
+
+def unmatch_cols(arr, colstring):
+    """
+    colstring like 'Hs Ce HS ...' or 'Hs Ce HS-GN ...'
+    """
+    return [f for f in arr.dtype.names[3:] if (f[:2] not in colstring.split()
+                                           and f not in colstring.split())]
+
 def keep_rows(arr, rows):
     return arr_copy(arr[rows])
 
@@ -86,17 +94,21 @@ def merge_by_species(arr, matches, func, remove=False):
             ut.config()['elut_species'].split('_')]
     return merge_recurse(arr, patterns, func)
 
-def filter_require_sp(arr, set_species, cutoff=0.5, count_ext=False):
-    """
-    Set_species: if None, just requires any column in the array to pass the
-    cutoff.
-    """
+def species_cols(arr, set_species, count_ext=False):
     features = arr.dtype.names[3:]
     if set_species:
         cols = [f for f in features if f[:2] in set_species or (count_ext==True
             and f[:2]=='ex' and f[4:6] in set_species) ]
     else:
         cols = list(arr.dtype.names[3:])
+    return cols
+
+def filter_require_sp(arr, set_species, cutoff=0.5, count_ext=False):
+    """
+    Set_species: if None, just requires any column in the array to pass the
+    cutoff.
+    """
+    cols = species_cols(arr, set_species, count_ext=count_ext)
     sp_max = [max(r) for r in arr[cols]]
     passing_inds = [i for i,m in enumerate(sp_max) if m > cutoff]
     return arr[passing_inds]
@@ -195,6 +207,80 @@ def passing_species(arr, cutoff=0.5, count_ext=False):
     maxes = arr_collist_maxes(arr, spcols)
     passing = [s for s,m in zip(sps, maxes[0]) if m > cutoff]
     return passing
+
+def passing_fractionations_single(arr, cutoff=0.5):
+    """
+    Intended for a single row of the array: a length=1 ndarray. 
+    """
+    def frac_from_feat(f):
+        f = f.replace('pq_euc','pq-euc')
+        return '_'.join(f.split('_')[:-1]) 
+    features = arr.dtype.names[3:]
+    sps = species_list(features)
+    fractionations = set([frac_from_feat(f) for f in features if f[:2] in sps])
+    fcols = [[f for f in features if frac_from_feat(f)==frac] 
+            for frac in fractionations]
+    maxes = arr_collist_maxes(arr, fcols)
+    #passing = [s for s,m in zip(sps, maxes[0]) if m > cutoff]
+    return len([m for m in maxes[0] if m > cutoff])
+
+def passing_fractionations(arr, cutoff=0.5):
+    return [passing_fractionations_single(arr[i:i+1], cutoff=cutoff) 
+            for i in range(len(arr))]
+
+def passing_species_separate(arr, cutoff=0.5):
+    """
+    Intended for a single row of the array: a length=1 ndarray.
+    """
+    features = arr.dtype.names[3:]
+    sps = species_list(features)
+    spcols = [[f for f in features if f[:2]==s] for s in sps]
+    spcols_ext = [[f for f in features if f[:2]=='ex' and f[4:6]==s]
+                for s in sps]
+    spcols_net = [[f for f in features if f[:2]==s.upper()] for s in sps]
+    maxes = maxes_singles(arr, spcols)
+    maxes_ext = maxes_singles(arr, spcols_ext)
+    maxes_net = maxes_singles(arr, spcols_net)
+    passing = ['frac' if m > cutoff else 'ext' if mext > cutoff else 'net' if
+            mnet > cutoff else 'none'
+        for s,m,mext,mnet in zip(sps, maxes, maxes_ext, maxes_net)]
+    return passing
+
+def arr_add_spsummary(arrfeats, cutoff):
+    sps = species_list(arrfeats.dtype.names[3:])
+    names = [s + '_evidence' for s in sps]
+    newarr = ut.arr_add_feats(arrfeats, names, newtype='|S20')
+    for i in range(len(newarr)):
+        splist = passing_species_separate(arrfeats[i:i+1], cutoff)
+        ut.arr_assign_row_values(newarr,i,range(len(arrfeats.dtype.names),
+            len(newarr.dtype.names)), splist)
+    return newarr
+
+def arrfeats_add_ppis(arrfeats, ppis, name='ppi_score'):
+    #assert len(arrfeats) == len(ppis), "Mismatched lengths"
+    pdppis = pd.PairDict(ppis)
+    newarr = ut.arr_add_feats(arrfeats, [name], newtype='<f2')
+    notfound = 0
+    for row in newarr:
+        ppi = pdppis.find((row[0],row[1]))
+        if ppi:
+            row[-1] = pdppis.d[ppi][0]
+        else:
+            notfound += 1
+    print "Not found:", notfound
+    return newarr
+
+def arrfeats_set_gold(arrfeats, pdgold):
+    arrfeats = ut.arr_copy(arrfeats)
+    for row in arrfeats:
+        if pdgold.contains((row[0],row[1])):
+            row[2] = 1
+        else:
+            row[2] = 0
+    return arrfeats
+
+def maxes_singles(arr, colsets):
+    return [0 if len(cols)==0 else max(arr[cols][0]) for cols in colsets]
 
 def filter_nsp(arr, nsp=2, cutoff=0.5, count_ext=False, do_counts=True):
     """
