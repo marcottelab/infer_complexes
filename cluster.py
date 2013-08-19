@@ -17,16 +17,20 @@ mcl_command = '%(mclpath)s %(fin)s -I %(I)s -o %(fout)s --abc'
 c1_command = 'java -jar %(c1path)s -s %(min_size)s -d %(min_density)s --haircut %(haircut)s --penalty %(penalty)s --seed-method %(seed_method)s -F csv --max-overlap %(max_overlap)s %(fluff)s %(fin)s > %(fout)s ' 
 
 def filter_clust(ppis_cluster, ppis_retain, negmult=50, cltype='c1',
-        merge_cutoff=0.55, min_cx_length=2, is_recluster=False, **kwargs):
+        merge_cutoff=0.55, min_cx_length=2, is_recluster=False,
+        add_to_cxs=None, max_subcomplex=10000, min_subplusone=3, **kwargs):
     print "Negatives rescale factor:", negmult
     cxstruct = cluster(ppis_cluster, negmult, cltype, **kwargs)
     if is_recluster:
         cxstruct.numbered_cxs = cxstruct.cxs
         cxstruct.cxs = clean_numbered_cxs(cxstruct.numbered_cxs, min_cx_length)
-    cxstruct.cxs = remove_dupes(cxstruct.cxs, merge_cutoff, npasses=1)
+    if add_to_cxs is not None: # for ppi rescue step
+        cxstruct.cxs = add_to_cxs + cxstruct.cxs
+    cxstruct.cxs = merge_dupes(cxstruct.cxs, merge_cutoff, npasses=1)
     # be sure to get rid of complete duplicates
-    cxstruct.cxs = remove_dupes(cxstruct.cxs, 1, npasses=3) 
-    cxstruct.cxs = remove_subcomplexes(cxstruct.cxs, max_size=3)
+    cxstruct.cxs = merge_subplusone(cxstruct.cxs, min_size=min_subplusone)
+    cxstruct.cxs = remove_subcomplexes(cxstruct.cxs, max_size=max_subcomplex)
+    cxstruct.cxs = merge_dupes(cxstruct.cxs, 1, npasses=3) 
     cxstruct.cxppis = _filter_ints(ppis_retain, cxstruct.cxs)
     print "%s Deduped complexes; %s cxppis" % (len(cxstruct.cxs), len(cxstruct.cxppis))
     return cxstruct
@@ -151,7 +155,7 @@ def merge_maps(cxppis_list, threshold=.5):
         whichpd in pds if whichpd.find(p)]) >= len(cxppis_list) * threshold]
     return ps_merged
 
-def remove_dupes(list_cxs, cutoff, func=cp.bader_score, npasses=1):
+def merge_dupes(list_cxs, cutoff, func=cp.bader_score, npasses=1):
     """
     cxs: list of sets
     Requires multiple passes to be more certain of fewer complex pairs passing
@@ -198,3 +202,8 @@ def remove_subcomplexes(cxs, max_size=3):
     cxs_copy = list(cxs)
     return [c for c in cxs if len(c) > max_size or len([c2 for c2 in cxs_copy
         if c.issubset(c2) and not c==c2]) == 0]
+
+def merge_subplusone(cxs, min_size):
+    return merge_dupes(cxs, .5, func=lambda a,b: cp.subset_plus_one(a, b,
+        min_size), npasses=1)
+

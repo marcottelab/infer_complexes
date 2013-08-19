@@ -291,6 +291,14 @@ def arr_intersects(setsa, setsb, func=lambda a,b:len(set.intersection(a,b))):
 def simpson(a,b):
     return len(set.intersection(a,b))/min([len(a),len(b)])
 
+def subset_plus_one(a,b,minsize):
+    if len(a)>=minsize and len(b)>=minsize:
+        intersect = len(set.intersection(a,b))
+        if intersect > 0:
+            if min(len(a),len(b)) <= intersect + 1:
+                return 1
+    return 0
+
 def sensitivity_adj(a,b):
     """ 
     Tries to remove the issue that smaller complexes get biased towards high

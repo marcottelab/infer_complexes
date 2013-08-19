@@ -9,6 +9,7 @@ import cyto
 import compare as cp
 import corum as co
 import cv
+import evidence as ev
 import examples as ex
 import features as fe
 import ml
@@ -147,13 +148,16 @@ def predict_clust(name, sp, nsp, obs=None, exs=None, savef=None, pres=None,
         count_ext=False, cutoff=0.5, n_cvs=7, accept_clust=False,
         obs_fnames=None, base_splits=None, obs_kwargs={}, kfold=3,
         gold_nspecies=2, do_cluster=True, do_2stage_cluster=True,
-        **predict_kwargs):
+        cxs_cxppis=None, do_rescue=True, n_rescue=20000, rescue_fracs=20,
+        rescue_score=0.9, **predict_kwargs):
     """
     - obs/test_kwargs: note obs_kwargs is combined with predict_kwargs to enforce
       consistency.
     - pd_spcounts: supply from ppi.predict_all if nsp > 1.
     - base_splits: supply exs.splits to generate examples from existing
       division of complexes.
+    - cxs_cxppis: provide if you want to export, or do the ppi rescue
+      clustering--also must set accept_clust=True, do_rescue=True
     """
     savef = savef if savef else ut.bigd(name)+'.pyd'
     print "Will save output to", savef
@@ -176,34 +180,67 @@ def predict_clust(name, sp, nsp, obs=None, exs=None, savef=None, pres=None,
             pres = predict(name, sp, obs, exs.arrfeats, nsp, **predict_kwargs)
             pres.exs = exs
             ut.savepy(pres, ut.pre_ext(savef, '_pres'), check_exists=True) 
+        else:
+            pres=ut.struct_copy(pres)
     merged_splits = pres.exs.splits[1] # splits is (lp_splits, clean_splits)
     if do_cluster:
-        if clusts is None:
-            #if calc_fracs:
-                #cl_kwargs['fracs'] = [cp.find_inflection(pres.ppis, merged_splits,
-                    #pres.species, gold_nspecies)]
-            clusts, runid = multi_clust(pres.ppis, savef=savef, runid=runid,
-                    pres=pres, gold_splits=merged_splits,
-                    gold_nspecies=gold_nspecies, **cl_kwargs)
-            ut.savepy(clusts, ut.pre_ext(savef, '_clusts_id%s' % runid))
-        if do_2stage_cluster:
-            clusts2 = multi_stage2_clust(clusts, pres.ppis, runid=runid)
-            clstruct = cp.result_stats(sp, merged_splits, clusts2,
-                    gold_nspecies) 
-            ut.savepy(clstruct, ut.pre_ext(savef, '_clstruct2_id%s' % runid))
-        else:
-            clstruct = cp.result_stats(sp, merged_splits, clusts, nsp) 
-            ut.savepy(clstruct, ut.pre_ext(savef, '_clstruct_id%s' % runid))
+        if cxs_cxppis is None:
+            if clusts is None and cxs_cxppis is None:
+                #if calc_fracs:
+                    #cl_kwargs['fracs'] = [cp.find_inflection(pres.ppis, merged_splits,
+                        #pres.species, gold_nspecies)]
+                clusts, runid = multi_clust(pres.ppis, savef=savef, runid=runid,
+                        pres=pres, gold_splits=merged_splits,
+                        gold_nspecies=gold_nspecies, **cl_kwargs)
+                ut.savepy(clusts, ut.pre_ext(savef, '_clusts_id%s' % runid))
+            if do_2stage_cluster:
+                clusts2 = multi_stage2_clust(clusts, pres.ppis, runid=runid,
+                        **cl_kwargs)
+                clstruct = cp.result_stats(sp, merged_splits, clusts2,
+                        gold_nspecies) 
+                ut.savepy(clstruct, ut.pre_ext(savef, '_clstruct2_id%s' % runid))
+            else:
+                clstruct = cp.result_stats(sp, merged_splits, clusts, nsp) 
+                ut.savepy(clstruct, ut.pre_ext(savef, '_clstruct_id%s' % runid))
         if accept_clust:
-            pres.cxs, pres.cxppis, pres.ind = cp.select_best(clstruct)
-            ut.savepy([pres.cxs,pres.cxppis],
-            ut.pre_ext(savef,'_cxs_cxppis_clust_run%s_ind%s_%scxs' % (runid, pres.ind, len(pres.cxs))))
+            if cxs_cxppis is None:
+                pres.cxs, pres.cxppis, pres.ind = cp.select_best(clstruct)
+                ut.savepy([pres.cxs,pres.cxppis],
+                        ut.pre_ext(savef,'_cxs_cxppis_id%s_ind%s_%scxs'
+                            % (runid, pres.ind, len(pres.cxs))))
+            else:
+                pres.cxs, pres.cxppis = cxs_cxppis
+                pres.ind = 0
+            if do_rescue:
+                # note cl_kwargs aren't passed--would be messy
+                pres.cxs, pres.cxppis = rescue_ppis(pres, obs, n_rescue,
+                        cutoff_fracs=rescue_fracs, cutoff_score=rescue_score)
             cyto_export(pres, merged_splits, name_ext='_clust%s_%scxs' % (pres.ind,
-                len(pres.cxs)), geneatts=ut.proj_path('gene_desc_'+sp),
-                pd_spcounts=pd_spcounts, arrdata=obs, cutoff=cutoff, count_ext=False)
-        return pres, clstruct
+                len(pres.cxs)), pd_spcounts=pd_spcounts, arrdata=obs,
+                cutoff=cutoff, count_ext=False, arrdata_ppis=None)
+            return pres
+        else:
+            return pres, clstruct
     else:
         return pres
+
+def rescue_ppis(pres, obs, n_rescue, cutoff_fracs=20, cutoff_score=0.9,
+        exclude_ppis=None, frac_retain=0.1, cltype='mcl', merge_cutoff=0.55,
+        I=3, negmult=1):
+    ppis_counted = ev.ppis_fracspassing_counts(pres.ppis[:n_rescue], obs,
+            exclude_ppis=(exclude_ppis or pres.cxppis))
+    print "%s PPIs considered for possible rescue" % len(ppis_counted)
+    ppis_rescue = [p for p in ppis_counted 
+            if p[-1] > cutoff_fracs or p[2] > cutoff_score]
+    print "%s PPIs to be rescued" % len(ppis_rescue)
+    ppis_rescue_as_cxs = [set((p[0],p[1])) for p in ppis_rescue]
+    additional_cxs = pres.cxs + ppis_rescue_as_cxs
+    cxstruct_rescue = cl.filter_clust(ppis_rescue, ut.list_frac(pres.ppis,
+        frac_retain), cltype='mcl', merge_cutoff=merge_cutoff, I=I,
+        negmult=negmult, add_to_cxs=additional_cxs)
+    print "Total complexes >= size 3: was %s, now %s" % (len([c for c in
+        pres.cxs if len(c)>=3]), len([c for c in cxstruct_rescue.cxs if len(c)>=3]))
+    return cxstruct_rescue.cxs, cxstruct_rescue.cxppis
 
 def cvstd_via_median(name, sp, nsp, obs_fnames, kfold, base_splits, n_cvs,
         savef=None, overwrite_balanced=True, **kwargs):
@@ -243,7 +280,7 @@ def multi_stage2_clust(clusts, ppis_all, runid=None, frac_retain=.1,
     return clusts2
 
 def multi_clust(tested, score_cutoffs=None, length_cutoffs=None,
-        fracs=[.012,.014], fracs_retain=[.1], ds=[.1,.25,.3,.35], ms=[.1,.15,.2],
+        fracs=[.012,.014], frac_retain=.1, ds=[.1,.25,.3,.35], ms=[.1,.15,.2],
         penalties=[.1,1], overlaps=[.55], haircuts=[0,.2], max_pval=1,
         savef=None, runid=None, show_stats=True, pres=None, gold_nspecies=1,
         gold_splits=None, gold_minlen=3, mdprod_min=.01, **kwargs):
@@ -253,12 +290,12 @@ def multi_clust(tested, score_cutoffs=None, length_cutoffs=None,
         else [le/len(tested) for le in length_cutoffs])
     print "random id:", runid
     clusts = []
-    params = [fracs, fracs_retain, ds, ms, penalties, overlaps, haircuts]
+    params = [fracs, ds, ms, penalties, overlaps, haircuts]
     products = it.product(*params)
-    for (f,fr,d,m,p,o,h) in products:
+    for (f,d,m,p,o,h) in products:
         if d*m >= mdprod_min:
             cxstruct = cl.filter_clust(ut.list_frac(tested, f),
-                    ut.list_frac(tested, fr), merge_cutoff=o, negmult=m, min_density=d,
+                    ut.list_frac(tested, frac_retain), merge_cutoff=o, negmult=m, min_density=d,
                     runid=runid, penalty=p, max_pval=max_pval, max_overlap=o,
                     haircut=h, **kwargs)
             cxstruct.params = ('density=%s,frac=%s,f_retain=%s,negmult=%s,penalty=%s,max_overlap=%s,haircut=%s' % (d,f,fr,m,p,o,h))
