@@ -1,10 +1,11 @@
 from __future__ import division
 import os
-import utils as ut
 import seqs
 import numpy as np
 import elution as el
+import features as fe
 import score as sc
+import utils as ut
 import Pycluster
 from pandas import DataFrame
 
@@ -86,11 +87,12 @@ def single_array(gids, unnorm_eluts, sp='Hs', min_count=2,
     """
     import plotting as pl
     use_eluts = elutions_containing_prots(unnorm_eluts, sp, gids, min_count)
+    print len(use_eluts), "eluts with proteins"
     ncols = sum([e.normarr.shape[1] for e in use_eluts])
     bigarr = np.zeros((len(gids), ncols))
     startcol = 0
     for e in use_eluts:
-        freqarr = el.normalize_fracs(e.normarr, norm_rows=norm_rows)
+        freqarr = ut.normalize_fracs(e.normarr, norm_rows=norm_rows)
         temparr = np.zeros((len(gids), freqarr.shape[1]))
         for i, gid in enumerate(gids):
             if gid in e.baseid2inds:
@@ -121,7 +123,7 @@ def cluster_ids(gids, unnorm_eluts, gt=None, dist='cosine', do_plot=True,
         ax.axes.set_xticklabels([gt.id2name[gids[ind]] for ind in order])
         pl.figure() 
         pl.imshow(arr[order,:])
-    return list(np.array(gids)[order])
+    return list(np.array(list(gids))[order])
 
 def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=2,
         remove_multi_base=False, gt=None, eluts_per_plot=10,
@@ -147,6 +149,8 @@ def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=2,
         # Translate displayed names from base ids according to provided dict
         #prots = [gt.id2name[pid] for pid in pids]
         prots = [label_trans[p] if p in label_trans else p for p in prots]
+    prots.reverse(); pids.reverse(); # put them top to bottom
+    print "%s proteins" % len(pids)
     use_eluts = elutions_containing_prots(unnorm_eluts, sp, pids, min_count)
     nplots = int(np.ceil(len(use_eluts) / eluts_per_plot))
     maxfracs = 0
@@ -155,7 +159,7 @@ def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=2,
         plot_eluts = use_eluts[iplot*eluts_per_plot: (iplot+1)*eluts_per_plot]
         startcols = [0]
         for i,e in enumerate(plot_eluts):
-            freqarr = el.normalize_fracs(e.normarr, norm_rows=False)
+            freqarr = ut.normalize_fracs(e.normarr, norm_rows=False)
             sp_target = ut.shortname(e.filename)[:2]
             protsmax = max([np.max(freqarr[r]) for p in pids if p in
                 e.baseid2inds for r in e.baseid2inds[p]])
@@ -247,7 +251,7 @@ def plot_prots(elut, pids, baseid2inds, maxcount):
                 bottom = np.log2(maxcount)*i
                 pl.bar(range(row.shape[1]),
                         np.clip(np.log2(row[0,:].T+.1),0,1000),
-                        color=pl.COLORS[i], align='center',width=1,linewidth=0,
+                        color=pl.COLORS[i%len(pl.COLORS)], align='center',width=1,linewidth=0,
                         bottom=bottom)
     pl.xlim(0,row.shape[1])
     pl.ylim(-.1, np.log2(maxcount)*len(pids))
@@ -330,12 +334,12 @@ def treeview_eluts(name, fs, base_sp='Hs', gt=None, ids=None, bigarr=None):
     gt = gt or seqs.GTrans()
     gene_names = [gt.id2name.get(x,x) for x in ids]
     if bigarr is None:
-        unes = [el.NormElut(f,norm_rows=False,norm_cols=False) for f in fs]
-        bigarr = single_array(ids, unes, norm_rows=True)
-        df = DataFrame(data=bigarr, 
-                index=list(gene_names), 
-                columns=ut.flatten([[ut.shortname(u.filename)+'_'+str(i) 
-                    for i in range(u.normarr.shape[1])] for u in unes]))
+        unes = [el.NormElut(f,sp_base=base_sp, norm_rows=False,norm_cols=False)
+                for f in fs]
+        bigarr = single_array(ids, unes, sp=base_sp, norm_rows=True)
+        cols = ut.flatten([[ut.shortname(u.filename)+'_'+str(i) 
+            for i in range(u.normarr.shape[1])] for u in unes])
+        df = DataFrame(data=bigarr, index=list(gene_names), columns=cols)
     print "Writing to temp file and reading into Pycluster object."
     tempf = name + '.tab'
     df.to_csv(tempf, sep='\t')
@@ -354,7 +358,53 @@ def gene_ppis(gnames, gids, ppis, gtrans=None, sp='Hs'):
     gt = gtrans or seqs.GTrans(sp=sp)
     gids = gids or [gt.name2id[n] for n in gnames]
     gids = set(gids)
-    return [(gt.id2name[p[0]], gt.id2name[p[1]], p[2], gt.id2desc[p[0]],
-        gt.id2desc[p[1]]) for p in ppis if p[0] in gids or p[1] in gids]
+    return [(i,(gt.id2name[p[0]], gt.id2name[p[1]], p[2], gt.id2desc[p[0]],
+        gt.id2desc[p[1]])) for i,p in enumerate(ppis) if p[0] in gids or p[1] in gids]
 
-    
+def ppis_fracspassing_counts(ppis, obs, exclude_ppis=None, cutoff=0.5):
+    """
+    For a limited set of ppis (say top 15k), return a list that also includes
+    as the final column the number of fractionations in which that ppi passes
+    the threshold.
+    exclude_ppis is chiefly for excluding cxppis.
+    ppis should have been generated from obs, so pair order should be the same,
+    although list order is different.
+    """
+    def pair2ind(items):
+        return ut.list_inv_to_dict(((x[0],x[1]) for x in items))
+    dobs = pair2ind(obs)
+    obs_forppis = obs[[dobs[p[0],p[1]] for p in ppis]]
+    npassing_obs_forppis = fe.passing_fractionations(obs_forppis)
+    newppis = []
+    for i,p in enumerate(ppis):
+        newppis.append(tuple(list(p) + [npassing_obs_forppis[i]])) 
+    if exclude_ppis is not None:
+        d_exclude = pair2ind(exclude_ppis)
+        newppis = [p for p in newppis if (p[0],p[1]) not in d_exclude]
+    print "NOT SORTED!"
+    return newppis
+
+def ppis_fracspassing_counts_old(ppis, obs, exclude_ppis=None, cutoff=0.5):
+    """
+    For a limited set of ppis (say top 15k), return a list that also includes
+    as the final column the number of fractionations in which that ppi passes
+    the threshold.
+    exclude_ppis is chiefly for excluding cxppis.
+    ppis should have been generated from obs, so pair order should be the same,
+    although list order is different.
+    """
+    def dict2(items):
+        return ut.list_inv_to_dict([(x[0],x[1]) for x in items])
+    d_ppis = dict2(ppis)
+    obs_forppis = obs[[i for i,r in enumerate(obs) if (r[0],r[1]) in d_ppis]]
+    npassing_obs_forppis = fe.passing_fractionations(obs_forppis)
+    d_obs_forppis = dict2(obs_forppis)
+    newppis = []
+    for p in ppis:
+        ind = d_obs_forppis[(p[0],p[1])]
+        newppis.append(tuple(list(p) + [npassing_obs_forppis[ind]])) 
+    if exclude_ppis is not None:
+        d_exclude = dict2(exclude_ppis)
+        newppis = [p for p in newppis if (p[0],p[1]) not in d_exclude]
+    print "NOT SORTED!"
+    return newppis
