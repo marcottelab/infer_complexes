@@ -1,17 +1,21 @@
-import utils as ut
+import itertools as it
 import os
+import utils as ut
 
-keys = "Hs-Ce Hs-Dd Hs-Dm Hs-Mm Hs-Nv Hs-Sp Hs-Sc Hs_uni-Ce_uni Ce-Dm Ce-Mm Ce-Nv Ce-Sp Sp-Dm Sp-Mm Sp-Nv Mm-Dm Dm-Nv".split()
+keys = "Hs-Ce Hs-Dd Hs-Dm Hs-Mm Hs-Nv Hs-Sp Hs-Sc Hs_uni-Ce_uni Ce-Dm Ce-Mm Ce-Nv Ce-Sp Sp-Dm Sp-Mm Sp-Nv Mm-Dm Dm-Nv Hs-Xl".split()
 
 def odict(from_sp, to_sp):
     """
     Load a dict from file, eg:
     {HsProt1: set([CeProtA, CeProtB,...]), ...}
     """
-    key, swap_order = orth_key(from_sp, to_sp)
-    return _ogroups_to_odict(_load_ogroups(ut.proj_path('convert_orth',
+    if from_sp != to_sp:
+        key, swap_order = orth_key(from_sp, to_sp)
+        return _ogroups_to_odict(_load_ogroups(ut.proj_path('convert_orth',
                                                         'table.'+key)),
                              swap_order=swap_order)
+    else:
+        return None
 
 def orth_key(from_sp, to_sp):
     key = from_sp + '-' + to_sp
@@ -130,3 +134,13 @@ def _load_ogroups(fname):
     ogroups = [([p for p in row[2].split()[::2]],[p for p in
             row[3].split()[::2]]) for row in ut.load_tab_file(fname)][1:]
     return ogroups
+
+def orth_pairs(p, od):
+    """
+    p: a ppi pair of ids
+    od: an orth.odict; None means same species, so just returns what it's given
+    """
+    if od is not None:
+        return it.product(od[p[0]],od[p[1]]) if p[0] in od and p[1] in od else []
+    else:
+        return [p]

@@ -1,25 +1,29 @@
+from __future__ import division
+import itertools as it
 import numpy as np
+import os
 import random
-import utils as ut
-from Struct import Struct
-import ml
-import features as fe
+
 import cluster as cl
-import ppi
 import cyto
 import compare as cp
-import os
-import pairdict as pd
 import corum as co
+import cv
 import examples as ex
+import features as fe
+import ml
+import pairdict as pd
+import ppi
+from Struct import Struct
+import utils as ut
 
 clf_factories = {'svm': (ml.svm, ml.linear), 'tree': (ml.tree, ml.tree_feats)}
 
-def cvtest(name, base_sp, nsp, fs, base_featstruct, kfold=10, clf_type='tree',
-        nfeats=40, norm=True, ppi_output=None, train_limit=None,
-        save_data=True, balance_train=False, **kwargs):
+def cvtest(name, base_sp, nsp, fs, base_featstruct, kfold=2, clf_type='svm',
+        nfeats=100, norm=True, ppi_output=None, train_limit=None,
+        save_data=True, balance_train=False, keep_cols=None, clf_factory=None,
+        clffact_feats=None, **kwargs):
     """
-    
     """
     assert kfold>1, "CV K-fold 1 not possible"
     exs = ppi.feature_array(base_sp, fs, base_featstruct,
@@ -28,10 +32,12 @@ def cvtest(name, base_sp, nsp, fs, base_featstruct, kfold=10, clf_type='tree',
     assert len(arrfeats)>0, '0 examples not supported'
     if train_limit: print 'Sampling %s train/cv examples' % train_limit
     train_limit = train_limit or len(arrfeats)
+    arrfeats = arrfeats if keep_cols is None else fe.keep_cols(arrfeats, keep_cols)
     arrfeats = fe.keep_rows(arrfeats, random.sample(range(len(arrfeats)),
         int(train_limit))) # shuffle even if not sampling. don't random.shuffle
     ntest_pos = int(ntest_pos * train_limit / len(arrfeats))
-    clf_factory, clffact_feats = clf_factories[clf_type]
+    if clf_type in clf_factories and clf_factory is None:
+        clf_factory, clffact_feats = clf_factories[clf_type]
     ppis = []
     for k in range(kfold):
         print 'Fold %s:' % k
@@ -43,10 +49,11 @@ def cvtest(name, base_sp, nsp, fs, base_featstruct, kfold=10, clf_type='tree',
     result = Struct(traincv=arrfeats[['id1','id2','hit']], clf=clf,
             scaler=scaler, ppis=ppis, ntest_pos=ntest_pos, name=name,
             species=base_sp, ppi_params=str(clf), feats=feats,
-            source_feats=exs.arrfeats.dtype.names)
+            source_feats=exs.arrfeats.dtype.names, balance_train=balance_train)
     if save_data:
         result.exs = exs
     return result
+
 
 def fold_test(arrfeats, kfold, k, clf_factory, clffact_feats, nfeats, norm,
         balance_train):
@@ -69,7 +76,7 @@ def fold_test(arrfeats, kfold, k, clf_factory, clffact_feats, nfeats, norm,
     return ppis,clf,scaler,feats
 
 def feature_selection(arr, nfeats, clf):
-    if nfeats>0:
+    if clf is not None and nfeats>0:
         print 'Selecting top %s of %s features' % (nfeats,
             len(arr.dtype.names)-3)
         feats = ml.feature_selection(arr, clf)[0][:nfeats]
@@ -78,8 +85,7 @@ def feature_selection(arr, nfeats, clf):
     return feats
 
 def predict(name, sp, arrsource, arrfeats, nsp, clf_scaler_feats=None,
-        clf_base=None, clf_feats=None, norm=True, nfeats=40,
-        balance_train=False):
+        clf_factory=None, clffact_feats=None, clf_type='svm', norm=True, nfeats=100, balance_train=False):
     """
     - arrfeats: labeled training examples array, from
       ppi.feature_array.arrfeats, also stored in res.cvtest result as
@@ -91,16 +97,20 @@ def predict(name, sp, arrsource, arrfeats, nsp, clf_scaler_feats=None,
     else:
         if balance_train:
             arrfeats = fe.balance_train(arrfeats)
-        clf_feats = clf_feats if clf_feats is not None else ml.tree_feats()
-        feats = feature_selection(arrfeats, nfeats, clf_feats)
+        if clf_type in clf_factories and clf_factory is None:
+            clf_factory, clffact_feats = clf_factories[clf_type]
+        feats = feature_selection(arrfeats, nfeats, clffact_feats() if clffact_feats
+                else None)
         arrfeats = fe.keep_cols(arrfeats, feats)
-        clf = clf_base if clf_base is not None else ml.tree()
+        clf = clf_factory()
         scaler = ml.fit_clf(arrfeats, clf, norm=norm)
     print "Classifier:", clf
     arrsource = fe.keep_cols(arrsource, feats)
     ppis = ml.classify(clf, arrsource, scaler=scaler)
-    return Struct(ppis=ppis,name=name, species=sp, ppi_params=str(clf),
-            feats=feats, nsp=nsp, arrfeats=arrfeats)
+    pres = Struct(ppis=ppis,name=name, species=sp, ppi_params=str(clf),
+            feats=feats, nsp=nsp, arrfeats=arrfeats,
+            balance_train=balance_train)
+    return pres
 
 def combine_cvres_ppis(cresa, cresb):
     """
@@ -132,28 +142,137 @@ def combine_ppis_matched(ppisa, ppisb):
     return [(pa[0],pa[1],combine_or(pa[2],pb[2]),pa[3])
             for pa,pb in ut.zip_exact(ppisa, ppisb)]
 
-def predict_clust(name, sp, scored, exs, nsp, savef=None, pres=None, 
-        pd_spcounts=None, cl_kwargs={}, clusts=None, runid=0, count_ext=False,
-        cutoff=0.5, **kwargs):
+def predict_clust(name, sp, nsp, obs=None, exs=None, savef=None, pres=None,
+        pd_spcounts=None, cl_kwargs={}, clusts=None, runid=None,
+        count_ext=False, cutoff=0.5, n_cvs=7, accept_clust=False,
+        obs_fnames=None, base_splits=None, obs_kwargs={}, kfold=3,
+        gold_nspecies=2, do_cluster=True, do_2stage_cluster=True,
+        **predict_kwargs):
+    """
+    - obs/test_kwargs: note obs_kwargs is combined with predict_kwargs to enforce
+      consistency.
+    - pd_spcounts: supply from ppi.predict_all if nsp > 1.
+    - base_splits: supply exs.splits to generate examples from existing
+      division of complexes.
+    """
     savef = savef if savef else ut.bigd(name)+'.pyd'
-    if clusts is None:
+    print "Will save output to", savef
+    runid = runid or random.randrange(0,1000)
+    if clusts is None: 
         if pres is None:
-            pres_fname = ut.pre_ext(savef, '_pres')
-            assert not os.path.exists(pres_fname), "Destination filename exists"
-            pres = predict(name, sp, scored, exs.arrfeats, nsp, **kwargs)
-            pres.splits = exs.splits
-            ut.savepy(pres, pres_fname) 
-        clusts, runid = cl.multi_clust(pres.ppis, savef=savef, **cl_kwargs)
-    merged_splits = exs.splits[1] # splits is (lp_splits, clean_splits)
-    clstruct = cp.result_stats(sp, merged_splits, clusts, nsp)
-    ut.savepy(clstruct, ut.pre_ext(savef, '_clstruct_%s' % runid))
-    pres.cxs, pres.cxppis, pres.ind = cp.select_best(clstruct)
-    ut.savepy([pres.cxs,pres.cxppis],
-    ut.pre_ext(savef,'_cxs_cxppis_clust_run%s_ind%s_%scxs' % (runid, pres.ind, len(pres.cxs))))
-    cyto_export(pres, pres.arrfeats, name_ext='_clust%s_%scxs' % (pres.ind,
-        len(pres.cxs)), geneatts=ut.proj_path('gene_desc_'+sp),
-        pd_spcounts=pd_spcounts, arrdata=scored, cutoff=cutoff, count_ext=False)
-    return pres, clstruct
+            if obs is None:
+                obs, pd_spcounts = ppi.predict_all(sp, obs_fnames,
+                        save_fname=savef.replace('.pyd',''), nsp=nsp,
+                        **obs_kwargs)
+            if exs is None:
+                cvtest_kwargs = ut.dict_quick_merge(obs_kwargs, predict_kwargs)
+                n_cvs = 1 if base_splits is not None else n_cvs
+                cvs, cvstd = cvstd_via_median(name, sp, nsp, obs_fnames, kfold,
+                        base_splits, n_cvs, **cvtest_kwargs)
+                if n_cvs > 1:
+                    ut.savepy(cvs, ut.pre_ext(savef, '_cvs_%s' % n_cvs))
+                ut.savepy(cvstd, ut.pre_ext(savef, '_cvstd'))
+                exs=cvstd.exs
+            pres = predict(name, sp, obs, exs.arrfeats, nsp, **predict_kwargs)
+            pres.exs = exs
+            ut.savepy(pres, ut.pre_ext(savef, '_pres'), check_exists=True) 
+    merged_splits = pres.exs.splits[1] # splits is (lp_splits, clean_splits)
+    if do_cluster:
+        if clusts is None:
+            #if calc_fracs:
+                #cl_kwargs['fracs'] = [cp.find_inflection(pres.ppis, merged_splits,
+                    #pres.species, gold_nspecies)]
+            clusts, runid = multi_clust(pres.ppis, savef=savef, runid=runid,
+                    pres=pres, gold_splits=merged_splits,
+                    gold_nspecies=gold_nspecies, **cl_kwargs)
+            ut.savepy(clusts, ut.pre_ext(savef, '_clusts_id%s' % runid))
+        if do_2stage_cluster:
+            clusts2 = multi_stage2_clust(clusts, pres.ppis, runid=runid)
+            clstruct = cp.result_stats(sp, merged_splits, clusts2,
+                    gold_nspecies) 
+            ut.savepy(clstruct, ut.pre_ext(savef, '_clstruct2_id%s' % runid))
+        else:
+            clstruct = cp.result_stats(sp, merged_splits, clusts, nsp) 
+            ut.savepy(clstruct, ut.pre_ext(savef, '_clstruct_id%s' % runid))
+        if accept_clust:
+            pres.cxs, pres.cxppis, pres.ind = cp.select_best(clstruct)
+            ut.savepy([pres.cxs,pres.cxppis],
+            ut.pre_ext(savef,'_cxs_cxppis_clust_run%s_ind%s_%scxs' % (runid, pres.ind, len(pres.cxs))))
+            cyto_export(pres, merged_splits, name_ext='_clust%s_%scxs' % (pres.ind,
+                len(pres.cxs)), geneatts=ut.proj_path('gene_desc_'+sp),
+                pd_spcounts=pd_spcounts, arrdata=obs, cutoff=cutoff, count_ext=False)
+        return pres, clstruct
+    else:
+        return pres
+
+def cvstd_via_median(name, sp, nsp, obs_fnames, kfold, base_splits, n_cvs,
+        savef=None, overwrite_balanced=True, **kwargs):
+    """
+    overwrite_balanced: If true, overwrite balance_train parameter to be true
+    to speed up this selection process, as it doesn't matter.
+    """
+    if overwrite_balanced:
+        kwargs['balance_train'] = True
+    cvs = [cvtest(name, sp, nsp, obs_fnames, None, kfold=kfold,
+        both_cx_splits=base_splits, **kwargs) for i in
+        range(n_cvs)]
+    if base_splits is not None:
+        cvstd = cvs[0] # only one, built from provided base_splits
+    else:
+        cvstd = median_cvtest(cvs)
+    return cvs, cvstd
+
+def median_cvtest(cv_results):
+    auprs = [(i, cv.aupr(c.ppis, c.ntest_pos)) for i,c in
+            enumerate(cv_results)]
+    auprs.sort(key=lambda x: x[1])
+    median_index = auprs[int(len(auprs)/2)][0]
+    return cv_results[median_index]
+
+def multi_stage2_clust(clusts, ppis_all, runid=None, frac_retain=.1,
+        I_params=[2,3,4]):
+    clusts2 = []
+    runid = runid or random.randrange(1,1000)
+    for cxstruct1 in clusts:
+        for I in I_params:
+            ppis_retain = ut.list_frac(ppis_all, frac_retain)
+            cxstruct2 = cl.stage2_clust(cxstruct1.cxppis, ppis_retain,
+                    cxstruct1.cxs, runid=runid, I=I)
+            cxstruct2.params = cxstruct1.params + ",I_mcl=%s" % I
+            clusts2.append(cxstruct2)
+    return clusts2
+
+def multi_clust(tested, score_cutoffs=None, length_cutoffs=None,
+        fracs=[.012,.014], fracs_retain=[.1], ds=[.1,.25,.3,.35], ms=[.1,.15,.2],
+        penalties=[.1,1], overlaps=[.55], haircuts=[0,.2], max_pval=1,
+        savef=None, runid=None, show_stats=True, pres=None, gold_nspecies=1,
+        gold_splits=None, gold_minlen=3, mdprod_min=.01, **kwargs):
+    runid = runid or random.randrange(1,1000)
+    fracs = (fracs if fracs is not None 
+        else [cl.n_thresh(tested, s)/len(tested) for s in score_cutoffs] if score_cutoffs is not None
+        else [le/len(tested) for le in length_cutoffs])
+    print "random id:", runid
+    clusts = []
+    params = [fracs, fracs_retain, ds, ms, penalties, overlaps, haircuts]
+    products = it.product(*params)
+    for (f,fr,d,m,p,o,h) in products:
+        if d*m >= mdprod_min:
+            cxstruct = cl.filter_clust(ut.list_frac(tested, f),
+                    ut.list_frac(tested, fr), merge_cutoff=o, negmult=m, min_density=d,
+                    runid=runid, penalty=p, max_pval=max_pval, max_overlap=o,
+                    haircut=h, **kwargs)
+            cxstruct.params = ('density=%s,frac=%s,f_retain=%s,negmult=%s,penalty=%s,max_overlap=%s,haircut=%s' % (d,f,fr,m,p,o,h))
+            clusts.append(cxstruct)
+            if show_stats and len(cxstruct.cxs)>0:
+                if pres is not None and gold_splits is not None:
+                    out = cp.select_best(cp.result_stats(pres.species, gold_splits,
+                        clusts[-1:], gold_nspecies, min_gold_size=gold_minlen))
+                else:
+                    print "Can't show stats: pres and gold_splits required."
+            if savef and (len(clusts) % 10 == 1):
+                ut.savepy(clusts, ut.pre_ext(savef, "clusts_temp_%s_%s" % (ut.date(),
+                    runid)))
+    return clusts, runid
 
 def combine_train(atrain, atest):
     #ltrain, ltest = [[r for r in arr if r[2]==1] for arr in atrain,atest]
@@ -189,15 +308,16 @@ def cluster(result, fracppis, **kwargs):
     result.cx_params = str(kwargs)
     return result
 
-def cyto_export(result, arrtrain, ppis=None, cxs='default', geneatts=
-        'Hs_ensg_name_desc_uni_entrez.tab', species=None, pd_spcounts=None, 
-        name_ext='', arrdata=None, do_splist=True, cutoff=0.5, count_ext=False):
+def cyto_export(result, cxs_splits, ppis=None, cxs='default', species=None,
+        pd_spcounts=None, name_ext='', arrdata=None, do_splist=True,
+        cutoff=0.5, count_ext=False, **kwargs):
     fname = 'cy_'+result.name+name_ext+'.tab'
     species = species if species else result.species
     ppis = ppis if ppis else result.cxppis
     cxs = cxs if cxs!='default' else result.cxs
-    cyto.cyto_prep(ppis, arrtrain, fname, geneatts, cxs, species=species,
-            pd_spcounts=pd_spcounts, do_splist=do_splist, arrdata=arrdata)
+    cyto.cyto_prep(ppis, cxs_splits, fname, cxs, species=species,
+            pd_spcounts=pd_spcounts, do_splist=do_splist, arrdata=arrdata,
+            **kwargs)
 
 def replace_eluts(arr, scores, name='eluts'):
     species = set(ut.config()['elut_species'].split('_'))
@@ -206,3 +326,4 @@ def replace_eluts(arr, scores, name='eluts'):
     newarr = ppi.base_array(arr[['id1','id2','hit']], keep_cols, len(arr))
     newarr[name] = scores
     return newarr
+

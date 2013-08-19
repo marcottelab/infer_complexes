@@ -11,8 +11,9 @@ import elution as el
 import orth
 
 
+
 def score_array_multi(arr, sp_base, elut_fs, scores, cutoff, verbose=False,
-        remove_multi_base=False, gidscheme=None):
+        remove_multi_base=False, gidscheme=None, allow_singles=True):
     assert gidscheme=='', "Gidscheme not implemented in scoring."
     current_sp = ''
     if remove_multi_base: 
@@ -24,9 +25,11 @@ def score_array_multi(arr, sp_base, elut_fs, scores, cutoff, verbose=False,
             current_sp = sp_target
         baseid2inds = orth_indices(sp_base, sp_target, e.prots,
                 remove_multi_base)
+        # singles based on original spec counts
+        singles = set([]) if allow_singles else prots_singles(e) 
         for score in scores:
             if verbose: print score, f
-            score_array(arr, e, f, score, cutoff, baseid2inds, lambda prots:
+            score_array(arr, e, f, score, cutoff, baseid2inds, singles, lambda prots:
                     orth_indices(sp_base, sp_target, prots, remove_multi_base))
 
 def orth_indices(sp_base, sp_target, prot_list, remove_multi_base):
@@ -63,7 +66,8 @@ def remove_multi_keys(d, max_keys=1):
                 break
     return newd
 
-def score_array(arr, elut, fname, score, cutoff, id2inds, recalc_id2inds):
+def score_array(arr, elut, fname, score, cutoff, id2inds, singles_exclude,
+        recalc_id2inds):
     """
     Use the target species score matrix to get interaction pair in the base
     species array.  Don't score and just leave as default (0 now) cases where
@@ -71,20 +75,29 @@ def score_array(arr, elut, fname, score, cutoff, id2inds, recalc_id2inds):
     ids in the pair map to identical targets, since in that case we also can
     get no information from this data (see notes 2012.08.12).
     Also exclude any proteins with just one total count in this elution.
+    - Recalc_id2inds: purpose is for remapping to the right indices in the case
+      of swiching out to a new elution file with a differently-ordered matrix.
+      This is currently only to handle the ms1 elution data.
     """
-    score_mat, new_id2inds, _ = scorekey_elution(score, elut, recalc_id2inds)
-    id2inds = new_id2inds if new_id2inds is not None else id2inds
+    score_mat, new_id2inds, new_prots = scorekey_elution(score, elut, recalc_id2inds)
+    id2inds = new_id2inds or id2inds
+    prots = new_prots or elut.prots
     score_name = name_score(fname,score)
-    singles = prots_singles(elut)
     for i,row in enumerate(arr):
         id1,id2 = row['id1'],row['id2']
-        if (id1 in id2inds and id2 in id2inds 
-                and id1 not in singles and id2 not in singles
-                and id2inds[id1]!=id2inds[id2]): 
-            # Could also check for i!=j but would have no effect here since
-            # these mappings come from disjoint orthogroups.
-            row[score_name] = max([score_mat[i,j]
-                             for i in id2inds[id1] for j in id2inds[id2]])
+        if id1 in id2inds and id2 in id2inds and id2inds[id1]!=id2inds[id2]: 
+            inds1, inds2 = [id2inds[gid] for gid in id1,id2]
+            if len(singles_exclude) > 0:
+                inds1, inds2 = [remove_labeled(inds, prots, singles_exclude)
+                    for inds in inds1,inds2]
+            if len(inds1)>0 and len(inds2)>0:
+                # Could also check for i!=j but would have no effect here since
+                # these mappings come from disjoint orthogroups.
+                row[score_name] = max([score_mat[i,j] 
+                    for i in inds1 for j in inds2])
+
+def remove_labeled(ids, labels, set_remove):
+    return [i for i in ids if labels[i] not in set_remove]
 
 def name_score(fname, score):
     return ut.shortname(fname) + '_' + score 
@@ -116,8 +129,7 @@ def scorekey_elution(score, elut, recalc_id2inds):
         elut = el.load_elution(os.path.splitext(elut.filename)[0] + extension)
         if recalc_id2inds is not None:
             new_id2inds = recalc_id2inds(elut.prots) #cv framework (arrfeats)
-        else:
-            new_prots = elut.prots #prediction framework (all_pairs)
+        new_prots = elut.prots 
         score_mat = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
                 metric='euclidean')
     else:
@@ -130,7 +142,7 @@ def scorekey_elution(score, elut, recalc_id2inds):
         score_mat = precalc_scores(fscore)
     return score_mat, new_id2inds, new_prots
 
-def traver_corr(mat, repeat=200, norm='columns', verbose=True):
+def traver_corr(mat, repeat=1000, norm='columns', verbose=True):
     # As described in supplementary information in paper.
     # Randomly draw from poisson(C=A+1/M) for each cell
     # where A = the observed count and M is the total fractions
@@ -156,7 +168,7 @@ def traver_corr(mat, repeat=200, norm='columns', verbose=True):
 
 def pdist_score(mat, metric='euclidean', norm_rows=True,
         norm_cols=True):
-    norm_mat = el.normalize_fracs(mat, norm_rows, norm_cols)
+    norm_mat = ut.normalize_fracs(mat, norm_rows, norm_cols)
     dists = spatial.distance.pdist(norm_mat, metric=metric)
     dist_mat = spatial.distance.squareform(dists)
     score_mat = 1 - np.nan_to_num(dist_mat)

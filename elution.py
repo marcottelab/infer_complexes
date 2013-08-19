@@ -1,12 +1,11 @@
 from __future__ import division
-import itertools
 import numpy as np
 import operator
 import os
+import itertools as it
 import random
 import orth
-import pairdict
-from pairdict import PairDict
+import pairdict as pd
 import score as sc
 from Struct import Struct
 import utils as ut
@@ -43,44 +42,56 @@ class NormElut(Struct):
         e = load_elution(filename)
         self.prots = e.prots
         self.filename = e.filename
-        self.normarr = normalize_fracs(e.mat, norm_rows=norm_rows,
+        self.normarr = ut.normalize_fracs(e.mat, norm_rows=norm_rows,
                 norm_cols=norm_cols)
         self.pinv = ut.list_inv_to_dict(e.prots)
         sp_target = ut.shortname(e.filename)[:2]
         self.baseid2inds = sc.orth_indices(sp_base, sp_target, e.prots, False)
 
 
-def normalize_fracs(arr, norm_rows=True, norm_cols=True):
-    if norm_cols:
-        # Normalize columns first--seems correct for overall elution profile if
-        # you're calculating correlation-type scores
-        arr = ut.arr_norm(arr, 0)
-    if norm_rows:
-        arr = ut.arr_norm(arr, 1)
-    return arr
 
 def all_filtered_pairs(fnames, score_keys, cutoff=0.5, sp_base=None,
-                       verbose=True):
-    allpairs = PairDict([])
-    for skey,f in itertools.product(score_keys,fnames):
+                       verbose=True, allow_singles=True):
+    allpairs = pd.PairDict([])
+    for skey,f in it.product(score_keys,fnames):
         if verbose: print skey, cutoff, ut.shortname(f)
         elut = load_elution(f)
-        pairs = sc.pairs_exceeding(elut, skey, thresh=cutoff)
-        singles = sc.prots_singles(elut)
-        #newpairs = PairDict(((p1,p2) for p1,p2 in pairs))
-        newpairs = PairDict(((p1,p2) for p1,p2 in pairs
-            if p1 not in singles and p2 not in singles))
+        newpairs = passing_pairs(elut, skey, cutoff, allow_singles)
         newpairs = translate_pairs(newpairs, sp_base, file_sp(f))
-        allpairs = pairdict.pd_union_novals(allpairs, newpairs)
+        allpairs = pd.pd_union_novals(allpairs, newpairs)
     return allpairs
+
+def passing_pairs(elut, score_key, cutoff, allow_singles):
+    pairs = sc.pairs_exceeding(elut, score_key, thresh=cutoff)
+    singles = sc.prots_singles(elut)
+    if allow_singles:
+        newpairs = pd.PairDict(pairs)
+    else:
+        newpairs = pd.PairDict(((p1,p2) for p1,p2 in pairs 
+            if p1 not in singles and p2 not in singles))
+    return newpairs
+
+def supporting_ppis(ppis, fnames, score_keys, sp_base, cutoff=0.5, verbose=True):
+    ppis_support = [pd.PairDict([]) for p in ppis]
+    eluts = [load_elution(f) for f in fnames]
+    for elut,skey in it.product(eluts, score_keys):
+        if verbose: print skey, ut.shortname(elut.filename)
+        od = orth.odict(sp_base, file_sp(elut.filename))
+        new_pairs = passing_pairs(elut, skey, cutoff)
+        for p,pdsupport in zip(ppis,ppis_support):
+            for opair in orth.orth_pairs(p[:2], od):
+                opair = tuple(opair)
+                if new_pairs.contains(opair):
+                    pdsupport.set(opair,None)
+    return [list(p) + [s.d.keys()] for p,s in zip(ppis, ppis_support)]
 
 def translate_pairs(pairs, sp_base, sp_target):
     t2b = targ2base(sp_base, sp_target)
     if t2b:
-        pairs = PairDict(((base1,base2)
+        pairs = pd.PairDict(((base1,base2)
                           for t1,t2 in pairs.d
                           for base1,base2 in
-                          itertools.product(t2b.get(t1,[]), t2b.get(t2,[]))))
+                          it.product(t2b.get(t1,[]), t2b.get(t2,[]))))
     return pairs
     
 def targ2base(sp_base, sp_target):

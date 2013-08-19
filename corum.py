@@ -1,4 +1,5 @@
 from __future__ import division
+from collections import defaultdict
 import numpy as np
 import random
 import os
@@ -12,16 +13,23 @@ from Struct import Struct
 def pairs(fname):
     return [list(e) for e in ut.load_tab_file(fname)]
 
-def load_corum(fname, filter_methods=True):
+def load_corum(fname, filter_methods, do_dedupe):
     """
     Returns a list of tuples: (name, set(uniprotIDs), species)
     """
     lines = [l[:7] for l in ut.load_tab_file(fname, sep=';')][1:]
-    keep_methods = set([x[0] for x in
-        (ut.load_tab_file(ut.proj_path('corum_methods'))) if int(x[3])==1])
-    return [(name, set(prots.split(',')), species) 
-            for _,name,_,species,prots,_,method in lines
-            if (method.split('-')[0] in keep_methods or not filter_methods)]
+    cxs = [(name, set(prots.split(',')), species, method) 
+            for _,name,_,species,prots,_,method in lines]
+    if filter_methods:
+        print "Filtering corum methods."
+        keep_methods = set([x[0] for x in
+            (ut.load_tab_file(ut.proj_path('corum_methods'))) if int(x[3])==1])
+        cxs = [(n,p,s) for n,p,s,methods in cxs 
+                if (len([m for m in methods.split('|') 
+                    if m.split('-')[0].strip() in keep_methods]) > 0)]
+    else:
+        cxs = [(n,p,s) for n,p,s,m in cxs]
+    return cxs
 
 def load_havug_ppis():
     hints = ut.load_list_of_lists('../../docs/SupplementaryTableS2.tab')
@@ -63,21 +71,33 @@ def filter_location(cxs, go_location):
             or (len(set.intersection(c[1],yes_prots)) -
                 len(set.intersection(c[1],no_prots))) > 0]
 
-def load_ppi_cxs(minlen=2, maxlen=50, sp_match='Human', go_location=None):
+def print_rib_count(cxs, label):
+    print ('ribosome cxs ps %s' % label,  len([x for x in cxs if
+        x[0].find('ibosom')>-1]), len(cxs), sum([len(c[1]) for c in cxs]))
+
+
+def load_ppi_cxs(minlen=2, maxlen=50, sp_match='Human', go_location=None,
+        do_filter_methods=True, dedupe_names=True):
     """
     Returns a list of sets of uniprot ids.
     No de-duplication or anything else.
     Expected that this list may have duplicates.
     """
     fname = ut.proj_path('corum_cxs')
-    cxs = [(name,ps) for name,ps,s in load_corum(fname) 
-            if (not sp_match or s==sp_match) 
-            and len(ps)>=minlen and len(ps)<=maxlen]
+    cxs = load_corum(fname, do_filter_methods, dedupe_names)
+    print_rib_count(cxs, 'a')
+    if sp_match: cxs = ut.list_filter_value(cxs, 2, sp_match)
+    #print_rib_count(cxs, 'b')
+    cxs = [c for c in cxs if len(c[1])>=minlen and len(c[1])<=maxlen]
+    #print_rib_count(cxs, 'c')
+    cxs = [(name,ps) for name,ps,spec in cxs]
+    #print len(cxs)
     if go_location:
+        print "Filtering corum by go location"
         cxs = filter_location(cxs, go_location)
     return cxs
 
-def load_merged_cxs(cutoff=0.5, func=None, sep='|', go_location=None,**kwargs):
+def load_merged_cxs(cutoff=0.5, func=None, sep='|', go_location=None, **kwargs):
     if func==None:
         import compare as cp
         func = cp.simpson
@@ -190,23 +210,33 @@ def divide_pairs(pairs, fractions):
     return cv_sets
 
 
-def convert_complexes(complexes, convert, only_to_prots=None):
+def convert_complexes(complexes, convert, include_set=None):
     """
     Convert a list of complexes from one proteinid scheme to another.
     convert: dict of { fromid1: set([toid1, toid2, ...]), ...}
-    only_to_prots: a _set_ of outids, such that we only convert to any in that set
+    include_set: a _set_ of outids, such that we only convert to any in that set
     If only_to_prots is None, we use all the outids.
     For brevity in code I assumed wlog from uniprot 'u' to ensp 'e'.
     """
-    complexes = dict(complexes)
-    assert type(only_to_prots) == type(set([])), 'Prots must be set for speed'
-    convert_filtered = dict([(u,[e for e in convert[u] if (only_to_prots is
-        None or e in only_to_prots)][0]) for u in convert if len([e for e in
-        convert[u] if (only_to_prots is None or e in only_to_prots)])>0])
-    out_complexes = dict([(c,set([convert_filtered[u] for u in complexes[c] if
-        u in convert_filtered])) for c in complexes if len([convert_filtered[u]
-        for u in complexes[c] if u in convert_filtered])>1])
-    return out_complexes.items()
+    #complexes = dict(complexes)
+    assert type(include_set) == type(set([])), 'Prots must be set for speed'
+    #convert_filtered = [(u,[e for e in convert[u] if (only_to_prots is
+        #None or e in only_to_prots)][0]) for u in convert] if len([e for e in
+        #convert[u] if (only_to_prots is None or e in only_to_prots)])>0])
+    convert_filtered = {}
+    for u,es in convert.items():
+        es_filt = [e for e in es if e in include_set or include_set is None]
+        if len(es_filt)>0: 
+            convert_filtered[u] = es_filt[0]
+    out_complexes = []
+    for c,us in complexes:
+        es = set([convert_filtered[u] for u in us if u in convert_filtered])
+        if len(es)>0:
+            out_complexes.append((c,es))
+    #out_complexes = dict([(c,set([convert_filtered[u] for u in complexes[c] if
+        #u in convert_filtered])) for c in complexes if len([convert_filtered[u]
+        #for u in complexes[c] if u in convert_filtered])>1])
+    return out_complexes
 
 def write_pos_neg_pairs(complexes, complexes_exclude, fname_pos):
     """
@@ -277,4 +307,34 @@ def count_ints(cxs):
         return int(n*(n-1)/2)
     return sum([count_pairs(c[1]) for c in cxs])
 
+def keep_longest(cxs):
+    d_cxs = {}
+    for name, ps in cxs:
+        if (name not in d_cxs) or (len(ps) > len(d_cxs[name])):
+            d_cxs[name] = ps
+    return d_cxs.items()
+
+#def dedupe_names(cxs):
+    #"""
+    #Remove possibility of name bashing by renaming complexes that would bash.
+    #NOT WORKING 20130806.
+    #"""
+    #names_counts = defaultdict(int)
+    #print len(cxs)
+    #cxs_deduped = []
+    #d_cxs = {}
+    #for name, ps in cxs:
+        #if names_counts[name] > 0:
+            #if d_cxs[name] != ps:
+                #use_name = '%s_%s' % (name, names_counts[name]+1)
+                #names_counts[name] += 1
+            #else:
+                ## skip: duplicate
+                #continue
+        #else:
+            #use_name = name
+        #d_cxs[name] = ps
+        #cxs_deduped.append((use_name, ps))
+    #print len(cxs_deduped)
+    #return cxs_deduped
 

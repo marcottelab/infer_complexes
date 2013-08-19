@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 import sys
 import utils as ut
+import pairdict as pd
 
 def cv_pairs(scores, true_pairs, genes, sample_frac=.1):
     # scores: input 2d array of scores for each index-index pair
@@ -61,6 +62,15 @@ def pr(tested_pairs):
                  enumerate(hit_inds)]
     return range(1,len(precision)+1), precision
 
+def aupr(tested, ntest_pos):
+    """
+    Excludes calculating the tail. Should neglibly affect calculations,
+    especially in terms of comparisons, although worth noting it's wrong.
+    """
+    recall, precision = pr(tested)
+    undercurve = sum(precision) / ntest_pos
+    return undercurve
+
 def examples_to_cvpairs(exlist, scoreindex=None):
     """
     Translates and reorders an example list into the format used in cv
@@ -72,6 +82,11 @@ def examples_to_cvpairs(exlist, scoreindex=None):
         exlist.examples]
     reworked_examples.sort(key=lambda x:x[2],reverse=True)
     return reworked_examples
+
+def gold_label_ppis(ppis, gold_ppis):
+    pdgold = pd.PairDict(gold_ppis)
+    return [(p[0],p[1],p[2],1 if pdgold.contains((p[0],p[1])) else 0) for p in
+            ppis]
 
 def true_to_1(tf):
     return 1 if tf == 'true' else 0
