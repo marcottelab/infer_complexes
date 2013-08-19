@@ -373,7 +373,7 @@ def ppis_fracspassing_counts(ppis, obs, exclude_ppis=None, cutoff=0.5):
     def pair2ind(items):
         return ut.list_inv_to_dict(((x[0],x[1]) for x in items))
     dobs = pair2ind(obs)
-    obs_forppis = obs[[dobs[p[0],p[1]] for p in ppis]]
+    obs_forppis = obs[[dobs[(p[0],p[1])] for p in ppis]]
     npassing_obs_forppis = fe.passing_fractionations(obs_forppis)
     newppis = []
     for i,p in enumerate(ppis):
@@ -384,27 +384,3 @@ def ppis_fracspassing_counts(ppis, obs, exclude_ppis=None, cutoff=0.5):
     print "NOT SORTED!"
     return newppis
 
-def ppis_fracspassing_counts_old(ppis, obs, exclude_ppis=None, cutoff=0.5):
-    """
-    For a limited set of ppis (say top 15k), return a list that also includes
-    as the final column the number of fractionations in which that ppi passes
-    the threshold.
-    exclude_ppis is chiefly for excluding cxppis.
-    ppis should have been generated from obs, so pair order should be the same,
-    although list order is different.
-    """
-    def dict2(items):
-        return ut.list_inv_to_dict([(x[0],x[1]) for x in items])
-    d_ppis = dict2(ppis)
-    obs_forppis = obs[[i for i,r in enumerate(obs) if (r[0],r[1]) in d_ppis]]
-    npassing_obs_forppis = fe.passing_fractionations(obs_forppis)
-    d_obs_forppis = dict2(obs_forppis)
-    newppis = []
-    for p in ppis:
-        ind = d_obs_forppis[(p[0],p[1])]
-        newppis.append(tuple(list(p) + [npassing_obs_forppis[ind]])) 
-    if exclude_ppis is not None:
-        d_exclude = dict2(exclude_ppis)
-        newppis = [p for p in newppis if (p[0],p[1]) not in d_exclude]
-    print "NOT SORTED!"
-    return newppis
