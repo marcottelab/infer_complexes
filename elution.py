@@ -312,3 +312,16 @@ def filter_matching_elution(edata, efilter, remove_data_ending='.map'):
             newmat[i,:] = np.zeros(edata.mat.shape[1])
     return newmat
 
+def sort_elution(elution):
+    newel = ut.struct_copy(elution)
+    newel.mat = np.array(newel.mat)
+    inds = np.argsort(np.sum(newel.mat, axis=1))[::-1]
+    newel.prots = list(np.array(newel.prots)[inds])
+    newel.mat = newel.mat[inds]
+    return newel
+
+def convert_elution(elution, odict, gt=None, sep='|'):
+    newel = ut.struct_copy(elution)
+    newel.prots = ['|'.join([gt.id2name.get(g,g) for g in odict.get(xg,[xg])]) 
+            for xg in elution.prots]
+    return newel
