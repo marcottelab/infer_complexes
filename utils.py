@@ -317,6 +317,12 @@ def zip_exact(*seqs):
 ##  LOADING DATA
 #####################################################################
 
+def convert_list(loi, ctype=float):
+    return [ctype(i) for i in loi]
+
+def convert_lol(lol, ctype=float):
+    return [convert_list(lst, ctype=ctype) for lst in lol]
+    
 def pre_ext(fname, preext):
     path, name = os.path.split(fname)
     basename,ext = os.path.splitext(name)
@@ -330,16 +336,20 @@ def load_dict_flat(fname):
     assert 0==1
     pass
 
-def load_tab_file(fname, sep='\t', use_special_clean=False):
+def load_tab_file(fname, sep='\t', use_special_clean=False, dtype=None,
+        skip1=False):
     """ Returns a generator of a list of list
     (assumes each element in a line is tab-delimited)
     """
     def clean(x):
         return x.strip() # remove the newlines
     if use_special_clean:
-        return (tuple(l.split(sep)[:-1]+[l.split(sep)[-1].strip()]) for l in file(fname, 'r'))
+        datagen = (tuple(l.split(sep)[:-1]+[l.split(sep)[-1].strip()]) for l in file(fname, 'r'))
     else:
-        return (tuple(clean(l).split(sep)) for l in file(fname, 'r'))
+        datagen = (tuple(clean(l).split(sep)) for l in file(fname, 'r'))
+    if skip1:
+        datagen.next()
+    return datagen
 
 def load_dict_sets(fname, lines='pairs', **kwargs):
     # Returns a key->set(values) mapping
@@ -461,6 +471,9 @@ def list_inv_to_dict(lst):
     for index,item in enumerate(lst):
         d[item]=index
     return d
+
+def dict_from_lol(lol):
+    return dict([(x[0],x[1:]) for x in lol])
 
 def list_trans(items, d):
     return [d[i] for i in items]
