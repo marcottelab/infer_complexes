@@ -211,7 +211,7 @@ def exported_diff(cy_basefile, cy_difffile, col_header, diff_ppis=None,
     lines = ut.load_lol(cy_basefile)[1:]
     if justids:
         lines = [l[:2] for l in lines]
-        header = h[:2]
+        header = header[:2]
     header += [col_header]
     ut.write_tab_file([r + [pd_diff.contains(cy_ppi_to_pair(r))] for r in
         lines], ut.pre_ext(cy_basefile, col_header), header=header)

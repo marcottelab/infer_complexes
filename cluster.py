@@ -18,7 +18,7 @@ c1_command = 'java -jar %(c1path)s -s %(min_size)s -d %(min_density)s --haircut 
 
 def filter_clust(ppis_cluster, ppis_retain, negmult=50, cltype='c1',
         merge_cutoff=0.55, min_cx_length=2, is_recluster=False,
-        add_to_cxs=None, max_subcomplex=10000, min_subplusone=3, **kwargs):
+        add_to_cxs=None, max_subcomplex=10000, min_subplusone=4, **kwargs):
     print "Negatives rescale factor:", negmult
     cxstruct = cluster(ppis_cluster, negmult, cltype, **kwargs)
     if is_recluster:
@@ -26,7 +26,8 @@ def filter_clust(ppis_cluster, ppis_retain, negmult=50, cltype='c1',
         cxstruct.cxs = clean_numbered_cxs(cxstruct.numbered_cxs, min_cx_length)
     if add_to_cxs is not None: # for ppi rescue step
         cxstruct.cxs = add_to_cxs + cxstruct.cxs
-    cxstruct.cxs = merge_dupes(cxstruct.cxs, merge_cutoff, npasses=1)
+    else: # Don't do this step on the final pass--hurts performance.
+        cxstruct.cxs = merge_dupes(cxstruct.cxs, merge_cutoff, npasses=1)
     # be sure to get rid of complete duplicates
     cxstruct.cxs = merge_subplusone(cxstruct.cxs, min_size=min_subplusone)
     cxstruct.cxs = remove_subcomplexes(cxstruct.cxs, max_size=max_subcomplex)

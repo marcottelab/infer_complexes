@@ -213,8 +213,9 @@ def predict_clust(name, sp, nsp, obs=None, exs=None, savef=None, pres=None,
                 pres.ind = 0
             if do_rescue:
                 # note cl_kwargs aren't passed--would be messy
-                pres.cxs, pres.cxppis = rescue_ppis(pres, obs, n_rescue,
-                        cutoff_fracs=rescue_fracs, cutoff_score=rescue_score)
+                pres.cxs, pres.cxppis, pres.ppis_rescue = rescue_ppis(pres,
+                        obs, n_rescue, cutoff_fracs=rescue_fracs,
+                        cutoff_score=rescue_score)
             cyto_export(pres, merged_splits, name_ext='_clust%s_%scxs' % (pres.ind,
                 len(pres.cxs)), pd_spcounts=pd_spcounts, arrdata=obs,
                 cutoff=cutoff, count_ext=False, arrdata_ppis=None)
@@ -232,6 +233,9 @@ def rescue_ppis(pres, obs, n_rescue, cutoff_fracs=20, cutoff_score=0.9,
     print "%s PPIs considered for possible rescue" % len(ppis_counted)
     ppis_rescue = [p for p in ppis_counted 
             if p[-1] > cutoff_fracs or p[2] > cutoff_score]
+    print "%s ppis exceeding score cutoff, %s exceeding fracs cutoff" % (len([p
+        for p in ppis_counted if p[-1] > cutoff_fracs]), len([p for p in
+            ppis_counted if p[2] > cutoff_score]))
     print "%s PPIs to be rescued" % len(ppis_rescue)
     ppis_rescue_as_cxs = [set((p[0],p[1])) for p in ppis_rescue]
     additional_cxs = pres.cxs + ppis_rescue_as_cxs
@@ -240,7 +244,7 @@ def rescue_ppis(pres, obs, n_rescue, cutoff_fracs=20, cutoff_score=0.9,
         negmult=negmult, add_to_cxs=additional_cxs)
     print "Total complexes >= size 3: was %s, now %s" % (len([c for c in
         pres.cxs if len(c)>=3]), len([c for c in cxstruct_rescue.cxs if len(c)>=3]))
-    return cxstruct_rescue.cxs, cxstruct_rescue.cxppis
+    return cxstruct_rescue.cxs, cxstruct_rescue.cxppis, ppis_rescue
 
 def cvstd_via_median(name, sp, nsp, obs_fnames, kfold, base_splits, n_cvs,
         savef=None, overwrite_balanced=True, **kwargs):

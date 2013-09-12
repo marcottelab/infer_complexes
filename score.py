@@ -14,6 +14,11 @@ import orth
 
 def score_array_multi(arr, sp_base, elut_fs, scores, cutoff, verbose=False,
         remove_multi_base=False, gidscheme=None, allow_singles=True):
+    """
+    - remove_multi_base: This is not the method currently used to filter scores
+      in cases of orthogroup fan-outs--this is a stricter earlier version. That
+      filter is feature.py: filter_multi_orths(), applied after scoring.
+    """
     assert gidscheme=='', "Gidscheme not implemented in scoring."
     current_sp = ''
     if remove_multi_base: 
@@ -207,7 +212,8 @@ class ApexScores(object):
 
 def precalc_scores(scoref, dtype='f2'):
     """
-    Also zero out the diagonal.
+    Also zero out the diagonal to more efficiently remove all self-interactions
+    up-front.
     """
     # NOTE to change dtype you must change it in loadtxt below!!
     save_compact = ut.config()['save_compact_corrs'] 
