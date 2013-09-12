@@ -80,7 +80,7 @@ def save_bigprofiles(prots, protids, unnorm_eluts, fname, hires_mult=1, **kwargs
     pl.savefig(fname, bbox_inches='tight', dpi=200*hires_mult)
     pl.clf()
 
-def single_array(gids, unnorm_eluts, sp='Hs', min_count=2,
+def single_array(gids, unnorm_eluts, sp='Hs', min_count=1,
         remove_multi_base=False, norm_rows=False):
     """
     unnorm_eluts: [el.NormElut(f, sp=sp, norm_cols=False, norm_rows=False) for f in fs]
@@ -125,7 +125,7 @@ def cluster_ids(gids, unnorm_eluts, gt=None, dist='cosine', do_plot=True,
         pl.imshow(arr[order,:])
     return list(np.array(list(gids))[order])
 
-def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=2,
+def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=1,
         remove_multi_base=False, gt=None, eluts_per_plot=10,
         do_cluster=True, label_trans=None, do_plot_tree=False, **kwargs):
     """
@@ -210,7 +210,7 @@ def plot_big_single(arr, pids, baseid2inds, maxcount, startcol):
                         antialiased=False)
 
 def plot_profiles(prots, eluts, sp='Hs', plot_sums=True, shape=None,
-        min_count=2):
+        min_count=1):
     """
     shape: (m,n) = m rows, n columns
     eluts: [el.NormElut(f, sp, norm_rows=False, norm_cols=False) for f in
