@@ -36,22 +36,32 @@ def boot_resample(extr_exte):
 
 def rolling_scores(tested, true_ints=None, show=1000, window=50, rescale=0,
         **kwargs):
-    #rolling = [len([t for t in tested[i:i+window] if t[3]==1])/window for i in
-    #range(show-window)]
     if rescale > 0:
         tested = [(t[0],t[1],ut.rescale(t[2],rescale), t[3]) for t in tested]
     if true_ints:
-        pdtrues = pd.PairDict(true_ints)
-        tested = [(p[0],p[1],p[2],1 if pdtrues.contains(p[:2]) else 0) for p
-                in tested]
+        tested = cv.tested_from_trues(tested, true_ints)
     padded = list(np.zeros((50,4)))+list(tested)
     rolling = [len([t for t in padded[i:i+window] if t[3]==1])/window for i in range(show)]
-    #plot([0]*window + rolling, **kwargs)
     plot(rolling, **kwargs)
     plot([t[2] for t in tested[:show]], **kwargs)
     xlabel('starting index in scored examples')
     ylabel('fraction true in index:index+%s'%window)
     legend(['fraction true','score'])
+
+
+def cumulative_precision(tested, true_ints=None, return_data=False, 
+        **kwargs):
+    if true_ints:
+        tested = cv.tested_from_trues(tested, true_ints)
+    hits = [t[3] for t in tested]
+    precision = [sum(hits[:i+1])/(i+1) for i in range(len(hits))]
+    plot(precision, **kwargs)
+    plot([t[2] for t in tested], **kwargs)
+    xlabel('Index of PPI')
+    ylabel('Cumulative Precision; PPI score')
+    legend(['Cumulative Precision','PPI score'])
+    if return_data: 
+        return precision
 
 def bar_plot(names, yvals, slanted_names=False, **kwargs):
     fig = figure()
@@ -86,7 +96,7 @@ def roc_plot(cvpairs, **kwargs):
     plot([0,xs[-1]], [0,ys[-1]], 'k--')
 
 def pr_plot(cv_pairs, total_trues, rescale=None, prec_test=None,
-        true_ints=None, **kwargs):
+        true_ints=None, return_data=False, **kwargs):
     """
     rescale: adjust precision values assuming rescale times as many negatives
     total_trues:
@@ -115,6 +125,8 @@ def pr_plot(cv_pairs, total_trues, rescale=None, prec_test=None,
     ylim(-0.01,1.01)
     xlim(xmin=-0.002)
     legend()
+    if return_data:
+        return recall,precision
 
 def imshow2(*args):
     imshow(*args, interpolation='nearest', aspect='auto',
@@ -140,23 +152,26 @@ def pos_neg_from_arr(arr):
     pos,neg = [arr[[i for i in range(len(arr)) if arr[i][2]==t]] for t in 1,0]
     return pos,neg
 
-def examples_dist_single(arr=None, pos_neg=None, name='', uselog=True,
-        normed=True, default=-1, missing='?', linewidth=3, histtype='step',
-        ncols=1, odds=False, **kwargs):
-    pos,neg = pos_neg or pos_neg_from_arr(arr)
+def examples_dist_single(arr=None, pos_neg=None, scores_pos_neg=None,
+        name='', uselog=True, normed=True, default=-1, missing='?',
+        linewidth=3, histtype='step', ncols=1, odds=False, **kwargs):
+    if scores_pos_neg is None:
+        pos_neg = pos_neg or pos_neg_from_arr(arr)
+        scores_pos_neg = [x[name] for x in pos_neg]
     kwargs['bins'] = 30 if not 'bins' in kwargs else kwargs['bins']
     if odds:
-        phist,nhist = [np.histogram(data[name], range=(-1,1), density=True,
-            **kwargs) for data in pos,neg]
-        yvals = [np.nan_to_num(p/n) if n>0 else 0 
+        phist,nhist = [np.histogram(scores, range=(-1,1), density=True,
+            **kwargs) for scores in scores_pos_neg]
+        yvals = [np.nan_to_num(p/n) if n>-1 else -1 
                 for p,n in zip(phist[0],nhist[0])]
         xvals = phist[1]
-        binwidth = 2/kwargs['bins']
-        plot(np.ravel(zip(xvals[:-1],xvals[:-1]+binwidth)),
+        plot(np.ravel(zip(xvals[:-1],xvals[1:])),
                 np.ravel(zip(yvals,yvals)))
-        return None,None
+        return xvals,yvals
     else:
-        (_,_,hp),(_,_,hn) = [hist(data, log=uselog, histtype='step', linewidth=linewidth, normed=normed, **kwargs) for data in pos[name],neg[name]]
+        (_,_,hp),(_,_,hn) = [hist(scores, log=uselog, histtype='step',
+            linewidth=linewidth, normed=normed, **kwargs) 
+            for scores in scores_pos_neg]
         return hp,hn
 
 def presentation_mode(color='white', on=True):
@@ -331,3 +346,42 @@ def hist_ndarray(arr, names=None, showindex=None, markerstyle='kp',
             xlabel(name)
         #ylabel(name)
 
+def hist_pairs_nonpairs(scores, pairs, negmult=1, do_plot=True, **kwargs):
+    """
+    scores: list of tuples (id1, id2, score)
+    pairs: list of tuples (id1, id2)
+    Make a histogram for scores of pairs against random sampling of non-pairs
+    from the set of ids making up pairs.
+    """
+    assert len(pairs[0])==2, "Too many data points"
+    def gen_nonpairs(pairs, n):
+        items = list(set(ut.i0(pairs) + ut.i1(pairs)))
+        exclude = set(pairs)
+        pdexclude = pd.PairDict(exclude)
+        count = 0
+        while count < n:
+            pair = (random.choice(items), random.choice(items))
+            if not pdexclude.contains(pair):
+                yield pair
+                count += 1
+    nonpairs = gen_nonpairs(pairs, len(pairs)*negmult)
+    def scorelist_pairs(pairs, scores):
+        pdscores = pd.PairDict([s[:3] for s in scores])
+        for p in pairs:
+            puse = pdscores.find(p)
+            yield float(pdscores.d[puse][0]) if puse else 0
+    pscores, nscores = [[x for x in scorelist_pairs(l, scores)] for l in pairs, nonpairs]
+    if do_plot:
+        hist(pscores, **kwargs)
+        hist(nscores, **kwargs)
+    return pscores, nscores
+
+def fd_bincount(values):
+    pass
+
+def equal_freq_bins(values, nbins):
+    pcts = arange(0, 100, 100/nbins)
+    pctiles = [np.percentile(values, p) for p in pcts]
+    return pctiles
+
+    

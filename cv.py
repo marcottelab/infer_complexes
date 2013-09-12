@@ -56,11 +56,20 @@ def roc(tested_pairs, total_pos_neg=None):
 def pr(tested_pairs):
     # precision-recall
     # tested pairs: [ (row, col, score, hit(0/1)), ...]
-    hits = np.array([tp[3] for tp in tested_pairs])
-    hit_inds = np.where(hits==1)[0]+1
+    hits = [tp[3] for tp in tested_pairs]
+    return pr_values(hits)
+
+def pr_values(hits):
+    hit_inds = np.where(np.array(hits)==1)[0]+1
     precision = [(i+1)/(tp_plus_fp) for i,tp_plus_fp in
                  enumerate(hit_inds)]
     return range(1,len(precision)+1), precision
+
+def tested_from_trues(ppis, trues):
+    pdtrues = pd.PairDict(trues)
+    tested = [(p[0],p[1],p[2],1 if pdtrues.contains(p[:2]) else 0) 
+            for p in ppis]
+    return tested
 
 def aupr(tested, ntest_pos):
     """
@@ -92,6 +101,11 @@ def true_to_1(tf):
     return 1 if tf == 'true' else 0
 
 def calc_recall(precisions, gt_value, recall_rate_of_total=None):
+    """
+    Note that precisions must have only a value for every correct prediction,
+    not a value for all predictions, otherwise the recall based on index number
+    is wrong.
+    """
     passing_inds = np.where( np.array(precisions) >= gt_value )[0]
     recalled = np.max(passing_inds) if len(passing_inds)>0 else 0
     if recall_rate_of_total is not None:
