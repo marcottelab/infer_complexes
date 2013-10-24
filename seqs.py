@@ -1,6 +1,7 @@
 import operator
 import utils as ut
 import difflib
+import numpy as np
 
 def ensembl_prots_to_genes(fname, bar_split=None, second_split=False, 
         only_geneid_on_line=False, pid_replace=False):
@@ -23,7 +24,7 @@ def ensembl_prots_to_genes(fname, bar_split=None, second_split=False,
             items.append('protein:' + protid)
             lines[0] = ' '.join(items)
     genes_list = reduce(operator.add,[lines for g,lines in genes_dict.items()])
-    ut.write_tab_file(genes_list, fname+'_longest')
+    ut.write_tab_file(genes_list, fname+'_longest', islist=True)
 
 def prots2genes(fname):
     """
@@ -51,7 +52,7 @@ def _longest_seqs_dep(fname, bar_split, second_split=False,
         if only_geneid_on_line:
             geneid = p[0]
         else:
-            if bar_split:
+            if bar_split is not None:
                 geneid = p[0].split('|')[bar_split].strip()
                 if second_split:
                     geneid = geneid.split('.')[0]
@@ -106,7 +107,7 @@ def cuihong_fasta_to_clean(fname, outname):
     lol = _load_prots_to_lol(fname)
     good_seqs = [['>'+p[0].split('|')[1]]+p[1:] for p in lol 
             if p[0][:3] == '>sp' or p[0][:3]== '>tr']
-    ut.write_tab_file([i for l in good_seqs for i in l ], outname) #flatten
+    ut.write_tab_file([i for l in good_seqs for i in l ], outname, islist=True) #flatten
 
 def similarities(dseqs):
     """
@@ -166,11 +167,11 @@ class GTrans(object):
         lines = ut.load_list_of_lists(ut.proj_path('gene_desc_'+sp))[1:]
         processed = [tuple([l[0],l[1].lower()] + (l[2:] if len(l)>2 else [''])) for l in
                 lines if len(l)>1]
-        self.gnames = [(l[1], l[2]) for l in processed]
+        self.gnames = [(l[1], l[2].split('[')[0]) for l in processed]
         self.name2id = dict(((l[1],l[0]) for l in processed))
         self.id2name = dict(((l[0], l[1]) for l in processed))
         self.name2desc = dict(self.gnames)
-        self.id2desc = dict(((l[0],l[2]) for l in processed))
+        self.id2desc = dict(((l[0],l[2].split('[')[0]) for l in processed))
         self.id2all = dict(((l[0],l[1:]) for l in processed))
         self.entrez2id = dict(((l[4][2:],l[0]) for l in processed))
 
@@ -192,3 +193,14 @@ def ids2names(ids, gt=None, **kwargs):
 def names2ids(names, **kwargs):
     gt = GTrans(**kwargs)
     return [gt.name2id[n] for n in names]
+
+def ppis2names(ppis, gt=None, **kwargs):
+    gt = gt or GTrans(**kwargs)
+    return [(gt.id2name.get(p[0],p[0]), gt.id2name.get(p[1],p[1]), p[2], p[3]) 
+            for p in ppis]
+
+def ppis2namedesc(ppis, gt=None, **kwargs):
+    gt = gt or GTrans(**kwargs)
+    return [(round(float(p[2]), 2), gt.id2name.get(p[0],p[0]),
+        gt.id2name.get(p[1],p[1]), p[3], gt.id2desc.get(p[0],p[0])[:30],
+        gt.id2desc.get(p[1],p[1])[:30] ) for p in ppis]

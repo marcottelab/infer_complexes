@@ -384,4 +384,8 @@ def equal_freq_bins(values, nbins):
     pctiles = [np.percentile(values, p) for p in pcts]
     return pctiles
 
-    
+def cdf(values, **kwargs):
+    counts, edges = np.histogram(values, normed=True, **kwargs)
+    counts = counts/sum(counts)
+    cum_counts = np.cumsum(counts)
+    plot(edges[1:], cum_counts)
