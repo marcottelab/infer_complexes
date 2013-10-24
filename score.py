@@ -210,6 +210,28 @@ class ApexScores(object):
     def __getitem__(self, index):
         return int(self.apex_array[index[0]] == self.apex_array[index[1]])
 
+
+#def apex_scores_toarray(smat):
+    #arr = np.zeros(smat.shape)
+    #for r in range(smat.shape[0]):
+        #for c in range(smat.shape[1]):
+            #if smat[r,c]:
+                #arr[r,c] = smat[r,c]
+    #return arr
+
+def apex_scores_toarray_fast(smat):
+    """
+    Same output as above, but 0s on the diagonal.
+    """
+    dmaxes = defaultdict(set)
+    for row, mx in enumerate(smat.apex_array):
+        dmaxes[mx].add(row)
+    arr = np.zeros(smat.shape)
+    for mx,rows in dmaxes.items():
+        for r1,r2 in itertools.permutations(rows,2):
+            arr[r1,r2] = 1
+    return arr
+
 def precalc_scores(scoref, dtype='f2'):
     """
     Also zero out the diagonal to more efficiently remove all self-interactions
@@ -307,6 +329,8 @@ if __name__ == '__main__':
     elif method in ['euclidean']:
         corr = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
                 metric=method)
+    elif method in ['apex']:
+        corr = apex_scores_toarray_fast(ApexScores(elut))
     #elif method == 'dotproduct':
         #corr = elut.mat * elut.mat.T
     #elif method == 'corrcoef':

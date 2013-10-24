@@ -56,6 +56,22 @@ def load_tab_file(fname, sep='\t', use_special_clean=False):
         return (tuple(clean(l).split(sep)) for l in file(fname, 'r'))
 
 
+def arr_norm(arr, axis=0):
+    """
+    axis=0: normalize each column; 1: normalize each row
+    """
+    mat = np.asmatrix(arr)
+    return np.asarray(np.nan_to_num(mat / np.sum(mat, axis)))
+
+def normalize_fracs(arr, norm_rows=True, norm_cols=True):
+    if norm_cols:
+        # Normalize columns first--seems correct for overall elution profile if
+        # you're calculating correlation-type scores
+        arr = arr_norm(arr, 0)
+    if norm_rows:
+        arr = arr_norm(arr, 1)
+    return arr
+
 def score_array_multi(arr, sp_base, elut_fs, scores, cutoff, verbose=False,
         remove_multi_base=False, gidscheme=None):
     assert gidscheme=='', "Gidscheme not implemented in scoring."
@@ -210,7 +226,7 @@ def traver_corr(mat, repeat=1000, norm='columns', verbose=True):
 
 def pdist_score(mat, metric='euclidean', norm_rows=True,
         norm_cols=True):
-    norm_mat = el.normalize_fracs(mat, norm_rows, norm_cols)
+    norm_mat = normalize_fracs(mat, norm_rows, norm_cols)
     dists = spatial.distance.pdist(norm_mat, metric=metric)
     dist_mat = spatial.distance.squareform(dists)
     score_mat = 1 - np.nan_to_num(dist_mat)
@@ -247,6 +263,19 @@ class ApexScores(object):
     def __getitem__(self, index):
         return int(self.apex_array[index[0]] == self.apex_array[index[1]])
 
+def apex_scores_toarray_fast(smat):
+    """
+    Same output as above, but 0s on the diagonal.
+    """
+    dmaxes = defaultdict(set)
+    for row, mx in enumerate(smat.apex_array):
+        dmaxes[mx].add(row)
+    arr = np.zeros(smat.shape)
+    for mx,rows in dmaxes.items():
+        for r1,r2 in itertools.permutations(rows,2):
+            arr[r1,r2] = 1
+    return arr
+
 def precalc_scores(scoref, dtype='f2'):
     """
     Also zero out the diagonal.
@@ -270,7 +299,7 @@ def precalc_scores(scoref, dtype='f2'):
 class CosineLazyNew(object):
 
     def __init__(self,elution):
-        self.norm_mat = np.mat(el.normalize_fracs(elution.mat))
+        self.norm_mat = np.mat(normalize_fracs(elution.mat))
         
     def __getitem__(self, index):
         # Dot product of normed rows
@@ -343,6 +372,8 @@ if __name__ == '__main__':
     elif method in ['euclidean']:
         corr = pdist_score(elut.mat, norm_rows=True, norm_cols=True,
                 metric=method)
+    elif method in ['apex']:
+        corr = apex_scores_toarray_fast(ApexScores(elut))
     #elif method == 'dotproduct':
         #corr = elut.mat * elut.mat.T
     #elif method == 'corrcoef':
