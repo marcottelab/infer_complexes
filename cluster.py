@@ -54,8 +54,7 @@ def clean_numbered_ppis(numbered_ppis):
             for c in numbered_cxs if len(c) >= min_cx_length]
     
 def _filter_ints(inlist, cxs):
-    d_cxs = dict([(i,set(c)) for i,c in enumerate(cxs)]) 
-    pairs = co.pairs_from_complexes(d_cxs)
+    pairs = co.pairs_from_complexes(cxs)
     pdp = pd.PairDict(pairs)
     return [tup for tup in inlist if pdp.contains((tup[0],tup[1]))]
 

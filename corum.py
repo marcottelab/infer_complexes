@@ -151,6 +151,7 @@ def merge_atonce(psets, cutoff, func, sep):
 
 
 def pairs_from_complexes(complexes):
+    # TODO: dict to tuples
     intdict = corum_ints_duped(complexes)
     int_dedup = ut.dict_dedup(intdict)
     pairs = []
@@ -190,11 +191,14 @@ def load_complexes_multiline(filename):
             
     
 def corum_ints_duped(complexes):
-    # complexes: dict{complexid: set([protein1, protein2,...]), .. }
-    # this makes a dictionary{protein1: set([protein2, protein3]), ...}
-    # every interaction is found twice here for fast interaction checking
+    """
+    Complexes: list of sets/tuples/lists of proteins.
+    This makes a dictionary{protein1: set([protein2, protein3]), ...}.
+    Every interaction is found twice here for fast interaction checking.
+    """
     interactions = {}
-    for complex,protein_set in complexes.items():
+    for proteins in complexes:
+        protein_set = set(proteins)
         for p in protein_set:
             partners = protein_set.copy()
             partners.remove(p)
@@ -238,57 +242,6 @@ def convert_complexes(complexes, convert, include_set=None):
         #for u in complexes[c] if u in convert_filtered])>1])
     return out_complexes
 
-def write_pos_neg_pairs(complexes, complexes_exclude, fname_pos):
-    """
-    Complexes: a dict of all the complexes to use in this part of the process.
-    If ppi, this should be the ppi-specific unmerged complexes.  If for complex
-    prediction, this should be the complex-specific merged complexes.
-    complexes_exclude: a dict of all the complexes whose interactions should be
-    excluded from the learning set.
-    This complexity is necessary to be able to
-    use the different complex sets for ppi learning vs complex learning.
-    """
-    prots = list(reduce(set.union,[complexes[k] for k in complexes]))
-    true_ints = corum_ints_duped(complexes)
-    exclude_ints = corum_ints_duped(complexes_exclude)
-    pos = []
-    pos_ex = []
-    negs = []
-    for ind, i in enumerate(prots):
-        for j in prots[ind:]:
-            if i in true_ints and j in true_ints[i]:
-                if i in exclude_ints and j in exclude_ints[i]:
-                    pos_ex.append((i,j,'true'))
-                else:
-                    pos.append((i,j,'true'))
-            else:
-                if i not in exclude_ints or j not in exclude_ints[i]:
-                    negs.append((i,j,'false'))
-    for l in [pos,pos_ex,negs]: random.shuffle(l)
-    plen = len(pos)
-    split = int(len(negs) * (plen / (plen + len(pos_ex))))
-    negs_use = negs[:split]
-    negs_ex = negs[split:]
-    for l,f in zip([pos,pos_ex,negs_use,negs_ex],[fname_pos,
-            ut.pre_ext(fname_pos, '_exclude'), ut.pre_ext(fname_pos, '_negs'),
-            ut.pre_ext(fname_pos, '_negs_exclude')]):
-        ut.write_tab_file(l,f)
-
-class CLookup(object):
-
-    def __init__(self, cxs=None, consv_sp=''):
-        gtrans = seqs.GTrans()
-        if cxs is None:
-            cxs,_,_ = ppi.load_training_complexes('Hs',consv_sp)
-        allps = reduce(set.union, [set(c[1]) for c in cxs])
-        notfound = len([p for p in allps if p not in gtrans.id2name])
-        if notfound > 0: print '%s gene names not found' % notfound
-        self.cxs = [(c[0], set([gtrans.id2name.get(p,'noname') for p in
-            c[1]])) for c in cxs]
-
-    def findcs(self,gname):
-        return [p for p in self.cxs if gname.lower() in p[1]]
-
 def go_assoc_prots(fname):
     """
     Just return the second item in each line if the line isn't commented (!).
@@ -314,27 +267,4 @@ def keep_longest(cxs):
             d_cxs[name] = ps
     return d_cxs.items()
 
-#def dedupe_names(cxs):
-    #"""
-    #Remove possibility of name bashing by renaming complexes that would bash.
-    #NOT WORKING 20130806.
-    #"""
-    #names_counts = defaultdict(int)
-    #print len(cxs)
-    #cxs_deduped = []
-    #d_cxs = {}
-    #for name, ps in cxs:
-        #if names_counts[name] > 0:
-            #if d_cxs[name] != ps:
-                #use_name = '%s_%s' % (name, names_counts[name]+1)
-                #names_counts[name] += 1
-            #else:
-                ## skip: duplicate
-                #continue
-        #else:
-            #use_name = name
-        #d_cxs[name] = ps
-        #cxs_deduped.append((use_name, ps))
-    #print len(cxs_deduped)
-    #return cxs_deduped
 

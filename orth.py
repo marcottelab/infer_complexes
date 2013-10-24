@@ -2,7 +2,7 @@ import itertools as it
 import os
 import utils as ut
 
-keys = "Hs-Ce Hs-Dd Hs-Dm Hs-Mm Hs-Nv Hs-Sp Hs-Sc Hs_uni-Ce_uni Ce-Dm Ce-Mm Ce-Nv Ce-Sp Sp-Dm Sp-Mm Sp-Nv Mm-Dm Dm-Nv Hs-Xl".split()
+keys = "Hs-Ce Hs-Dd Hs-Dm Hs-Mm Hs-Nv Hs-Sp Hs-Sc Hs_uni-Ce_uni Ce-Dm Ce-Mm Ce-Nv Ce-Sp Sp-Dm Sp-Mm Sp-Nv Mm-Dm Dm-Nv Hs-Xl Hs-X2 Hs-X3".split()
 
 def odict(from_sp, to_sp):
     """

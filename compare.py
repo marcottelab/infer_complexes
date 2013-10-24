@@ -168,11 +168,8 @@ def gold_label_ppis(ppis, merged_splits, sp, gold_nsp):
     gold_consv = 'Dm' if gold_nsp>1 else ''
     ppi_cxs,_,_ = ppi.load_training_complexes(sp, '', gold_consv)
     train_cxs = unmerged_splits_from_merged_splits(ppi_cxs, merged_splits)[0]
-    ppis = cv.gold_label_ppis(ppis,
-            co.pairs_from_complexes(dict(enumerate([set(c) for c in train_cxs]))))
+    ppis = cv.gold_label_ppis(ppis, co.pairs_from_complexes(train_cxs))
     return ppis
-
-
 
 def rescale_columns(arr, scale_factors):
     newarr = ut.arr_copy(arr)
@@ -235,8 +232,8 @@ def geom_avg(a,b):
 
 def complex_arr(cxs, prots):
     arr = np.zeros((len(prots),len(prots)))
-    ints_dict = co.corum_ints_duped(dict([(i,set(ps)) 
-        for i,ps in enumerate(cxs)]))
+    ints_dict = co.corum_ints_duped([(i,set(ps)) 
+        for i,ps in enumerate(cxs)])
     p_inds = ut.list_inv_to_dict(prots)
     for p,partners in ints_dict.items():
         if p in p_inds:
@@ -457,7 +454,7 @@ def combine_clstructs(ca, cb):
             stats=np.concatenate((ca.stats, cb.stats)))
 
 def tested_ppis(gold_cxs, ppis):
-    gold_ints = co.pairs_from_complexes(dict(enumerate(gold_cxs)))
+    gold_ints = co.pairs_from_complexes(gold_cxs)
     ntest_pos = len(gold_ints)
     pdtrues = pd.PairDict(gold_ints)
     ppis = [(p[0],p[1],p[2],1 if pdtrues.contains(tuple(p[:2])) else 0) for p in
@@ -474,7 +471,7 @@ def cliqueness(cxs, cxppis):
     return np.mean([clique_score(c,pdints) for c in cxs])
 
 def clique_score(cx, pdints):
-    cx_ints = co.pairs_from_complexes(dict([(1,cx)]))
+    cx_ints = co.pairs_from_complexes([cx])
     return len([1 for edge in cx_ints if pdints.contains(edge)])/len(cx_ints)
 
 def filter_len(lol, min_len=0, max_len=None):

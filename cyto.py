@@ -112,15 +112,14 @@ def ppis_gold_standard(ppis, cxs_splits, species):
     pdppis = pd.PairDict([p[:3] for p in ppis])
     print len(pdppis.d), "predicted interactions"
     ppi_cxs,_,all_cxs = ppi.load_training_complexes(species, None,'') #conv doesn't matter
-    d_all_cxs = dict([(i,set(c)) for i,c in enumerate(ut.i1(all_cxs))]) 
     pdcorum = pd.PairDict([(i[0],i[1],'gold') for i in
-                        co.pairs_from_complexes(d_all_cxs)])
+                        co.pairs_from_complexes(ut.i1(all_cxs))])
     print len(pdcorum.d), "total gold standard"
     pdcomb = pd.pd_union_disjoint_vals(pdppis, pdcorum)
     unmr_splits = cp.unmerged_splits_from_merged_splits(ppi_cxs,cxs_splits)
     print "unmerged split assignment lengths", [len(s) for s in unmr_splits]
     pdtrainpos = pd.PairDict([(t[0],t[1]) for t in
-        co.pairs_from_complexes(dict(enumerate(unmr_splits[0])))])
+        co.pairs_from_complexes(unmr_splits[0])])
     print len(pdtrainpos.d), "total train interactions"
     counterrs = 0
     for tpair in pdtrainpos.d:
