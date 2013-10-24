@@ -52,7 +52,7 @@ def disp_ev(gnames, arr_ev, scores=None, cutoff=.25, dispn=10, **kwargs):
 def elutions_containing_prots(eluts, sp, query_prots, min_count):
     use_eluts = []
     for e in eluts:
-        sp_target = ut.shortname(e.filename)[:2]
+        #sp_target = ut.shortname(e.filename)[:2]
         f_inds = set(np.array(np.where(np.max(e.normarr,axis=1) >= min_count)[0])[0])
         if len([p for p in query_prots if p in e.baseid2inds]) > 0:
             if max([ind in f_inds for p in query_prots 
@@ -80,7 +80,7 @@ def save_bigprofiles(prots, protids, unnorm_eluts, fname, hires_mult=1, **kwargs
     pl.savefig(fname, bbox_inches='tight', dpi=200*hires_mult)
     pl.clf()
 
-def single_array(gids, unnorm_eluts, sp='Hs', min_count=1,
+def single_array(gids, unnorm_eluts, sp, min_count=1,
         remove_multi_base=False, norm_rows=False):
     """
     unnorm_eluts: [el.NormElut(f, sp=sp, norm_cols=False, norm_rows=False) for f in fs]
@@ -106,12 +106,12 @@ def single_array(gids, unnorm_eluts, sp='Hs', min_count=1,
         startcol += freqarr.shape[1]
     return bigarr
 
-def cluster_ids(gids, unnorm_eluts, gt=None, dist='cosine', do_plot=True,
+def cluster_ids(gids, unnorm_eluts, sp, gt=None, dist='cosine', do_plot=True,
         norm_rows=True, bigarr=None, **kwargs):
     import plotting as pl
     import hcluster
     arr = (bigarr if bigarr is not None else single_array(gids, unnorm_eluts,
-        norm_rows=norm_rows))
+        sp, norm_rows=norm_rows))
     ymat = hcluster.pdist(arr, metric=dist)
     zmat = hcluster.linkage(ymat)
     zmat = np.clip(zmat, 0, 10**8)
@@ -137,7 +137,7 @@ def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=1,
         pids = [gt.name2id[p] for p in prots]
     if do_cluster:
         print "clustering"
-        pids = cluster_ids(pids, unnorm_eluts, gt=gt, do_plot=do_plot_tree, 
+        pids = cluster_ids(pids, unnorm_eluts, sp, gt=gt, do_plot=do_plot_tree, 
                 **kwargs)
     if gt is not None:
         prots = [gt.id2name[pid] for pid in pids if pid in gt.id2name] #re-order to match
@@ -336,7 +336,7 @@ def treeview_eluts(name, fs, base_sp='Hs', gt=None, ids=None, bigarr=None):
     if bigarr is None:
         unes = [el.NormElut(f,sp_base=base_sp, norm_rows=False,norm_cols=False)
                 for f in fs]
-        bigarr = single_array(ids, unes, sp=base_sp, norm_rows=True)
+        bigarr = single_array(ids, unes, base_sp, norm_rows=True)
         cols = ut.flatten([[ut.shortname(u.filename)+'_'+str(i) 
             for i in range(u.normarr.shape[1])] for u in unes])
         df = DataFrame(data=bigarr, index=list(gene_names), columns=cols)
