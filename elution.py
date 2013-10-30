@@ -71,13 +71,18 @@ def passing_pairs(elut, score_key, cutoff, allow_singles):
             if p1 not in singles and p2 not in singles))
     return newpairs
 
-def supporting_ppis(ppis, fnames, score_keys, sp_base, cutoff=0.5, verbose=True):
+def supporting_ppis(ppis, fnames, score_keys, sp_base, cutoff=0.5,
+        verbose=True, allow_singles=True):
+    """
+    For output:
+    output = [p[:4]+[' '.join([x[0]+'-'+x[1] for x in p[4]])] for p in ppis_supp]
+    """
     ppis_support = [pd.PairDict([]) for p in ppis]
     eluts = [load_elution(f) for f in fnames]
     for elut,skey in it.product(eluts, score_keys):
         if verbose: print skey, ut.shortname(elut.filename)
         od = orth.odict(sp_base, file_sp(elut.filename))
-        new_pairs = passing_pairs(elut, skey, cutoff)
+        new_pairs = passing_pairs(elut, skey, cutoff, allow_singles)
         for p,pdsupport in zip(ppis,ppis_support):
             for opair in orth.orth_pairs(p[:2], od):
                 opair = tuple(opair)
