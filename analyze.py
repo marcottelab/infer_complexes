@@ -4,6 +4,7 @@ import examples as ex
 import features as fe
 import ppi
 import pairdict as pd
+import utils as ut
 from Struct import Struct
 
 def triple_venn_consv():
@@ -35,4 +36,18 @@ def arrfeats_prep_all_data(arrfeats, ppis, sp='Hs', gold_consv='Dm', cutoff=0.5)
     print "Setting trues."
     arrfeats = fe.arrfeats_set_gold(arrfeats, pdgold) 
     return arrfeats
+
+def enrichment_array_combined(sp_base, sp_dict_elutfs, cxs, func=np.average, 
+        nsp=1, scores=['poisson']):
+    """
+    sp_dict_elutfs: {'Ce': [Ce_elution_1, Ce_elution_2, ...] , ...}
+    """
+    exs = correlation_enrichment([(i,set(c)) for i,c in enumerate(cxs)])
+    elutfs = ut.flatten([elutfs for sp,elutfs in sp_dict_elutfs.items()])
+    ppio = ppi.feature_array(sp_base, elutfs, exs, nsp, scores=scores, 
+            extdata=[], do_filter=False)
+    newarr = ppio.arrfeats
+    for sp in sp_dict_elutfs.keys():
+        newarr = fe.merge_features(newarr, '%s.*' % sp, func, False)
+    return newarr
 

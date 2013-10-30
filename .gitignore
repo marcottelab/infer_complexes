@@ -21,6 +21,8 @@ tools/
 docs/
 exp/
 .idea/
+shared_complexes/
+shared_complexes_bigdata/
 
 # OS files
 *.DS_Store*
