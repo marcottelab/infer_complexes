@@ -127,7 +127,8 @@ def cluster_ids(gids, unnorm_eluts, sp, gt=None, dist='cosine', do_plot=True,
 
 def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=1,
         remove_multi_base=False, gt=None, eluts_per_plot=10,
-        do_cluster=True, label_trans=None, do_plot_tree=False, **kwargs):
+        do_cluster=True, label_trans=None, do_plot_tree=False,
+        rename_fracs=None, **kwargs):
     """
     supply EITHER prots OR protids, set other to None
     unnorm_eluts: [el.NormElut(f, sp=sp, norm_cols=False, norm_rows=False) for f in fs]
@@ -148,7 +149,7 @@ def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=1,
         print "Translating names for display."
         # Translate displayed names from base ids according to provided dict
         #prots = [gt.id2name[pid] for pid in pids]
-        prots = [label_trans[p] if p in label_trans else p for p in prots]
+        prots = [label_trans.get(p,p) for p in prots]
     prots.reverse(); pids.reverse(); # put them top to bottom
     print "%s proteins" % len(pids)
     use_eluts = elutions_containing_prots(unnorm_eluts, sp, pids, min_count)
@@ -157,6 +158,9 @@ def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=1,
     for iplot in range(nplots):
         pl.subplot(nplots, 1, iplot+1)
         plot_eluts = use_eluts[iplot*eluts_per_plot: (iplot+1)*eluts_per_plot]
+        frac_names = [ut.shortname(e.filename) for e in plot_eluts]
+        if rename_fracs:
+            frac_names = [rename_fracs.get(n,n) for n in frac_names]
         startcols = [0]
         for i,e in enumerate(plot_eluts):
             freqarr = ut.normalize_fracs(e.normarr, norm_rows=False)
@@ -167,7 +171,7 @@ def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=1,
                     startcols[-1])
             startcols.append(startcols[-1]+freqarr.shape[1])
         label_ys(prots)
-        label_xs(startcols, [ut.shortname(e.filename) for e in plot_eluts])
+        label_xs(startcols, frac_names)
         pl.grid(False)
         maxfracs = maxfracs if maxfracs > startcols[-1] else startcols[-1]
     for iplot in range(nplots):
@@ -178,14 +182,20 @@ def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=1,
 
 def label_xs(lefts, labels):
     import plotting as pl
-    for left in lefts:
-        pl.axvline(x=left, linewidth=.5, color='gray')
+    # Draw bars separating fractionations. Were in the wrong place before
+    # moving to the left by one.
+    for left in lefts[1:]:
+        pl.axvline(x=left-1, linewidth=.5, color='gray')
     ax = pl.gca()
-    ax.axes.set_xticks([x+2 for x in lefts])
-    ax.axes.set_xticklabels(labels)
+    # Center x-axis labels
+    ax.axes.set_xticks([int((lefts[i]+lefts[i+1])/2) for i in
+        range(len(lefts)-1)])
+    ax.axes.xaxis.set_ticks_position('none')
+    ax.axes.set_xticklabels(labels, fontsize=10)
     labels = ax.get_xticklabels() 
     for label in labels: 
-        label.set_rotation(30) 
+        label.set_rotation(35) 
+    [i.set_linewidth(0.5) for i in ax.spines.itervalues()]
 
 def label_ys(labels):
     import plotting as pl
@@ -194,6 +204,7 @@ def label_ys(labels):
     for b in bottoms: pl.axhline(y=b, linewidth=.5, color='gray')
     ax.axes.set_yticks([b+YSCALE/2 for b in bottoms])
     ax.axes.set_yticklabels(labels)
+    ax.axes.yaxis.set_ticks_position('none')
 
 def plot_big_single(arr, pids, baseid2inds, maxcount, startcol):
     import plotting as pl
@@ -208,6 +219,7 @@ def plot_big_single(arr, pids, baseid2inds, maxcount, startcol):
                         color=pl.COLORS[i%len(pl.COLORS)],
                         align='center',width=1,linewidth=0, bottom=bottom,
                         antialiased=False)
+    pl.ylim(0,YSCALE*len(pids))
 
 def plot_profiles(prots, eluts, sp='Hs', plot_sums=True, shape=None,
         min_count=1):

@@ -10,14 +10,14 @@ def odict(from_sp, to_sp):
     {HsProt1: set([CeProtA, CeProtB,...]), ...}
     """
     if from_sp != to_sp:
-        key, swap_order = orth_key(from_sp, to_sp)
-        return _ogroups_to_odict(_load_ogroups(ut.proj_path('convert_orth',
-                                                        'table.'+key)),
-                             swap_order=swap_order)
+        fname, swap_order = orth_fname(from_sp, to_sp)
+        ogroups = load_ogroups(from_sp, to_sp)
+        # change: ogroups already swapped 10/30/2013
+        return _ogroups_to_odict(ogroups, swap_order=False) 
     else:
         return None
 
-def orth_key(from_sp, to_sp):
+def orth_fname(from_sp, to_sp):
     key = from_sp + '-' + to_sp
     if key in keys:
         swap_order=False
@@ -27,7 +27,8 @@ def orth_key(from_sp, to_sp):
             swap_order=True
         else:
             assert False, "Orthogroup key %s not in keys list" % key
-    return key, swap_order
+    fname = ut.proj_path('convert_orth', 'table.'+key)
+    return fname, swap_order
 
 
 def odict_1to1(from_sp, to_sp):
@@ -122,7 +123,7 @@ def _ogroups_to_odict(ogroups, swap_order=False):
                 p1 in og[sp1col]])
     return orthdict
 
-def _load_ogroups(fname):
+def load_ogroups(from_sp, to_sp):
     """
     Load an inparanoid table.Sp1-Sp2 file into a list of orthogroups, where
     each orthogroup is a tuple containing 1) a list of proteins in sp1 and 2) a
@@ -131,8 +132,10 @@ def _load_ogroups(fname):
     """
     # Skip header row; protein ids alternate with meaningless conf scores in
     # columns 2 and 3 in the order of the filename
-    ogroups = [([p for p in row[2].split()[::2]],[p for p in
-            row[3].split()[::2]]) for row in ut.load_tab_file(fname)][1:]
+    fname, swap_order = orth_fname(from_sp, to_sp)
+    (from_ind, to_ind) = (2,3) if not swap_order else (3,2)
+    ogroups = [([p for p in row[from_ind].split()[::2]],[p for p in
+            row[to_ind].split()[::2]]) for row in ut.load_tab_file(fname)][1:]
     return ogroups
 
 def orth_pairs(p, od):

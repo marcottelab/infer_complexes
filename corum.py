@@ -7,6 +7,8 @@ import utils as ut
 import ppi
 import seqs
 import cluster as cl
+import pairdict as pd
+import itertools as it
 from Struct import Struct
 
 
@@ -151,14 +153,18 @@ def merge_atonce(psets, cutoff, func, sep):
 
 
 def pairs_from_complexes(complexes):
+    raw_pairs = ut.flatten([[x for x in it.combinations(group,2)] 
+        for group in complexes])
+    deduped = pd.dedupe(raw_pairs)
+    return deduped
     # TODO: dict to tuples
-    intdict = corum_ints_duped(complexes)
-    int_dedup = ut.dict_dedup(intdict)
-    pairs = []
-    for p, partners in int_dedup.items():
-        for par in partners:
-            pairs.append((p,par))
-    return pairs
+    #intdict = corum_ints_duped(complexes)
+    #int_dedup = ut.dict_dedup(intdict)
+    #pairs = []
+    #for p, partners in int_dedup.items():
+        #for par in partners:
+            #pairs.append((p,par))
+    #return pairs
 
 def load_complexes_singleline(filename, startindex=1):
     """

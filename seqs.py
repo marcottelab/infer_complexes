@@ -26,6 +26,9 @@ def ensembl_prots_to_genes(fname, bar_split=None, second_split=False,
     genes_list = reduce(operator.add,[lines for g,lines in genes_dict.items()])
     ut.write_tab_file(genes_list, fname+'_longest', islist=True)
 
+def fasta_fname(sp):
+    return ut.proj_path('fastadir', sp + '.fasta')
+
 def prots2genes(fname):
     """
     If there's only one item in the first line, just return a dummy dict
@@ -82,7 +85,7 @@ def load_seqs_from_fasta(fname):
 
 def load_prots_from_fasta(fname):
     """
-    Files are in data/sequences/canon.  
+    Files are in ut.config()['fastadir'].
     Returns a set since usually I'm searching against it.
     """
     protlines = [l for l in ut.load_list(fname) if l[0]=='>']
@@ -91,8 +94,8 @@ def load_prots_from_fasta(fname):
 
 def load_prots_from_fasta_dep(fname):
     """
-    Files are in data/sequences/canon.  All so far can be split by both space
-    and |.
+    Files are in ut.config()['fastadir'].
+    All so far can be split by both space and |.
     Returns a set since usually I'm searching against it.
     """
     protlines = [l[1:] for l in ut.load_list(fname) if l[0]=='>']
