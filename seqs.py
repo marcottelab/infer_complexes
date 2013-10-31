@@ -1,7 +1,10 @@
+from __future__ import division
 import operator
-import utils as ut
+from Bio import pairwise2
+from Bio.SubsMat import MatrixInfo as matlist
 import difflib
 import numpy as np
+import utils as ut
 
 def ensembl_prots_to_genes(fname, bar_split=None, second_split=False, 
         only_geneid_on_line=False, pid_replace=False):
@@ -207,3 +210,18 @@ def ppis2namedesc(ppis, gt=None, **kwargs):
     return [(round(float(p[2]), 2), gt.id2name.get(p[0],p[0]),
         gt.id2name.get(p[1],p[1]), p[3], gt.id2desc.get(p[0],p[0])[:30],
         gt.id2desc.get(p[1],p[1])[:30] ) for p in ppis]
+
+def percent_identity(aseq, bseq):
+    matrix = matlist.blosum62
+    gap_open = -10
+    gap_extend = -0.5
+    alns = pairwise2.align.globalds(aseq, bseq, matrix, gap_open, gap_extend)
+    top_aln = alns[0]
+    alna, alnb, score, begin, end = top_aln
+    #print "alna %s, alnb %s, score %s, begin %s, end %s" % (alna, alnb, score, begin, end)
+    matches=0
+    for a,b in zip(alna, alnb):
+        if a==b and a!='-':
+            matches += 1
+    #return matches/min(len(aseq), len(bseq)), top_aln
+    return matches / len(alna)

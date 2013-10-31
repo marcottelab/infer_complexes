@@ -1,14 +1,15 @@
 from __future__ import division
 from collections import defaultdict
+import itertools as it
 import numpy as np
-import random
 import os
-import utils as ut
-import ppi
-import seqs
+import random
 import cluster as cl
 import pairdict as pd
-import itertools as it
+import ppi
+import ppi_utils as pu
+import seqs
+import utils as ut
 from Struct import Struct
 
 
@@ -155,7 +156,7 @@ def merge_atonce(psets, cutoff, func, sep):
 def pairs_from_complexes(complexes):
     raw_pairs = ut.flatten([[x for x in it.combinations(group,2)] 
         for group in complexes])
-    deduped = pd.dedupe(raw_pairs)
+    deduped = pu.dedupe(raw_pairs)
     return deduped
     # TODO: dict to tuples
     #intdict = corum_ints_duped(complexes)

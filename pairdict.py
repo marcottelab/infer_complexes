@@ -141,6 +141,3 @@ def pd_union_disjoint_vals(a,b,adefaults=None,bdefaults=None):
     bleftovers = merge_help(a.d.keys(),newpd,a,b,adefaults,bdefaults)
     merge_help(bleftovers,newpd,b,a,bdefaults,adefaults,reverse=True)
     return newpd
-
-def dedupe(pairlist):
-    return PairDict(pairlist).d.keys()
