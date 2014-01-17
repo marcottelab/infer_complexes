@@ -2,7 +2,7 @@
 usage="Usage: wcc.sh <filename> <width>"
 # run from where you want target directory made
 args=("$@")
-if [ $# -lt 2 ]; then
+if [ "$#" -lt 2 ]; then
     echo $usage
     exit 1
 fi
