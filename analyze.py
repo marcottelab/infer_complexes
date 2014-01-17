@@ -1,7 +1,10 @@
+import numpy as np
 import compare as cp
 import corum as co
+import elution as el
 import examples as ex
 import features as fe
+import orth
 import ppi
 import pairdict as pd
 import utils as ut
@@ -50,4 +53,41 @@ def enrichment_array_combined(sp_base, sp_dict_elutfs, cxs, func=np.average,
     for sp in sp_dict_elutfs.keys():
         newarr = fe.merge_features(newarr, '%s.*' % sp, func, False)
     return newarr
+
+def pairs_found(pairs, bag):
+    return len([1 for a,b in pairs if a in bag and b in bag])
+
+def pairs_orth_found(pairs, odict, bag):
+    if not odict:
+        return pairs_found(pairs, bag)
+    else:
+        return len([1 for a,b in pairs 
+            if (a in odict and b in odict 
+                and len([o for o in odict[a] if o in bag]) > 0 
+                and len([o for o in odict[b] if o in bag]) > 0)])
+
+def pairs_notfound_sps(df, fs, sps='Hs Mm Sp Dm Ce'.split()):
+    """
+    df: dataframe with id1, id2, and the sp_evidence columns.
+    fs: all the elution filenames
+    """
+    results = []
+    for sp in sps:
+        pairs = [(r['id1'],r['id2']) for i,r in
+                df[df[sp+"_evidence"]!='frac'].iterrows()]
+        print "%s pairs for %s" % (len(pairs), sp)
+        odict = orth.odict('Hs',sp)
+        orths = pairs_found(pairs, odict) if odict else len(pairs) # same sp
+        fs_sp = [f for f in fs if f.find(sp+"_") > -1]
+        print "%s fractionations for %s" % (len(fs_sp), sp)
+        allps = el.all_prots(fs_sp)
+        counts = pairs_orth_found(pairs, odict, allps)
+        results.append((len(pairs), orths, counts))
+    return sps, results
+
+def barplot_foundsps(sps, counts, total_length):
+    forbar = [(total_length-nofrac, nofrac-withorth, withorth-orthnoobs,orthnoobs) 
+        for nofrac, withorth, orthnoobs in counts]
+    import plotting as pl
+    pl.stacked_bar(sps, forbar)
 

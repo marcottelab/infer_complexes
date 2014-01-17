@@ -336,7 +336,7 @@ def load_dict_flat(fname):
     assert 0==1
     pass
 
-def load_tab_file(fname, sep='\t', use_special_clean=False, dtype=None,
+def load_tab_file(fname, sep='\t', use_special_clean=False, dtypes=None,
         skip1=False):
     """ Returns a generator of a list of list
     (assumes each element in a line is tab-delimited)
@@ -347,6 +347,10 @@ def load_tab_file(fname, sep='\t', use_special_clean=False, dtype=None,
         datagen = (tuple(l.split(sep)[:-1]+[l.split(sep)[-1].strip()]) for l in file(fname, 'r'))
     else:
         datagen = (tuple(clean(l).split(sep)) for l in file(fname, 'r'))
+    if dtypes:
+        irange = range(len(dtypes))
+        datagen = (tuple([dtypes[i](tup[i]) for i in irange]) 
+                for tup in datagen)
     if skip1:
         datagen.next()
     return datagen

@@ -4,6 +4,7 @@ from Bio import pairwise2
 from Bio.SubsMat import MatrixInfo as matlist
 import difflib
 import numpy as np
+from decorators import timeout
 import utils as ut
 
 def ensembl_prots_to_genes(fname, bar_split=None, second_split=False, 
@@ -211,7 +212,13 @@ def ppis2namedesc(ppis, gt=None, **kwargs):
         gt.id2name.get(p[1],p[1]), p[3], gt.id2desc.get(p[0],p[0])[:30],
         gt.id2desc.get(p[1],p[1])[:30] ) for p in ppis]
 
+@timeout(60)
 def percent_identity(aseq, bseq):
+    """
+    Align 2 sequences.
+    Return the matched elements divided by the total length of alignment.
+    Catch any errors and return -1.
+    """
     matrix = matlist.blosum62
     gap_open = -10
     gap_extend = -0.5

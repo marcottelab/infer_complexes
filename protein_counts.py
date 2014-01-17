@@ -4,7 +4,10 @@ import numpy as np
 import utils as ut
 
 def write_prot_counts(f_peplist, only_uniques, f_pep2prots=None):
-    peplist = ut.load_list_of_lists(f_peplist)
+    if f_peplist.find('pep_count_') > -1:
+        peplist = peplist_from_pepcount(f_peplist)
+    else:
+        peplist = ut.load_list_of_lists(f_peplist)
     if f_pep2prots:
         pep2prots = load_pep2prots(f_pep2prots)
         prots, samples, counts, totals = prot_counts_pep2prots(peplist,
@@ -12,12 +15,34 @@ def write_prot_counts(f_peplist, only_uniques, f_pep2prots=None):
     else:
         prots, samples, counts, totals = prot_counts(peplist, only_uniques)
     suffix = 'prot_count' + ('_uniqpeps2' if only_uniques else '')
-    f_counts = open(f_peplist.replace('pep_list',suffix), 'w')
+    fname_out = f_peplist.replace('pep_list',suffix).replace('pep_count',suffix)
+    f_counts = open(fname_out, 'w')
     f_counts.write("#ProtID\tTotalCount\t%s\n"%('\t'.join(samples)))
     for i,prot in enumerate(prots):
         out_str = ['%0.2f' % count for count in counts[i,:]]
         f_counts.write("%s\t%.2f\t%s\n"%(prot, totals[i], '\t'.join(out_str)))
     f_counts.close()
+
+def peplist_from_pepcount(f):
+    """
+    Create list of (blank, sample, peptideseq, count) from table of peptideseqs
+    by samples.
+    """
+    peps, samples, arr = load_pepcount(f)
+    peplist = [('-', samples[sample], peps[pep], arr[pep, sample]) 
+            for pep,sample in zip(*np.where(arr))]
+    return peplist
+
+def load_pepcount(f):
+    lol = ut.load_lol(f)
+    print "Omitting header:", lol[0]
+    lol = lol[1:]
+    peps = ut.i0(lol[1:])
+    samples = lol[0][2:]
+    arr = np.zeros((len(peps), len(samples)))
+    for i,row in enumerate(lol[1:]):
+        arr[i,:] = row[2:]
+    return peps, samples, arr
 
 def load_pep2prots(filename, sep='&'):
     """
@@ -94,7 +119,7 @@ def non_unique_peps(peplist):
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        sys.exit("usage: python protein_counts.py f_peplist only_uniques [f_pep2prots]")
+        sys.exit("usage: python protein_counts.py f_peplist/f_pep_count only_uniques [f_pep2prots]")
     only_uniques = sys.argv[2] == 'True'
     f_pep2prots = sys.argv[3] if len(sys.argv)>3 else None
     print 'Counting proteins.  Only uniques:', only_uniques

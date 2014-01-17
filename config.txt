@@ -6,7 +6,7 @@ fnet_path   data/extdata
 # Corum
 # !!conversion file is specific to the corum download--get a new one if changed
 corum_convert   data/convert/Hs_uni_corum2Hs_ensg_201208.tab
-corum_pairs data/corum/pairs
+# corum_pairs data/corum/pairs # old I think
 ppi_cxs     data/corum/pre_1209/corum_overlaps_forppi.tab
 clean_cxs   data/corum/pre_1209/corum_clean_nooverlaps_supptable3.tab
 corum_cxs     data/corum/CORUM_allComplexes20120925.csv

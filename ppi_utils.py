@@ -1,5 +1,6 @@
 from __future__ import division
 import itertools as it
+import random
 import pairdict as pd
 import utils as ut
 
@@ -10,8 +11,7 @@ def groups_to_pairs(lol_groups):
     return deduped
 
 def load_ppis(fname):
-    return [(p[0], p[1], float(p[2]), int(p[3])) 
-            for p in ut.load_tab_file(fname)]
+    return ut.load_lol(fname, dtypes=(str,str,float,int))
 
 def dedupe(pairlist):
     return pd.PairDict(pairlist).d.keys()
@@ -22,5 +22,15 @@ def intersect(pairsa, pairsb):
     return dedupe(intersect)
 
 def unique_items(pairs):
-    return list(set(ut.i0(pairs) + ut.i1(pairs)))
+    return set(ut.i0(pairs) + ut.i1(pairs))
 
+def nonpairs_gen(pairs, n):
+    items = list(set(ut.i0(pairs) + ut.i1(pairs)))
+    exclude = set(pairs)
+    pdexclude = pd.PairDict(exclude)
+    count = 0
+    while count < n:
+        pair = (random.choice(items), random.choice(items))
+        if not pdexclude.contains(pair):
+            yield pair
+            count += 1

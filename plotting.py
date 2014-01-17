@@ -9,8 +9,8 @@ import cv
 from Struct import Struct
 import utils as ut
 import pairdict as pd
-import hcluster
 import pandas as pa
+import ppi_utils as pu
 
 
 #COLORS = ['#4571A8', 'black', '#A8423F', '#89A64E', '#6E548D', '#3D96AE',
@@ -63,7 +63,7 @@ def cumulative_precision(tested, true_ints=None, return_data=False,
     if return_data: 
         return precision
 
-def bar_plot(names, yvals, slanted_names=False, **kwargs):
+def bar_plot(names, yvals, slanted_names=False, ax=None, **kwargs):
     fig = figure()
     ax = fig.add_subplot(111)
     ax.bar(range(len(names)), yvals, align='center', **kwargs)
@@ -72,6 +72,23 @@ def bar_plot(names, yvals, slanted_names=False, **kwargs):
     if slanted_names: fig.autofmt_xdate()
     show()
     return ax
+
+def stacked_bar(names, values):
+    """
+    values is a lol. values[0] corresponds to the values for names[0].
+    """
+    valuesT = zip(*values)
+    padded = [[0]*len(valuesT[0])] + valuesT # 0s in first row is helpful
+    arr = np.array(padded)
+    arrcum = np.cumsum(arr, axis=0)
+    for i in range(1, arr.shape[1]):
+        bar(range(1,arr.shape[0]+1), arr[i], align='center', bottom=arrcum[i-1],
+                color=COLORS[i-1])
+    ax = gca()
+    ax.set_xticklabels(['']+names)
+    df = pa.DataFrame(arr[1:][::-1], columns=names)
+    print df
+    return df
     
 # def cluster(corr):
 #     # corr: a matrix of similarity scores, such as a covariance matrix
@@ -251,6 +268,7 @@ def eluts_scatter(elut1, elut2, ncols=None):
     return vals1,vals2
 
 def cluster_elut(mat):
+    import hcluster
     ymat = hcluster.pdist(mat)
     zmat = hcluster.linkage(ymat)
     figure()
@@ -354,17 +372,7 @@ def hist_pairs_nonpairs(scores, pairs, negmult=1, do_plot=True, **kwargs):
     from the set of ids making up pairs.
     """
     assert len(pairs[0])==2, "Too many data points"
-    def gen_nonpairs(pairs, n):
-        items = list(set(ut.i0(pairs) + ut.i1(pairs)))
-        exclude = set(pairs)
-        pdexclude = pd.PairDict(exclude)
-        count = 0
-        while count < n:
-            pair = (random.choice(items), random.choice(items))
-            if not pdexclude.contains(pair):
-                yield pair
-                count += 1
-    nonpairs = gen_nonpairs(pairs, len(pairs)*negmult)
+    nonpairs = pu.nonpairs_gen(pairs, len(pairs)*negmult)
     def scorelist_pairs(pairs, scores):
         pdscores = pd.PairDict([s[:3] for s in scores])
         for p in pairs:

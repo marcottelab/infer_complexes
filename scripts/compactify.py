@@ -18,3 +18,4 @@ if __name__ == '__main__':
     fname = sys.argv[1]
     dtype = sys.argv[2]
     compact(d, fname, dtype)
+
