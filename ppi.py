@@ -1,3 +1,4 @@
+from __future__ import division
 import examples as ex
 import corum as co
 import seqs

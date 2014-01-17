@@ -1,3 +1,4 @@
+from __future__ import division
 import itertools as it
 import os
 import utils as ut

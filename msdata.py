@@ -1,3 +1,4 @@
+from __future__ import division
 import re
 import elution as el
 import utils as ut
