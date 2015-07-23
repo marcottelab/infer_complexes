@@ -149,7 +149,7 @@ def predict_clust(name, sp, nsp, obs=None, exs=None, savef=None, pres=None,
         obs_fnames=None, base_splits=None, obs_kwargs={}, kfold=3,
         gold_nspecies=2, do_cluster=True, do_2stage_cluster=True,
         cxs_cxppis=None, do_rescue=True, n_rescue=20000, rescue_fracs=20,
-        rescue_score=0.9, **predict_kwargs):
+        rescue_score=0.9, clstruct=None, **predict_kwargs):
     """
     - obs/test_kwargs: note obs_kwargs is combined with predict_kwargs to enforce
       consistency.
@@ -182,9 +182,11 @@ def predict_clust(name, sp, nsp, obs=None, exs=None, savef=None, pres=None,
             ut.savepy(pres, ut.pre_ext(savef, '_pres'), check_exists=True) 
         else:
             pres=ut.struct_copy(pres)
+            if do_rescue:
+                assert obs is not None, "Must supply obs for rescue step"
     merged_splits = pres.exs.splits[1] # splits is (lp_splits, clean_splits)
     if do_cluster:
-        if cxs_cxppis is None:
+        if cxs_cxppis is None and clstruct is None:
             if clusts is None and cxs_cxppis is None:
                 #if calc_fracs:
                     #cl_kwargs['fracs'] = [cp.find_inflection(pres.ppis, merged_splits,
@@ -271,14 +273,14 @@ def median_cvtest(cv_results):
     return cv_results[median_index]
 
 def multi_stage2_clust(clusts, ppis_all, runid=None, frac_retain=.1,
-        I_params=[2,3,4]):
+        I_params=[2,3,4], **kwargs):
     clusts2 = []
     runid = runid or random.randrange(1,1000)
     for cxstruct1 in clusts:
         for I in I_params:
             ppis_retain = ut.list_frac(ppis_all, frac_retain)
             cxstruct2 = cl.stage2_clust(cxstruct1.cxppis, ppis_retain,
-                    cxstruct1.cxs, runid=runid, I=I)
+                    cxstruct1.cxs, runid=runid, I=I, **kwargs)
             cxstruct2.params = cxstruct1.params + ",I_mcl=%s" % I
             clusts2.append(cxstruct2)
     return clusts2
@@ -302,7 +304,7 @@ def multi_clust(tested, score_cutoffs=None, length_cutoffs=None,
                     ut.list_frac(tested, frac_retain), merge_cutoff=o, negmult=m, min_density=d,
                     runid=runid, penalty=p, max_pval=max_pval, max_overlap=o,
                     haircut=h, **kwargs)
-            cxstruct.params = ('density=%s,frac=%s,f_retain=%s,negmult=%s,penalty=%s,max_overlap=%s,haircut=%s' % (d,f,fr,m,p,o,h))
+            cxstruct.params = ('density=%s,frac=%s,f_retain=%s,negmult=%s,penalty=%s,max_overlap=%s,haircut=%s' % (d,f,frac_retain,m,p,o,h))
             clusts.append(cxstruct)
             if show_stats and len(cxstruct.cxs)>0:
                 if pres is not None and gold_splits is not None:

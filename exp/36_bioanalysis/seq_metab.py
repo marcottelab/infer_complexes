@@ -10,7 +10,7 @@ import ppi_utils as pu
 import utils as ut
 
 def figures(recon_fname, exclude_recon_fname, kegg_fname, all_ppis_fname, 
-        recon_pairs=None):
+        recon_pairs=None, do_plot_cdf=False, return_pairs=False):
     rpairs = recon_pairs or load_seq_pairs(recon_fname,
             ut.load_list(exclude_recon_fname))
     kpairs = load_kegg_sequentials(kegg_fname)
@@ -18,7 +18,10 @@ def figures(recon_fname, exclude_recon_fname, kegg_fname, all_ppis_fname,
     intpairs = [p for p in rpairs if pdk.contains(p)]
     ppis = pu.load_ppis(all_ppis_fname) 
     plot_pairs_randoms_etc(intpairs, ppis)
-    plot_cdf_pos_randoms(intpairs, ppis)
+    if do_plot_cdf:
+        plot_cdf_pos_randoms(intpairs, ppis)
+    if return_pairs:
+        return intpairs
 
 def plot_cdf_pos_randoms(pospairs, ppis):
     import plotting as pl
@@ -326,3 +329,17 @@ def filtered_rxn_inds(rxnNames, exclude_list=exclude_rxns_default):
     return [i for i,name in enumerate(rxnNames) 
             if max([name.lower().find(ex) for ex in exclude_list]) == -1]
 
+def load_reactome_pairs_reactions(fname='reactome/homo_sapiens.interactions.txt'):
+    rmlol = ut.load_lol(fname)
+    rmpd = pd.PairDict([])
+    pd.pd_set_loi_sets(rmpd, [[x[1].split(':')[1], x[4].split(':')[1], x[7]]
+        for x in rmlol[1:] if x[1]<>'' and x[4]<>'' and x[6]=='reaction'])
+    return rmpd
+
+def load_reactome_pairs(fname='reactome/homo_sapiens.interactions.txt'):
+    rmlol = ut.load_lol(fname)
+    rmall = pd.PairDict([])
+    pd.pd_set_loi_sets(rmall, [[x[1].split(':')[1], x[4].split(':')[1], x[6]] for x in rmlol[1:] if x[1]<>'' and x[4]<>''])
+    rmfilt = [(k,v) for k,v in rmall.d.items() if ("reaction" in v) and not ("indirect_complex" in v) and not ("direct_complex" in v)]
+    rmfiltpairs = [k for k,v in rmfilt]    
+    return rmfiltpairs

@@ -55,7 +55,7 @@ def fit_clf(arr, clfbase, norm=True):
 
 def normalize(X):
     print "Fitting and scaling training features."
-    scaler = sk.preprocessing.Scaler().fit(X)
+    scaler = sk.preprocessing.StandardScaler().fit(X)
     X = scaler.transform(X)
     return X, scaler
 

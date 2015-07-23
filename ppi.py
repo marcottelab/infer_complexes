@@ -20,7 +20,7 @@ def feature_array(species, elut_fs, base_exs, nsp,
         split_props=[0,.5,1], ind_cycle=None, cutoff=0.5, both_cx_splits=None,
         gold_consv_sp='Dm', do_filter=True, gidscheme='', go_location=None,
         filter_incl_ext=False, postfilt_sps=None, allow_singles='auto',
-        do_filter_corum=True, **score_kwargs):
+        do_filter_corum=True, do_post_filter_override=False, **score_kwargs):
     """
     - Species: 'Hs' or 'Ce'... The base of the predictions in terms of
       identifiers used and orthology pairings.
@@ -40,7 +40,7 @@ def feature_array(species, elut_fs, base_exs, nsp,
       list of eg ['Hs','HS']. Removes empty rows after, but no other filtering after.
       """
     gold_consv_sp = gold_consv_sp if nsp>1 else '' #ignore for 1-sp case
-    if nsp > 1 and do_filter: 
+    if nsp > 1 and do_filter and not filter_incl_ext: 
         check_nspecies(elut_fs, nsp)
     if allow_singles=='auto':
         allow_singles = (nsp > 1)
@@ -62,7 +62,7 @@ def feature_array(species, elut_fs, base_exs, nsp,
             extdata, gidscheme, nsp=nsp, do_filter=do_filter,
             filter_incl_ext=filter_incl_ext, postfilt_sps=postfilt_sps,
             allow_singles=allow_singles, **score_kwargs)
-    if nsp > 1 and do_filter: # why do this after the previous step? 3/8/13
+    if nsp > 1 and (do_filter or do_post_filter_override): # why do this after the previous step? 3/8/13
         arrfeats = fe.filter_nsp_nocounts(arrfeats, nsp=nsp, cutoff=cutoff,
                 count_ext=filter_incl_ext) 
     print 'done.', stats(arrfeats)
@@ -123,9 +123,10 @@ def predict_all(species, elut_fs, scores=['poisson','wcc','apex','pq_euc'],
     return scored_arr, spcounts
 
 def score_and_filter(arr, scores, elut_fs, cutoff, species, extdata, gidscheme,
-        do_filter=True, require_base=False, single_base_orth=False,
+        do_filter=True, require_base=None, single_base_orth=False,
         filter_multi_orths=0.25, nsp=1, filter_incl_ext=False,
         postfilt_sps=None, allow_singles=True):
+    require_base = require_base if require_base is not None else (nsp==1)
     filter_multi_orths = (filter_multi_orths if (nsp>1 and not require_base)
             else False) #ignore if 1sp
     print '\nScoring %s elutions with %s base, scores: %s.' % (len(elut_fs),

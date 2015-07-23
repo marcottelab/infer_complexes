@@ -6,7 +6,7 @@ import elution as el
 import features as fe
 import score as sc
 import utils as ut
-import Pycluster
+#import Pycluster
 from pandas import DataFrame
 
 YSCALE = np.log2(100)
@@ -128,7 +128,7 @@ def cluster_ids(gids, unnorm_eluts, sp, gt=None, dist='cosine', do_plot=True,
 def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=1,
         remove_multi_base=False, gt=None, eluts_per_plot=10,
         do_cluster=True, label_trans=None, do_plot_tree=False,
-        rename_fracs=None, **kwargs):
+        rename_fracs=None, colors=None, **kwargs):
     """
     supply EITHER prots OR protids, set other to None
     unnorm_eluts: [el.NormElut(f, sp=sp, norm_cols=False, norm_rows=False) for f in fs]
@@ -151,6 +151,7 @@ def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=1,
         #prots = [gt.id2name[pid] for pid in pids]
         prots = [label_trans.get(p,p) for p in prots]
     prots.reverse(); pids.reverse(); # put them top to bottom
+    if colors is not None: colors.reverse()
     print "%s proteins" % len(pids)
     use_eluts = elutions_containing_prots(unnorm_eluts, sp, pids, min_count)
     nplots = int(np.ceil(len(use_eluts) / eluts_per_plot))
@@ -168,7 +169,7 @@ def plot_bigprofiles(prots, pids, unnorm_eluts, sp='Hs', min_count=1,
             protsmax = max([np.max(freqarr[r]) for p in pids if p in
                 e.baseid2inds for r in e.baseid2inds[p]])
             plot_big_single(freqarr, pids, e.baseid2inds, protsmax,
-                    startcols[-1])
+                    startcols[-1], colors=colors)
             startcols.append(startcols[-1]+freqarr.shape[1])
         label_ys(prots)
         label_xs(startcols, frac_names)
@@ -206,8 +207,9 @@ def label_ys(labels):
     ax.axes.set_yticklabels(labels)
     ax.axes.yaxis.set_ticks_position('none')
 
-def plot_big_single(arr, pids, baseid2inds, maxcount, startcol):
+def plot_big_single(arr, pids, baseid2inds, maxcount, startcol, colors=None):
     import plotting as pl
+    colors = colors if colors is not None else pl.COLORS
     for i,pid in enumerate(pids):
         if pid in baseid2inds:
             for rowid in baseid2inds[pid]:
@@ -216,7 +218,8 @@ def plot_big_single(arr, pids, baseid2inds, maxcount, startcol):
                 plot_vals = np.clip(np.log2([x*100/maxcount for x in
                     row]),0,100)
                 pl.bar([x+startcol for x in range(len(row))], plot_vals,
-                        color=pl.COLORS[i%len(pl.COLORS)],
+                        color=colors[i%len(colors)],
+                        #color='k',
                         align='center',width=1,linewidth=0, bottom=bottom,
                         antialiased=False)
     pl.ylim(0,YSCALE*len(pids))
@@ -340,27 +343,28 @@ def plot_sums(fs, shape=None):
         sums = np.sum(e.mat,axis=0)
         pl.plot(range(sums.shape[1]), sums[0,:].T)
 
-def treeview_eluts(name, fs, base_sp='Hs', gt=None, ids=None, bigarr=None):
-    print "Building big array."
-    ids = ids or el.all_prots(fs,sp_base=base_sp)
-    gt = gt or seqs.GTrans()
-    gene_names = [gt.id2name.get(x,x) for x in ids]
-    if bigarr is None:
-        unes = [el.NormElut(f,sp_base=base_sp, norm_rows=False,norm_cols=False)
-                for f in fs]
-        bigarr = single_array(ids, unes, base_sp, norm_rows=True)
-        cols = ut.flatten([[ut.shortname(u.filename)+'_'+str(i) 
-            for i in range(u.normarr.shape[1])] for u in unes])
-        df = DataFrame(data=bigarr, index=list(gene_names), columns=cols)
-    print "Writing to temp file and reading into Pycluster object."
-    tempf = name + '.tab'
-    df.to_csv(tempf, sep='\t')
-    record = Pycluster.Record(open(tempf))
-    os.remove(tempf)
-    print "Clustering."
-    tree = record.treecluster()
-    print "Saving."
-    record.save(name, tree)
+#requires pycluster. disabled for now. BB 20150319
+#def treeview_eluts(name, fs, base_sp='Hs', gt=None, ids=None, bigarr=None):
+    #print "Building big array."
+    #ids = ids or el.all_prots(fs,sp_base=base_sp)
+    #gt = gt or seqs.GTrans()
+    #gene_names = [gt.id2name.get(x,x) for x in ids]
+    #if bigarr is None:
+        #unes = [el.NormElut(f,sp_base=base_sp, norm_rows=False,norm_cols=False)
+                #for f in fs]
+        #bigarr = single_array(ids, unes, base_sp, norm_rows=True)
+        #cols = ut.flatten([[ut.shortname(u.filename)+'_'+str(i) 
+            #for i in range(u.normarr.shape[1])] for u in unes])
+        #df = DataFrame(data=bigarr, index=list(gene_names), columns=cols)
+    #print "Writing to temp file and reading into Pycluster object."
+    #tempf = name + '.tab'
+    #df.to_csv(tempf, sep='\t')
+    #record = Pycluster.Record(open(tempf))
+    #os.remove(tempf)
+    #print "Clustering."
+    #tree = record.treecluster()
+    #print "Saving."
+    #record.save(name, tree)
 
 def gene_ppis(gnames, gids, ppis, gtrans=None, sp='Hs'):
     """

@@ -45,7 +45,7 @@ def load_pepcount(f):
         arr[i,:] = row[2:]
     return peps, samples, arr
 
-def load_pep2prots(filename, sep='&'):
+def load_pep2prots(filename, sep='|'):
     """
     Separator is '|' for most of andrew's files, but '&' for Nv and Xl.
     """

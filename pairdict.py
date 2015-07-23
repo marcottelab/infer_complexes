@@ -16,7 +16,6 @@ class PairDict(object):
         pd_set_loi(self, loitems)
         #self.d = dict([((p[0],p[1]),list(p)[2:]) for p in lopair_vals])
 
-
     def set(self, key, val):
         k = self.find(key)
         if k==None:
@@ -52,6 +51,19 @@ class PairDict(object):
 def pd_set_loi(pd, loitems):
     for r in loitems:
         pd.set((r[0],r[1]),list(r)[2:])
+
+def pd_set_loi_sets(pd, loitems):
+    """
+    Only works for a single value: x[2] is used, the rest ignored, for x in
+    loitems.
+    """
+    for r in loitems:
+        pair = (r[0],r[1])
+        val = r[2]
+        if pd.contains(pair):
+            pd.get(pair).add(val)
+        else:
+            pd.set(pair, set([val]))
 
 def pd_dedupe(pd):
     newpd = PairDict([])

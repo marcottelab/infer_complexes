@@ -180,7 +180,7 @@ class GTrans(object):
         self.name2desc = dict(self.gnames)
         self.id2desc = dict(((l[0],l[2].split('[')[0]) for l in processed))
         self.id2all = dict(((l[0],l[1:]) for l in processed))
-        self.entrez2id = dict(((l[4][2:],l[0]) for l in processed))
+        #self.entrez2id = dict(((l[4][2:],l[0]) for l in processed))
 
 
     def gfind(self, name):

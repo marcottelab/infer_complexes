@@ -2,6 +2,7 @@ from __future__ import division
 import cPickle
 import datetime
 import errno
+import gzip
 import itertools
 import numpy as np
 import os
@@ -15,6 +16,7 @@ import subprocess
 import sys
 import warnings
 from scipy.misc import comb
+#from gmpy import comb
 from Struct import Struct
 
 
@@ -163,9 +165,14 @@ def fsort(l, *args, **kwargs):
     l2.sort(*args, **kwargs)
     return l2
 
-def hyperg(k, N, m, n):
+def hyperg(k, N, m, n, verbose=False):
+    """
+    k = intersection; m = population 1; n = population 2; N = total population.
+    """
     exact=1
-    return comb(m,k,exact) * comb(N-m,n-k,exact)/ comb(N,n,exact)
+    if verbose and k%100==0: printnow("k: %s" % k)
+    #return comb(m,k,exact) * comb(N-m,n-k,exact)/ comb(N,n,exact)
+    return comb(m,k) * comb(N-m,n-k)/ comb(N,n)
 
 def hyperg_cum2(c, N, m, n):
     # Taking 1-sum_from_0_to_c is much, much faster than summing from c
@@ -173,11 +180,15 @@ def hyperg_cum2(c, N, m, n):
     # FIXME: We lose all of our precision substracting from 1
     return 1-sum([hyperg(k,N,m,n) for k in range(0, c)])
 
-def hyperg_cum(c, N, m, n):
+def hyperg_cum(c, N, m, n, verbose=False):
+    """
+    c = intersection; m = population 1; n = population 2; N = total population.
+    """
     if c == 0:
         return 1
     else:
-        s = sum([hyperg(k,int(N),int(m),int(n)) for k in range(c, min(m,n)+1)])
+        s = sum([hyperg(k,int(N),int(m),int(n), verbose=verbose) 
+            for k in range(c, min(m,n)+1)])
         # Sanity check. Sadly, it has failed before. Calling
         # hyperg(2,5022,22,17) yields a negative number when the 22 is a
         # numpy.int64, but only if comb() is exact (see help(comb))
@@ -190,14 +201,18 @@ def i0(seq):
 def i1(seq):
     return inds(seq,1)
 
+def i2(seq):
+    return inds(seq,2)
+
 def inds(seq,ind):
     return map(lambda x: x[ind], seq)
 
 def inset(items, set):
     return [i for i in items if i in set]
 
-def idpr(x): #useful sometimes for printing nested in expressions
-    print x
+def idpr(x, mod=None): #useful sometimes for printing nested in expressions
+    if mod is None or x%mod==0:
+        printnow(x)
     return x
 
 def list_filter_value(l, index, val):
@@ -266,6 +281,8 @@ def regex_filter(seq, pattern):
     matches = [n for n in seq if len(re.findall(pattern, n))>0]
     return matches
 
+
+
 def rsum(l): #reduce sum
     # This is exactly like the Python built-in sum, but scipy overloads it
     # with its own sum function.
@@ -302,6 +319,7 @@ def sqrt_shape(k):
         return (np.ceil(srt),np.ceil(srt))
 
 def struct_copy(s):
+    print "Warning: this may not actually copy group variables."
     newstruct = Struct()
     newstruct.__dict__ = s.__dict__.copy()
     return newstruct
@@ -343,10 +361,15 @@ def load_tab_file(fname, sep='\t', use_special_clean=False, dtypes=None,
     """
     def clean(x):
         return x.strip() # remove the newlines
-    if use_special_clean:
-        datagen = (tuple(l.split(sep)[:-1]+[l.split(sep)[-1].strip()]) for l in file(fname, 'r'))
+    if fname[-3:] == '.gz':
+        f = gzip.open(fname,'rb')
     else:
-        datagen = (tuple(clean(l).split(sep)) for l in file(fname, 'r'))
+        f = file(fname, 'r')
+    if use_special_clean:
+        datagen = (tuple(l.split(sep)[:-1]+[l.split(sep)[-1].strip()]) 
+                for l in f)
+    else:
+        datagen = (tuple(clean(l).split(sep)) for l in f)
     if dtypes:
         irange = range(len(dtypes))
         datagen = (tuple([dtypes[i](tup[i]) for i in irange]) 
@@ -400,7 +423,7 @@ def write_tab_file(ll, fname, formatter='{0}', header=None, islist=False):
     if header:
         f.write('\t'.join(formatter.format(x) for x in header) + '\n')
     if islist:
-        f.write('\n'.join((formatter.format(l) for l in ll)))
+        f.write('\n'.join((formatter.format(l) for l in ll)) + '\n') 
     else:
         for l in ll:
             f.write('\t'.join(formatter.format(x) for x in l) + '\n')

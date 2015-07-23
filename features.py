@@ -11,6 +11,7 @@ import utils as ut
 
 NCORES = multiprocessing.cpu_count()
 NET_SPS = 'HS CE DM SC'.split()
+FIVE_SPS_PLUS_NET = "CE DM HS MM SP".split()
 
 def boot_arr(arr):
     return arr[ut.sample_wr(range(len(arr)), len(arr))]
@@ -38,7 +39,8 @@ def keep_cols(arr, colnames):
 def balance_train(arrfeats):
     pos_inds, neg_inds = [[i for i,r in enumerate(arrfeats) if r[2]==pn] 
             for pn in 1,0]
-    return arrfeats[pos_inds + random.sample(neg_inds, len(pos_inds))]
+    use_negs = min(len(pos_inds), len(neg_inds))
+    return arrfeats[pos_inds + random.sample(neg_inds, use_negs)]
 
 def regex_cols(arr, pattern):
     return arr[['id1','id2','hit'] + ut.regex_filter(arr.dtype.names, pattern)]
@@ -46,16 +48,20 @@ def regex_cols(arr, pattern):
 def merge_features(arr, pattern, func, do_remove):
     feats = ut.regex_filter(arr.dtype.names, pattern)
     print "features matched:", feats
-    merged = [func(i) for i in arr[feats]]
-    name = pattern + '_' + func.__name__
-    removefeats = set(feats) if do_remove else set([])
-    keepdtypes = [dt for dt in arr.dtype.descr if not dt[0] in removefeats]
-    newdtype = np.dtype(keepdtypes + [(name, arr[feats[0]].dtype)])
-    newarr = np.empty(arr.shape, dtype=newdtype)
-    for field in [d[0] for d in keepdtypes]:
-        newarr[field] = arr[field]
-    newarr[name] = merged
-    return newarr
+    if len(feats) > 1:
+        merged = [func(tuple(i)) for i in arr[feats]]
+        name = pattern + '_' + func.__name__
+        removefeats = set(feats) if do_remove else set([])
+        keepdtypes = [dt for dt in arr.dtype.descr if not dt[0] in removefeats]
+        newdtype = np.dtype(keepdtypes + [(name, arr[feats[0]].dtype)])
+        newarr = np.empty(arr.shape, dtype=newdtype)
+        for field in [d[0] for d in keepdtypes]:
+            newarr[field] = arr[field]
+        newarr[name] = merged
+        return newarr
+    else:
+        print "Not enough features to merge."
+        return arr
 
 def retype_arr(arr, oldtype='f2', newtype='f4'):
     newdtype = [(dt[0],dt[1].replace(oldtype,newtype)) 
@@ -190,9 +196,11 @@ def add_passing_features(arr, threshes):
         newarr[name] = max_fracs_passing(arr, t)
     return newarr
 
-def species_list(features):
+def species_list(features, count_ext=False):
     sps = set([n[:2] for n in features 
                 if n[:2] not in set(NET_SPS) and n[:2] != 'ex'])
+    if count_ext and len(sps)==0:
+        sps = set(FIVE_SPS_PLUS_NET)
     return sps
 
 def passing_species(arr, cutoff=0.5, count_ext=False):
@@ -290,12 +298,17 @@ def filter_nsp(arr, nsp=2, cutoff=0.5, count_ext=False, do_counts=True):
     species counts.
     """
     features = arr.dtype.names[3:]
-    sps = species_list(features)
+    sps = species_list(features, count_ext=count_ext)
     print 'Filtering >=%s of these species >=%s:' % (nsp, cutoff), sps
-    print '' if count_ext else 'NOT', 'Counting external in filter passing.'
-    spcols = [[f for f in features 
-                if f[:2]==s or (count_ext==True and f[:2]=='ex' and f[4:6]==s)]
+    spcols = [[f for f in features if f[:2]==s] for s in sps]
+    if count_ext:
+        spcols = [[f for f in features 
+                if f[:2].lower()==s.lower() or (count_ext==True and f[:2]=='ex'
+                    and f[4:6].lower()==s.lower())]
                 for s in sps]
+        spcols = [cols for cols in spcols if len(cols)>1]
+        print "actually using these cols", spcols
+    print '' if count_ext else 'NOT', 'Counting external in filter passing.'
     maxes = arr_collist_maxes(arr, spcols)
     exceed_inds = [i for i in range(len(arr))
                    if len([1 for m in maxes[i] if m > cutoff]) >= nsp]

@@ -232,8 +232,7 @@ def geom_avg(a,b):
 
 def complex_arr(cxs, prots):
     arr = np.zeros((len(prots),len(prots)))
-    ints_dict = co.corum_ints_duped([(i,set(ps)) 
-        for i,ps in enumerate(cxs)])
+    ints_dict = co.corum_ints_duped([(i,ps) for i,ps in enumerate(cxs)])
     p_inds = ut.list_inv_to_dict(prots)
     for p,partners in ints_dict.items():
         if p in p_inds:

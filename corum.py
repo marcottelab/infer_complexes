@@ -52,8 +52,8 @@ def load_havug_cxs(convert_ensg=True):
         '../../data/convert/Hs2Hs_uni.tab'))
     hcxs = ut.load_list_of_type(fname,set)
     if convert_ensg:
-        hcxs = convert_complexes(dict([(i,c) for i,c in
-            enumerate(hcxs)]), u2e,
+        hcxs = convert_complexes([(i,c) for i,c in
+            enumerate(hcxs)], u2e,
             seqs.load_prots_from_fasta('../../data/sequences/canon/Hs.fasta'))
     return hcxs
 
@@ -80,7 +80,7 @@ def print_rib_count(cxs, label):
 
 
 def load_ppi_cxs(minlen=2, maxlen=50, sp_match='Human', go_location=None,
-        do_filter_methods=True, dedupe_names=True):
+        do_filter_methods=True, dedupe_names=True, remove_sps=True):
     """
     Returns a list of sets of uniprot ids.
     No de-duplication or anything else.
@@ -89,11 +89,13 @@ def load_ppi_cxs(minlen=2, maxlen=50, sp_match='Human', go_location=None,
     fname = ut.proj_path('corum_cxs')
     cxs = load_corum(fname, do_filter_methods, dedupe_names)
     print_rib_count(cxs, 'a')
-    if sp_match: cxs = ut.list_filter_value(cxs, 2, sp_match)
+    if sp_match: 
+        cxs = ut.list_filter_value(cxs, 2, sp_match)
     #print_rib_count(cxs, 'b')
     cxs = [c for c in cxs if len(c[1])>=minlen and len(c[1])<=maxlen]
     #print_rib_count(cxs, 'c')
-    cxs = [(name,ps) for name,ps,spec in cxs]
+    if remove_sps:
+        cxs = [(name,ps) for name,ps,spec in cxs]
     #print len(cxs)
     if go_location:
         print "Filtering corum by go location"
@@ -204,10 +206,10 @@ def corum_ints_duped(complexes):
     Every interaction is found twice here for fast interaction checking.
     """
     interactions = {}
-    for proteins in complexes:
-        protein_set = set(proteins)
-        for p in protein_set:
-            partners = protein_set.copy()
+    for i,proteins in complexes:
+        proteins = proteins if type(proteins)==set else set(proteins)
+        for p in proteins:
+            partners = proteins.copy()
             partners.remove(p)
             [interactions.setdefault(p,set([])).add(par) for par in partners]
     return interactions
@@ -230,13 +232,13 @@ def convert_complexes(complexes, convert, include_set=None):
     For brevity in code I assumed wlog from uniprot 'u' to ensp 'e'.
     """
     #complexes = dict(complexes)
-    assert type(include_set) == type(set([])), 'Prots must be set for speed'
+    assert (include_set is None) or type(include_set) == type(set([])), 'Prots must be set for speed'
     #convert_filtered = [(u,[e for e in convert[u] if (only_to_prots is
         #None or e in only_to_prots)][0]) for u in convert] if len([e for e in
         #convert[u] if (only_to_prots is None or e in only_to_prots)])>0])
     convert_filtered = {}
     for u,es in convert.items():
-        es_filt = [e for e in es if e in include_set or include_set is None]
+        es_filt = [e for e in es if include_set is None or e in include_set]
         if len(es_filt)>0: 
             convert_filtered[u] = es_filt[0]
     out_complexes = []
@@ -274,4 +276,21 @@ def keep_longest(cxs):
             d_cxs[name] = ps
     return d_cxs.items()
 
+def shuffle_cxs(cxs):
+    """
+    Shuffle complexes, maintaining the same distribution of complex sizes, and
+    using the same proteins the same number of times each.
+    """
+    prots = list(set(ut.flatten([list(c) for c in cxs])))
+    p_replace_dict = replace_dict(prots)
+    cxs_shuf = [set([p_replace_dict[p] for p in c]) for c in cxs]
+    return cxs_shuf
 
+def replace_dict(items):
+    """
+    Return a dict mapping each provided item to another item in the set, for
+    use in random reassignments.
+    """
+    items_shuf = list(items)
+    random.shuffle(items_shuf)
+    return dict(zip(items, items_shuf))

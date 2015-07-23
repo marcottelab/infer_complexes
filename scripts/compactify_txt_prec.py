@@ -8,7 +8,8 @@ def compact(d, scoref, precision=3):
     import utils as ut
     compactf = '%s.p%s.txt.gz' % (scoref, precision)
     print compactf, precision
-    ascores = np.loadtxt(scoref)
+    ascores = (ut.loadpy(scoref) if scoref.endswith('.py') else
+            np.loadtxt(scoref))
     formatstring = '%' + '0.%se' % precision
     np.savetxt(compactf, ascores, fmt=formatstring, delimiter='\t')
 

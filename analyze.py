@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+import random
 import compare as cp
 import corum as co
 import elution as el
@@ -42,11 +43,11 @@ def arrfeats_prep_all_data(arrfeats, ppis, sp='Hs', gold_consv='Dm', cutoff=0.5)
     return arrfeats
 
 def enrichment_array_combined(sp_base, sp_dict_elutfs, cxs, func=np.average, 
-        nsp=1, scores=['poisson']):
+        nsp=1, scores=['poisson'], exs=None):
     """
     sp_dict_elutfs: {'Ce': [Ce_elution_1, Ce_elution_2, ...] , ...}
     """
-    exs = correlation_enrichment([(i,set(c)) for i,c in enumerate(cxs)])
+    exs = exs or correlation_enrichment([(i,set(c)) for i,c in enumerate(cxs)])
     elutfs = ut.flatten([elutfs for sp,elutfs in sp_dict_elutfs.items()])
     ppio = ppi.feature_array(sp_base, elutfs, exs, nsp, scores=scores, 
             extdata=[], do_filter=False)
@@ -92,3 +93,9 @@ def barplot_foundsps(sps, counts, total_length):
     import plotting as pl
     pl.stacked_bar(sps, forbar)
 
+def neg_subsample(arr, k_negs):
+    pos,neg = [arr[[i for i in range(len(arr)) if arr[i][2]==t]] for t in 1,0]
+    neg_use = neg[random.sample(range(len(neg)), k_negs)]
+    comb = np.concatenate((pos,neg_use),axis=0)
+    combr = comb[random.sample(range(len(comb)), len(comb))]
+    return combr

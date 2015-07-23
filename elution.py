@@ -61,7 +61,7 @@ def all_filtered_pairs(fnames, score_keys, cutoff=0.5, sp_base=None,
         allpairs = pd.pd_union_novals(allpairs, newpairs)
     return allpairs
 
-def passing_pairs(elut, score_key, cutoff, allow_singles):
+def passing_pairs(elut, score_key, cutoff, allow_singles=True):
     pairs = sc.pairs_exceeding(elut, score_key, thresh=cutoff)
     singles = sc.prots_singles(elut)
     if allow_singles:
@@ -84,6 +84,29 @@ def supporting_ppis(ppis, fnames, score_keys, sp_base, cutoff=0.5, verbose=True)
                 if new_pairs.contains(opair):
                     pdsupport.set(opair,None)
     return [list(p) + [s.d.keys()] for p,s in zip(ppis, ppis_support)]
+
+def supporting_ppis_separate(ppis, fnames, score_keys, sp_base, cutoff=0.5,
+        verbose=True):
+    sps = set([file_sp(f) for f in fnames])
+    print "Species:", ' '.join(sps)
+    ppis_support = [dict([(s, pd.PairDict([])) for s in sps]) for p in ppis]
+    eluts = [load_elution(f) for f in fnames]
+    for elut,skey in it.product(eluts, score_keys):
+        sp = file_sp(elut.filename)
+        if verbose: print skey, ut.shortname(elut.filename)
+        od = orth.odict(sp_base, sp)
+        try: 
+            new_pairs = passing_pairs(elut, skey, cutoff)
+        except IOError:
+            print "No file for %s %s" % (ut.shortname(elut.filename), skey)
+            continue
+        for p,dsupport in zip(ppis,ppis_support):
+            for opair in orth.orth_pairs(p[:2], od):
+                opair = tuple(opair)
+                if new_pairs.contains(opair):
+                    dsupport[sp].set(opair,None)
+    return [list(p) + [[dsupport[sp].d.keys()] for sp in sps] 
+            for p,dsupport in zip(ppis, ppis_support)]
 
 def translate_pairs(pairs, sp_base, sp_target):
     t2b = targ2base(sp_base, sp_target)

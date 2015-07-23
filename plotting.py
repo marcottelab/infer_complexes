@@ -112,8 +112,8 @@ def roc_plot(cvpairs, **kwargs):
     plot(xs, ys, **kwargs)
     plot([0,xs[-1]], [0,ys[-1]], 'k--')
 
-def pr_plot(cv_pairs, total_trues, rescale=None, prec_test=None,
-        true_ints=None, return_data=False, **kwargs):
+def pr_plot(cv_pairs, total_trues, rescale=None, style=None, prec_test=None,
+        true_ints=None, return_data=False, do_plot=True, **kwargs):
     """
     rescale: adjust precision values assuming rescale times as many negatives
     total_trues:
@@ -136,12 +136,14 @@ def pr_plot(cv_pairs, total_trues, rescale=None, prec_test=None,
             % prec_test)
     if total_trues:
         recall = [r/total_trues for r in recall]
-    plot(recall, precision, **kwargs)
-    xlabel('Recalled Correctly')
-    ylabel('Precision: TP/(TP+FP)')
-    ylim(-0.01,1.01)
-    xlim(xmin=-0.002)
-    legend()
+    args = [style] if style is not None else []
+    if do_plot:
+        plot(recall, precision, *args, **kwargs)
+        xlabel('Recall: TP/(TP+FN)')
+        ylabel('Precision: TP/(TP+FP)')
+        ylim(-0.02,1.02)
+        xlim(xmin=-0.002)
+        legend()
     if return_data:
         return recall,precision
 
@@ -152,21 +154,29 @@ def imshow2(*args):
            # as say black by the colorbar if they're not 0.
            # Colormaps: bone, gray
 
-def examples_dist_arr(arr, score_indices, ncols=1, use_legend=False, **kwargs):
+def examples_dist_arr(arr, score_indices, ncols=1, use_legend=False,
+        return_data=False, use_randoms=False,  **kwargs):
     extra = 1 if use_legend else 0
     nplots = len(score_indices)+extra
-    pos,neg = pos_neg_from_arr(arr)
+    pos,neg = pos_neg_from_arr(arr, use_all=use_randoms)
+    results = []
     for i, (ind, name) in enumerate([(ind,arr.dtype.names[ind]) for ind in score_indices]):
-        subplot(int(nplots/ncols)+extra, ncols, i+1+extra)
+        subplot(int(np.ceil(nplots/ncols))+extra, ncols, i+1+extra)
         hp,hn = examples_dist_single(pos_neg=(pos,neg), name=name, **kwargs)
         #kwargs['range'] = kwargs['range'] if 'range' in kwargs else \ [func([func(data) for data in [pos,neg]]) for func in [min,max]]
         title(name)
+        results.append((hp,hn))
     if use_legend and ((not 'odds' in kwargs) or (not kwargs['odds'])): 
         subplot(int(nplots/ncols)+2,ncols,1)
         legend([hp[0],hn[0]],['Pos','Neg'])
+    if return_data:
+        return results
 
-def pos_neg_from_arr(arr):
+def pos_neg_from_arr(arr, use_all=False):
     pos,neg = [arr[[i for i in range(len(arr)) if arr[i][2]==t]] for t in 1,0]
+    if use_all:
+        print "Using all for negatives."
+        neg = arr
     return pos,neg
 
 def examples_dist_single(arr=None, pos_neg=None, scores_pos_neg=None,
@@ -356,6 +366,7 @@ def hist_ndarray(arr, names=None, showindex=None, markerstyle='kp',
     K = len(names)
     for i,name in enumerate(names):
         subplot(K,1,i+1)
+        grid("off")
         if showindex is not None:
             plot(arr[name][showindex], 0, markerstyle, ms=15)
         if do_hist:
@@ -397,3 +408,8 @@ def cdf(values, **kwargs):
     counts = counts/sum(counts)
     cum_counts = np.cumsum(counts)
     plot(edges[1:], cum_counts)
+
+def remove_nan(xs, ys):
+    return zip(*[(x,y) for x,y in zip(xs,ys) if not(isnan(x)) and
+        not(isnan(y))])
+
